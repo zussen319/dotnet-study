@@ -9,7 +9,6 @@ public class ApiService
 
     public List<object> Execute(int flag, string correlationId)
     {
-        // 1. スレッドコンテキストにIDをセット
         /*
          * Close() のタイミングと「再呼び出し」
          * ApiService の finally ブロックで appender.Close() を呼び出しています。これには注意が必要です。
@@ -27,6 +26,7 @@ public class ApiService
          * 対策: 実装例に入れた通り、必ず finally ブロックで 
          * LogicalThreadContext.Properties.Remove("CorrelationId"); を実行し、コンテキストを掃除します。
          */
+        // ログスレッドコンテキストに相関IDをセット
         LogicalThreadContext.Properties["CorrelationId"] = correlationId;
 
         try
@@ -38,7 +38,7 @@ public class ApiService
 
             if(flag%2 == 0)
             {
-                // 例外発生をシミュレート
+                // 例外発生をシミュレート（テスト用）
                 throw new Exception("exception simulation");
             }
 
@@ -52,10 +52,10 @@ public class ApiService
         }
         finally
         {
-            // 2. 非常に重要：スレッドが再利用された際にIDが混ざらないよう、必ず削除する
+            // 【重要】スレッドが再利用された際にIDが混ざらないよう、必ず削除する
             LogicalThreadContext.Properties.Remove("CorrelationId");
 
-            // 注意：ここで Close() は呼び出さない
+            // 【注意】ここで Close() は呼び出さない
             // プログラム全体が終了するまで api_service.log への書き込み権限を維持するため
         }
     }

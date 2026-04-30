@@ -10,12 +10,16 @@ mainLog.Info("Main> Application start.");
 
 var apiService = new ApiService();
 
+// 相関ID
+// メインプログラム側からの個別のAPI呼び出しを識別するためのID
+// このIDがログに記述されることで、メイン-APIの関連付けが可能となる
 string correlationId = string.Empty;
+
 try
 {
     for (int flag = 1; flag <= 2; flag++)
     {
-        // APIを呼び出すたびに新しいIDを発行
+        // APIを呼び出すたびに新しい相関IDを発行
         correlationId = Guid.NewGuid().ToString("N").Substring(0, 12);
         mainLog.Info($"Main> Invoking API. [flag: {flag}, ID: {correlationId}]");
 
