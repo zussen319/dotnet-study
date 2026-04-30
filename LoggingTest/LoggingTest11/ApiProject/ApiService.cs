@@ -9,7 +9,7 @@ public class ApiService
     // config内の <logger name="ApiLogger"> を使用
     private static readonly ILog log = LogManager.GetLogger("ApiLogger");
 
-    public DataTable GetDataFromOracle(string connectionString, string sql, string correlationId)
+    public List<object> Execute(int flag, string correlationId)
     {
         // 1. スレッドコンテキストにIDをセット
         /*
@@ -33,18 +33,23 @@ public class ApiService
 
         try
         {
+            List<object> result = [];
             log.Info("API> Data processing started.");
 
-            DataTable dt = new DataTable();
-            // --- DBアクセスロジック（実際の実装） ---
-            log.Info($"API> Executing query. Target: {sql}");
+            log.Info($"API> Executing query.");
+
+            if(flag%2 == 0)
+            {
+                // 例外発生をシミュレート
+                throw new Exception("exception simulation");
+            }
 
             log.Info("API> Data processing success.");
-            return dt;
+            return result;
         }
         catch (Exception ex)
         {
-            log.Error("API> Exception occurred during DB operation.", ex);
+            log.Error("API> Exception occurred during operation.", ex);
             throw;
         }
         finally
