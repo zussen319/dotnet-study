@@ -1,6 +1,4 @@
-﻿#if true
-using System.Data;
-using log4net;
+﻿using log4net;
 
 namespace ApiProject;
 
@@ -62,52 +60,3 @@ public class ApiService
         }
     }
 }
-#else
-using System.Data;
-using log4net;
-using log4net.Appender;
-
-namespace ApiProject;
-
-public class ApiService
-{
-    // configで定義した名前 "ApiLogger" でロガーを取得
-    private static readonly ILog log = LogManager.GetLogger("ApiLogger");
-
-    public DataTable GetDataFromOracle(string connectionString, string sql, string correlationId)
-    {
-        // API側のログにIDを自動付与するための設定
-        log4net.LogicalThreadContext.Properties["CorrelationId"] = correlationId;
-
-        DataTable dt = new DataTable();
-        log.Info("API> Start."); // ここから自動で ID が付与される
-
-        try
-        {
-            // DB処理など
-            log.Info($"API> Executing SQL: {sql}");
-        }
-        finally
-        {
-            log.Info("API> Complete.");
-            // 処理終了時にコンテキストをクリア
-            log4net.LogicalThreadContext.Properties.Remove("CorrelationId");
-            CloseApiLog();
-        }
-        return dt;
-    }
-
-    private void CloseApiLog()
-    {
-        // このロガーに紐付いているAppenderを探して閉じる
-        var logger = log.Logger as log4net.Repository.Hierarchy.Logger;
-        if (logger != null)
-        {
-            foreach (IAppender appender in logger.Appenders)
-            {
-                appender.Close();
-            }
-        }
-    }
-}
-#endif
