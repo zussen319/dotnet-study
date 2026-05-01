@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="GenericTest15/GenericTest15.csproj" />
+  <Project Path="ServiceApi/ServiceApi.csproj" Id="fc020ba7-e1ec-441a-be20-34dfba89f147" />
+</Solution>
