@@ -5,13 +5,17 @@ using System.Data;
 
 namespace ServiceApi.Services;
 
-public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
-    : IApiService<TRequest, TResponse>, IDisposable
+public abstract class ServiceBase<TRequest, TResponse>(
+    string connectionString,
+    int fetchRows = 100
+) : IApiService<TRequest, TResponse>, IDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
     // Oracle接続オブジェクトを保持（プライマリコンストラクタの引数を使用）
     protected OracleConnection Connection { get; } = new(connectionString);
+
+    protected int FetchRows { get; } = fetchRows;
 
     // 具象クラスに実装を強制するエントリポイント
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
@@ -72,13 +76,13 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
         Func<IDataRecord, TResponse>mapFunc)
     {
         // 1. 接続状態を確認 (共通の Connection メンバを使用)
-        if (Connection.State != ConnectionState.Open)
+        if (this.Connection.State != ConnectionState.Open)
         {
-            await Connection.OpenAsync();
+            await this.Connection.OpenAsync();
         }
 
         // 2. コマンドに接続を紐付け (外から来た cmd を使うだけ)
-        cmd.Connection = Connection;
+        cmd.Connection = this.Connection;
         
         // IAsyncEnumerable 内では using 句による Reader の保護が yield と組み合わさっても正しく動作します
         using (var reader = await cmd.ExecuteReaderAsync())
@@ -102,8 +106,7 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
              * これだけでデフォルト状態 (FetchSize = 65536 バイトなど) に比べて、
              * ネットワーク通信回数が大幅に削減され、十分な高速化の恩恵を受けられます。
              */
-            const int FetchRows = 100;
-            reader.FetchSize = reader.RowSize * FetchRows;
+            reader.FetchSize = reader.RowSize * this.FetchRows;
 
             while(await reader.ReadAsync())
             {
@@ -132,10 +135,10 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
     {
         // Connection.Close() を明示的に呼んでから Dispose すると、
         // Oracleのセッションが即座に解放されやすくなり、DB側に優しいです。
-        if (Connection != null)
+        if (this.Connection != null)
         {
-            if (Connection.State == ConnectionState.Open) Connection.Close();
-            Connection.Dispose();
+            if (this.Connection.State == ConnectionState.Open) this.Connection.Close();
+            this.Connection.Dispose();
         }
         GC.SuppressFinalize(this);
     }
