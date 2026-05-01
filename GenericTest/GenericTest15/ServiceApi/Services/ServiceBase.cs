@@ -1,7 +1,6 @@
 ﻿using Oracle.ManagedDataAccess.Client;
 using ServiceApi.Requests;
 using ServiceApi.Responses;
-using ServiceApi.Resources.Sql; // SqlResource用
 using System.Data;
 
 namespace ServiceApi.Services;
@@ -18,21 +17,21 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
 
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
-        string sqlId,
+        string sql,
         Func<IDataRecord, TResponse> mapFunc
-    ) => ExecuteQueryAsync(sqlId, _ => {  /* 何もしない */ }, mapFunc);
+    ) => ExecuteQueryAsync(sql, _ => {  /* 何もしない */ }, mapFunc);
 
     // 共通の実行ロジック：パラメータとマッパーをラムダで受け取る
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
-        string sqlId,
+        string sql,
         Action<OracleParameterCollection> bindAction,
         Func<IDataRecord, TResponse> mapFunc)
     {
         /*
          * メソッドにasync キーワードが不要な理由
-         * C#において async キーワードが必要なのは、そのメソッド内で await を直接使用ｓる場合のみ です。
+         * C#において async キーワードが必要なのは、そのメソッド内で await を直接使用する場合のみ です。
          * 今回の ExecuteQueryAsync(string sqlId, ...) メソッドの役割を見てみましょう。
-         * 1. SQLをリソースから取ってくる
+         * （1. -- SQLをリソースから取ってくる）※ 呼び出し元で実行
          * 2. OracleCommand を作る
          * 3. パラメータをセットする
          * 4. 別のメソッドが作った IAsyncEnumerable をそのまま値として返す
@@ -41,9 +40,6 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
          * 「重い処理」を行うのは、呼び出している先のExecuteQueryAsync(OracleCommand cmd) です。
          */
 
-        // リソースからSQLを取得
-        string sql = SqlResource.GetSql(sqlId);
-
         // コマンド作成
         var cmd = new OracleCommand(sql);
 
@@ -51,7 +47,6 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
         // bindAction(cmd.Parameters) により、具象クラス側で定義した詰め物処理が動く
         bindAction(cmd.Parameters);
 
-        // 4. 既存の（コマンドを受け取る）ExecuteQueryAsync を呼び出して結果を返す
         /*
          * await をしていない理由
          * ExecuteQueryAsync(cmd) を呼び出す際、await を付けていないのは

@@ -2,80 +2,35 @@
 using ServiceApi.Requests.A1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.A1;
+using System.Data;
 
 namespace ServiceApi.Services.A1;
 
 public class A1Service(string connectionString)
     : ServiceBase<A1Request, A1Response>(connectionString), IA1Service
 {
-#if true
-    public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request) =>
-        ExecuteQueryAsync(
-            // 実行するSQLIDとパラメータ設定用のラムダ式を渡す
-            /*
-             * async/awaitキーワードは不要
-             * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
-             * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
-             */
-            SqlId.SQL_A1_001,
-            p =>
-            {
-                // SQLパラメータのバインド
-                p.Add(new OracleParameter("VAL", request.A1Value));
-            },
-            r => new A1Response 
-            {
-                // 取得レコードの各カラムをレスポンスオブジェクトにマップ
-                Id = r.GetInt32(r.GetOrdinal("ID")),
-                DataName = r.GetString(r.GetOrdinal("DATANAME"))
-            }
-        );
-    /*
-     * 以下のように記述してもよい
-     * public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
-     * {
-     *     // パラメータ設定用の変数を定義 (引数が OracleParameterCollection, 戻り値なし)
-     *     Action<OracleParameterCollection> bindAction = p => 
-     *     {
-     *         p.Add(new OracleParameter("VAL", request.A1Value));
-     *     };
-     *
-     *     // マッピング用の変数を定義 (引数が IDataRecord, 戻り値が A1Response)
-     *     Func<IDataRecord, A1Response> mapFunc = r => new A1Response 
-     *     {
-     *         Id = r.GetInt32(r.GetOrdinal("ID")),
-     *         DataName = r.GetString(r.GetOrdinal("DATANAME"))
-     *     };
-     * 
-     *     // 変数を渡して実行
-     *     return ExecuteQueryAsync(SqlId.SQL_A1_001, bindAction, mapFunc);
-     * }
-     */
-#else
-    public override async IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
+    public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
     {
-        // 1. コマンドの作成とバインド
         string sql = SqlResource.GetSql(SqlId.SQL_A1_001);
-        var cmd = new OracleCommand(sql);
-
-        // 2. パラメータのバインド
-        cmd.Parameters.Add(new OracleParameter("VAL", request.A1Value));
-
-        // 3. 基底クラスの ExecuteQueryAsync を呼び出す
-        // await foreach を使って、基底クラスから流れてくるデータを順次 yield return する
-        /*
-         * ## 2. 非同期のまま「反復（foreach）」を維持する
-         * 通常、"foreach" は同期的な処理ですが、DBアクセスのような待ち時間が発生する場合、
-         * 従来の "foreach" ではスレッドが止まってしまいます。
-         * 今回のポイントは、**"await foreach"** を使っている点です。
-         * "A1Service" や "ApiExecutor" が "await foreach" で待ち受けます。
-         * データが届くまではスレッドを解放（非同期待機）し、データが届いた瞬間だけ処理を動かすという
-         * 「非同期」と「繰り返し処理」の融合が実現されています。
-         */
-        await foreach(var response in ExeuteQueyAsync(cmd))
+          
+        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
+        Action<OracleParameterCollection> bindAction = p => 
         {
-            yield return response;
-        }
+            p.Add(new OracleParameter("VAL", request.A1Value));
+        };
+     
+        // マッピング用の式を定義 (引数：IDataRecord, 戻り値：A1Response)
+        Func<IDataRecord, A1Response> mapFunc = r => new A1Response 
+        {
+            Id = r.GetInt32(r.GetOrdinal("ID")),
+            DataName = r.GetString(r.GetOrdinal("DATANAME"))
+        };
+
+        /*
+         * async/awaitキーワードは不要
+         * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
+         * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
+         */
+        return ExecuteQueryAsync(sql, bindAction, mapFunc);
     }
-#endif
 }
