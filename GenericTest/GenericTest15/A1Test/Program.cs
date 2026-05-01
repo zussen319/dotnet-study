@@ -17,7 +17,7 @@ using ServiceApi.Services.A1;
 // 「常にコピーする」「新しい場合はコピーする」を指定する
 IConfiguration config = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("GenericTest.json", optional: false, reloadOnChange: true)
+    .AddJsonFile("A1Test.json", optional: false, reloadOnChange: true)
     .Build();
 
 // ビルダを生成
@@ -53,13 +53,14 @@ var executor = host.Services.GetRequiredService<IApiExecutor>();
 
 try
 {
-    string outputPath = @"C:\temp\GenericTest15.csv";
+    string outputPath = @"C:\temp\A1Test.csv";
     var paramSection = config.GetSection("param");
 
     // 非同期ストリームとして受け取る
     // A1Service（本物）か A1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IA1Service, A1Request, A1Response>(
-        new A1Request {
+        new A1Request
+        {
             A1Value = paramSection.GetValue<int>("A1Value")
         });
 
@@ -71,7 +72,7 @@ try
         await writer.WriteLineAsync("ID,Name");
 
         int count = 0;
-        await foreach(var response in responseStream)
+        await foreach (var response in responseStream)
         {
             // DBから届いたデータを即座にCSV形式で書き出し
             // 文字列補間を使用して1行分を作成
@@ -88,7 +89,7 @@ try
         await writer.FlushAsync();
     }
 }
-catch(Exception ex)
+catch (Exception ex)
 {
     Console.WriteLine($"[Fatal Error] {ex.Message}");
 }
