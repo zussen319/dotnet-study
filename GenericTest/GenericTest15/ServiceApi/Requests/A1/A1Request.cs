@@ -2,5 +2,5 @@
 
 public class A1Request : RequestBase
 {
-    public required int A1Value { get; init; }
+    public required decimal A1Value { get; init; }
 }

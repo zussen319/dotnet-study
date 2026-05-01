@@ -38,4 +38,10 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Requests\B1\" />
+    <Folder Include="Responses\B1\" />
+    <Folder Include="Services\B1\" />
+  </ItemGroup>
+
 </Project>

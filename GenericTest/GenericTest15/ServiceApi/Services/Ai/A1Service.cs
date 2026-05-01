@@ -2,7 +2,7 @@
 using ServiceApi.Requests.A1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.A1;
-using System.Data;
+using System.Data.Common;
 
 namespace ServiceApi.Services.A1;
 
@@ -18,12 +18,14 @@ public class A1Service(string connectionString)
         {
             p.Add(new OracleParameter("VAL", request.A1Value));
         };
-     
-        // マッピング用の式を定義 (引数：IDataRecord, 戻り値：A1Response)
-        Func<IDataRecord, A1Response> mapFunc = r => new A1Response 
+
+        // マッピング用の式を定義 (引数：DbDataReader, 戻り値：A1Response)
+        Func<DbDataReader, A1Response> mapFunc = r => new A1Response 
         {
-            Id = r.GetInt32(r.GetOrdinal("ID")),
-            DataName = r.GetString(r.GetOrdinal("DATANAME"))
+            Id = r.GetDecimal(r.GetOrdinal("ID")),
+            DataName = r.IsDBNull(r.GetOrdinal("DATANAME"))
+                ? string.Empty
+                : r.GetString(r.GetOrdinal("DATANAME")),
         };
 
         /*

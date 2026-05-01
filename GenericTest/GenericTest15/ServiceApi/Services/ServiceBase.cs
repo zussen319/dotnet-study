@@ -2,6 +2,7 @@
 using ServiceApi.Requests;
 using ServiceApi.Responses;
 using System.Data;
+using System.Data.Common;
 
 namespace ServiceApi.Services;
 
@@ -22,14 +23,14 @@ public abstract class ServiceBase<TRequest, TResponse>(
 
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
-        Func<IDataRecord, TResponse> mapFunc
+        Func<DbDataReader, TResponse> mapFunc
     ) => ExecuteQueryAsync(sql, _ => {  /* 何もしない */ }, mapFunc);
 
     // 共通の実行ロジック：パラメータ設定とマッパーをラムダで受け取る
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         Action<OracleParameterCollection> bindAction,
-        Func<IDataRecord, TResponse> mapFunc)
+        Func<DbDataReader, TResponse> mapFunc)
     {
         /*
          * メソッドにasync キーワードが不要な理由
@@ -73,7 +74,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
 
     protected async virtual IAsyncEnumerable<TResponse> ExeuteQueyAsync(
         OracleCommand cmd,
-        Func<IDataRecord, TResponse>mapFunc)
+        Func<DbDataReader, TResponse>mapFunc)
     {
         // 1. 接続状態を確認 (共通の Connection メンバを使用)
         if (this.Connection.State != ConnectionState.Open)

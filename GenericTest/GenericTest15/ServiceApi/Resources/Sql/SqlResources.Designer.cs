@@ -70,5 +70,19 @@ namespace ServiceApi.Resources.Sql {
                 return ResourceManager.GetString("SQL_A1_001", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SELECT EMPNO, ENAME, JOB, MGR, 
+        ///TO_CHAR(HIREDATE, &apos;yyyy/mm/dd&apos;) HIREDATE, 
+        ///SAL, COMM, DEPTNO 
+        ///FROM EMP 
+        ///WHERE DEPTNO = :DEPTNO 
+        ///ORDER BY EMPNO.
+        /// </summary>
+        internal static string SQL_B1_001 {
+            get {
+                return ResourceManager.GetString("SQL_B1_001", resourceCulture);
+            }
+        }
     }
 }

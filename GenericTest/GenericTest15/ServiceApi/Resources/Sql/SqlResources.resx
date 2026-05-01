@@ -122,4 +122,12 @@
 UNION 
 SELECT :VAL + 2 ID, '&lt;A1Service&gt; TESTDATA2' DATANAME FROM DUAL </value>
   </data>
+  <data name="SQL_B1_001" xml:space="preserve">
+    <value>SELECT EMPNO, ENAME, JOB, MGR, 
+TO_CHAR(HIREDATE, 'yyyy/mm/dd') HIREDATE, 
+SAL, COMM, DEPTNO 
+FROM EMP 
+WHERE DEPTNO = :DEPTNO 
+ORDER BY EMPNO</value>
+  </data>
 </root>
