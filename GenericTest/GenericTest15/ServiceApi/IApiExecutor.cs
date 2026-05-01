@@ -9,5 +9,5 @@ public interface IApiExecutor
     IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(TRequest request)
         where TService : IApiService<TRequest, TResponse>
         where TRequest : RequestBase
-        where TResponse : ResponseBase, new();
+        where TResponse : ResponseBase;
 }

@@ -9,19 +9,24 @@ namespace ServiceApi.Services;
 public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
     : IApiService<TRequest, TResponse>, IDisposable
     where TRequest : RequestBase
-    where TResponse : ResponseBase, new()
+    where TResponse : ResponseBase
 {
     // Oracle接続オブジェクトを保持（プライマリコンストラクタの引数を使用）
     protected OracleConnection Connection { get; } = new(connectionString);
 
+    // 具象クラスに実装を強制するエントリポイント
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
-
-    protected virtual IAsyncEnumerable<TResponse> ExeuteQueyAsync(string sqlId) =>
-        ExecuteQueryAsync(sqlId, _ => {  /* 何もしない */ });
 
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sqlId,
-        Action<OracleParameterCollection> bindAction)
+        Func<IDataRecord, TResponse> mapFunc
+    ) => ExecuteQueryAsync(sqlId, _ => {  /* 何もしない */ }, mapFunc);
+
+    // 共通の実行ロジック：パラメータとマッパーをラムダで受け取る
+    protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
+        string sqlId,
+        Action<OracleParameterCollection> bindAction,
+        Func<IDataRecord, TResponse> mapFunc)
     {
         /*
          * メソッドにasync キーワードが不要な理由
@@ -61,10 +66,12 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
          * 実際に非同期の待機が発生するのは、このメソッドの戻り値を受け取った側 (Program.cs など) が
          * await foreach を開始した瞬間 です。
          */
-        return ExeuteQueyAsync(cmd);
+        return ExeuteQueyAsync(cmd, mapFunc);
     }
 
-    protected async virtual IAsyncEnumerable<TResponse> ExeuteQueyAsync(OracleCommand cmd)
+    protected async virtual IAsyncEnumerable<TResponse> ExeuteQueyAsync(
+        OracleCommand cmd,
+        Func<IDataRecord, TResponse>mapFunc)
     {
         // 1. 接続状態を確認 (共通の Connection メンバを使用)
         if (Connection.State != ConnectionState.Open)
@@ -100,7 +107,7 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
             const int FetchRows = 100;
             reader.FetchSize = reader.RowSize * FetchRows;
 
-            var mapper = new TResponse();
+            //var mapper = new TResponse();
             while(await reader.ReadAsync())
             {
                 // 1行読み込むごとに呼び出し元へ yield return する
@@ -116,7 +123,8 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
                  * メソッドを終了させずに「一旦この値を呼び出し元に渡し、次の要求があったら続きから再開する」
                  * という特殊な動きを可能にしています。
                  */
-                yield return (TResponse)mapper.MapFromReader(reader);
+                //yield return (TResponse)mapper.MapFromReader(reader);
+                yield return mapFunc(reader);
             }
         }
     }

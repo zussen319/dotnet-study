@@ -1,12 +1,11 @@
 ﻿using System.Data;
-using System.Diagnostics.CodeAnalysis;
 namespace ServiceApi.Responses.A1;
 
 public class A1Response : ResponseBase
 {
     public required int Id { get; init; }
     public required string DataName { get; init; }
-
+#if false
     // ★追加: 引数なしコンストラクタ
     // SetsRequiredMemberをつけることで、new() 制約を通過できるようにします
     /*
@@ -31,4 +30,5 @@ public class A1Response : ResponseBase
             DataName = reader.GetString(reader.GetOrdinal("DATANAME"))
         };
     }
+#endif
 }

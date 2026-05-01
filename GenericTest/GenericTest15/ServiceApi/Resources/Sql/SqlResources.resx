@@ -118,6 +118,8 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="SQL_A1_001" xml:space="preserve">
-    <value>SELECT :VAL+1 ID, &lt;A1Service&gt; TESTDATA1' DATANAME FROM DUAL</value>
+    <value>SELECT :VAL + 1 ID, '&lt;A1Service&gt; TESTDATA1' DATANAME FROM DUAL 
+UNION 
+SELECT :VAL + 2 ID, '&lt;A1Service&gt; TESTDATA2' DATANAME FROM DUAL </value>
   </data>
 </root>

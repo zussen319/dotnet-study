@@ -61,7 +61,9 @@ namespace ServiceApi.Resources.Sql {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to SELECT :VAL+1 ID, &lt;A1Service&gt; TESTDATA1&apos; DATANAME FROM DUAL.
+        ///   Looks up a localized string similar to SELECT :VAL + 1 ID, &apos;&lt;A1Service&gt; TESTDATA1&apos; DATANAME FROM DUAL 
+        ///UNION 
+        ///SELECT :VAL + 2 ID, &apos;&lt;A1Service&gt; TESTDATA2&apos; DATANAME FROM DUAL .
         /// </summary>
         internal static string SQL_A1_001 {
             get {

@@ -14,7 +14,7 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(TRequest request)
         where TService : IApiService<TRequest, TResponse>
         where TRequest : RequestBase
-        where TResponse : ResponseBase, new()
+        where TResponse : ResponseBase
     {
         // IAsyncEnumerable を扱うため、Scopeの寿命管理に注意が必要です
         /*

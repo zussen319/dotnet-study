@@ -14,14 +14,43 @@ public class A1Service(string connectionString)
             // 実行するSQLIDとパラメータ設定用のラムダ式を渡す
             /*
              * async/awaitキーワードは不要
-             * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実態を作成して返してくれるので
+             * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
              * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
              */
             SqlId.SQL_A1_001,
             p =>
             {
+                // SQLパラメータのバインド
                 p.Add(new OracleParameter("VAL", request.A1Value));
-            });
+            },
+            r => new A1Response 
+            {
+                // 取得データをレスポンスオブジェクトにマッピング
+                Id = r.GetInt32(r.GetOrdinal("ID")),
+                DataName = r.GetString(r.GetOrdinal("DATANAME"))
+            }
+        );
+    /*
+     * 以下のような記述でもよい
+     * public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
+     * {
+     *     // パラメータ設定用の変数を定義 (引数が OracleParameterCollection, 戻り値なし)
+     *     Action<OracleParameterCollection> bindAction = p => 
+     *     {
+     *         p.Add(new OracleParameter("VAL", request.A1Value));
+     *     };
+     *
+     *     // マッピング用の変数を定義 (引数が IDataRecord, 戻り値が A1Response)
+     *     Func<IDataRecord, A1Response> mapFunc = r => new A1Response 
+     *     {
+     *         Id = r.GetInt32(r.GetOrdinal("ID")),
+     *         DataName = r.GetString(r.GetOrdinal("DATANAME"))
+     *     };
+     * 
+     *     // 変数を渡して実行
+     *     return ExecuteQueryAsync(SqlId.SQL_A1_001, bindAction, mapFunc);
+     * }
+     */
 #else
     public override async IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
     {

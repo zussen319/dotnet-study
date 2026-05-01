@@ -10,7 +10,7 @@ namespace ServiceApi.Services;
  */
 public interface IApiService<TRequest, TResponse>
     where TRequest : RequestBase
-    where TResponse : ResponseBase, new()
+    where TResponse : ResponseBase
 {
     // Taskラップではなく、IAsyncEnumerableを直接返す
     IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
