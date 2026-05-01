@@ -1,6 +1,5 @@
-﻿#if true
+﻿#if false
 namespace ServiceApi.Responses;
 
-public interface IApiResponse{
-}
+public interface IApiResponse{ }
 #endif

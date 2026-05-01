@@ -1,4 +1,4 @@
-﻿#if true
+﻿#if false
 namespace ServiceApi.Requests;
 
 public interface IApiRequests

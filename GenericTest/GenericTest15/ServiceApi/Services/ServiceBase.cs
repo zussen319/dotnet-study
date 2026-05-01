@@ -107,7 +107,6 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
             const int FetchRows = 100;
             reader.FetchSize = reader.RowSize * FetchRows;
 
-            //var mapper = new TResponse();
             while(await reader.ReadAsync())
             {
                 // 1行読み込むごとに呼び出し元へ yield return する
@@ -123,7 +122,6 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
                  * メソッドを終了させずに「一旦この値を呼び出し元に渡し、次の要求があったら続きから再開する」
                  * という特殊な動きを可能にしています。
                  */
-                //yield return (TResponse)mapper.MapFromReader(reader);
                 yield return mapFunc(reader);
             }
         }

@@ -25,13 +25,13 @@ public class A1Service(string connectionString)
             },
             r => new A1Response 
             {
-                // 取得データをレスポンスオブジェクトにマッピング
+                // 取得レコードの各カラムをレスポンスオブジェクトにマップ
                 Id = r.GetInt32(r.GetOrdinal("ID")),
                 DataName = r.GetString(r.GetOrdinal("DATANAME"))
             }
         );
     /*
-     * 以下のような記述でもよい
+     * 以下のように記述してもよい
      * public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
      * {
      *     // パラメータ設定用の変数を定義 (引数が OracleParameterCollection, 戻り値なし)
@@ -65,7 +65,7 @@ public class A1Service(string connectionString)
         // await foreach を使って、基底クラスから流れてくるデータを順次 yield return する
         /*
          * ## 2. 非同期のまま「反復（foreach）」を維持する
-         * 通常、"foreach" は同期的な処理ですが、DBアクセスのような待ち時間が発生するばあ、
+         * 通常、"foreach" は同期的な処理ですが、DBアクセスのような待ち時間が発生する場合、
          * 従来の "foreach" ではスレッドが止まってしまいます。
          * 今回のポイントは、**"await foreach"** を使っている点です。
          * "A1Service" や "ApiExecutor" が "await foreach" で待ち受けます。
