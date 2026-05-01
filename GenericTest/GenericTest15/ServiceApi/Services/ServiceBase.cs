@@ -117,7 +117,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
                  * を返す方式の最大の違いは、**メモリ上でのデータの持ち方**です。
                  * **List方式**: DBから100万件の結果がある場合、100万件すべてをメモリ (List) に
                  * 格納し終わるまでメインプログラムにデータは一切渡されません。
-                 * **ストリーム方式**: DBから1行読み込むごとに、そのデータが即座に呼び出し元 ("Program.cs"
+                 * **ストリーム方式**: DBから1行読み込むごとに、そのデータが即座に呼び出し元 ("Program.cs")
                  * へ「配送」されます。
                  * この「配送」を実現しているのが **"yield return"** です。このキーワードは、
                  * メソッドを終了させずに「一旦この値を呼び出し元に渡し、次の要求があったら続きから再開する」
@@ -135,11 +135,13 @@ public abstract class ServiceBase<TRequest, TResponse>(
     {
         // Connection.Close() を明示的に呼んでから Dispose すると、
         // Oracleのセッションが即座に解放されやすくなり、DB側に優しいです。
-        if (this.Connection != null)
-        {
-            if (this.Connection.State == ConnectionState.Open) this.Connection.Close();
-            this.Connection.Dispose();
+
+        if (this.Connection?.State == ConnectionState.Open) {
+            // ここはCloseAsync()ではなくClose()でよい
+            this.Connection.Close();
         }
+        this.Connection?.Dispose();
+
         GC.SuppressFinalize(this);
     }
 }
