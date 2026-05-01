@@ -21,7 +21,7 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
         Func<IDataRecord, TResponse> mapFunc
     ) => ExecuteQueryAsync(sql, _ => {  /* 何もしない */ }, mapFunc);
 
-    // 共通の実行ロジック：パラメータとマッパーをラムダで受け取る
+    // 共通の実行ロジック：パラメータ設定とマッパーをラムダで受け取る
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         Action<OracleParameterCollection> bindAction,
@@ -42,6 +42,9 @@ public abstract class ServiceBase<TRequest, TResponse>(string connectionString)
 
         // コマンド作成
         var cmd = new OracleCommand(sql);
+
+        // パラメータをバインドする前に名前解決を有効にする
+        cmd.BindByName = true;
 
         // デリゲートを実行してパラメータを埋め込む
         // bindAction(cmd.Parameters) により、具象クラス側で定義した詰め物処理が動く
