@@ -69,10 +69,10 @@ public abstract class ServiceBase<TRequest, TResponse>(
          * 実際に非同期の待機が発生するのは、このメソッドの戻り値を受け取った側 (Program.cs など) が
          * await foreach を開始した瞬間 です。
          */
-        return ExeuteQueyAsync(cmd, mapFunc);
+        return ExecuteQueryAsync(cmd, mapFunc);
     }
 
-    protected async virtual IAsyncEnumerable<TResponse> ExeuteQueyAsync(
+    protected async virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         OracleCommand cmd,
         Func<DbDataReader, TResponse>mapFunc)
     {
