@@ -5,6 +5,7 @@ using System.Text.Json;
 namespace ServiceApi.Services;
 
 public abstract class TestServiceBase<TRequest, TResponse>
+    : IApiService<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
@@ -19,10 +20,10 @@ public abstract class TestServiceBase<TRequest, TResponse>
         await Task.Delay(2000);
 
         // 大量データを想定してループで回す
-        foreach (var res in responses)
+        foreach (var response in responses)
         {
             await Task.Delay(1000); // 1件ごとに少し待機
-            yield return res;
+            yield return response;
         }
     }
 
