@@ -26,7 +26,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
 
 // メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = true; // 実際はフラグ変数など
+bool testMode = false; // 実際はフラグ変数など
 
 if (testMode)
 {
