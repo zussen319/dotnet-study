@@ -8,7 +8,7 @@ public class A1Service_Test(string connectionString)
 {
     private readonly string _ = connectionString; // connectionStringを無視
 
-    public async IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
+    public override async IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
     {
         // 検索開始前の初期遅延（クエリ実行待ちをシミュレート）
         await Task.Delay(2000);

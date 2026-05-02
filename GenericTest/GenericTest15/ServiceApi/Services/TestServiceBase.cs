@@ -8,6 +8,24 @@ public class TestServiceBase<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
+    public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request)
+    {
+        // レスポンスデータ準備（Jsonファイルから読み込み）
+        // ファイル名は"<派生テストクラス名>.json"とし、カレントフォルダに配置する
+        string filePath = Path.Combine(Directory.GetCurrentDirectory(), $"{this.GetType().Name}.json");
+        List<TResponse> responses = await LoadJsonDataAsync(filePath);
+
+        // 検索開始前の初期遅延（クエリ実行待ちをシミュレート）
+        await Task.Delay(2000);
+
+        // 大量データを想定してループで回す
+        foreach (var res in responses)
+        {
+            await Task.Delay(1000); // 1件ごとに少し待機
+            yield return res;
+        }
+    }
+
     /*
      * Jsonシリアライズ
      */
