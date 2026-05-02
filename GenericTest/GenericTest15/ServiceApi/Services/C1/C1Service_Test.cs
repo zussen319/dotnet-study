@@ -9,31 +9,27 @@ public class C1Service_Test(string connectionString) : IC1Service
 
     public async IAsyncEnumerable<C1Response> ExecuteAsync(C1Request request)
     {
-#if true
-        yield return null;
-#else
         // レスポンスデータを準備
         C1Response[] responses = [
             new() {
-                EMPNO = 7788, ENAME = "SCOTT", JOB = "ANALYST", MGR = 7566,
-                HIREDATE = "1987/04/19",SAL = 3000, COMM = null, DEPTNO = 20
+                DEPTNO = 910, DNAME = "<TEST>ACCOUNTING",
+                Employees = [
+                    new() { EMPNO = 9782, ENAME = "<TEST>CLARK" },
+                    new() { EMPNO = 9839, ENAME = "<TEST>KING" },
+                    new() { EMPNO = 9934, ENAME = "<TEST>MILLER" }
+                ]
             },
             new() {
-                EMPNO = 7902, ENAME = "FORD", JOB = "ANALYST", MGR = 7566,
-                HIREDATE = "1981/12/03",SAL = 3000, COMM = null, DEPTNO = 20
-            },
-            new() {
-                EMPNO = 7566, ENAME = "JONES", JOB = "MANAGER", MGR = 7839,
-                HIREDATE = "1981/04/02",SAL = 2975, COMM = null, DEPTNO = 20
-            },
-            new() {
-                EMPNO = 7839, ENAME = "KING", JOB = "PRESIDENT", MGR = null,
-                HIREDATE = "1981/11/17",SAL = 5000, COMM = null, DEPTNO = 10
+                DEPTNO = 920, DNAME = "<TEST>RESEARCH",
+                Employees = [
+                    new() { EMPNO = 9369, ENAME = "<TEST>SMITH" },
+                    new() { EMPNO = 9566, ENAME = "<TEST>JONES" },
+                    new() { EMPNO = 9788, ENAME = "<TEST>SCOTT" },
+                    new() { EMPNO = 9876, ENAME = "<TEST>ADAMS" },
+                    new() { EMPNO = 9902, ENAME = "<TEST>FORD" }
+                ]
             }
         ];
-
-        // 検索開始前の初期遅延（クエリ実行待ちをシミュレート）
-        await Task.Delay(2000);
 
         // 大量データを想定してループで回す
         foreach (var res in responses)
@@ -41,6 +37,5 @@ public class C1Service_Test(string connectionString) : IC1Service
             await Task.Delay(1000); // 1件ごとに少し待機
             yield return res;
         }
-#endif
     }
 }

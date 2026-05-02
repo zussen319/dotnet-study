@@ -27,7 +27,7 @@ public class C1Service(string connectionString)
          */
         string sql = SqlResource.GetSql(SqlId.SQL_C1_001);
 
-        // --- マッピングロジックを定義 ---
+        // --- Employeesマッピングロジックを定義 ---
         C1Response.Emp mapFunc(DbDataReader reader) => new()
         {
             EMPNO = reader.GetDecimal(reader.GetOrdinal("EMPNO")),
@@ -36,7 +36,7 @@ public class C1Service(string connectionString)
         };
 
         /*
-         * DEPTNOが同一のレコードを集約してresponseとして返却する
+         * DEPTNOが同一のレコードをグループ化して返却する
          */
         C1Response? response = null;
         await foreach (var r in ExecuteQueryAsync(sql))
@@ -59,10 +59,11 @@ public class C1Service(string connectionString)
                 };
             } else
             {
-                // 同じ部門なら、定義した MapEmp を使ってリストに追加
+                // DEPTNOが同一の場合は、MapEmp を使ってリストに追加
                 response.Employees.Add(mapFunc(r));
             }
         }
+        /* 最後のオブジェクトを返却 */
         if (response != null) { yield return response; }
     }
 }

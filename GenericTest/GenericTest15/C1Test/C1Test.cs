@@ -26,7 +26,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
 
 // メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = false; // 実際はフラグ変数など
+bool testMode = false;
 
 if (testMode)
 {
@@ -70,7 +70,8 @@ try
             string line = string.Join(",", new object?[]
             {
                 response.DEPTNO,
-                response.DNAME
+                response.DNAME,
+                $"(Employees=[{response.Employees.Count}])"
             });
             await writer.WriteLineAsync(line);
             Console.WriteLine(line);
