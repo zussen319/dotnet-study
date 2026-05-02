@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace ServiceApi.Services;
 
-public class TestServiceBase<TRequest, TResponse>
+public abstract class TestServiceBase<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
