@@ -130,4 +130,11 @@ FROM EMP
 WHERE DEPTNO = :DEPTNO 
 ORDER BY EMPNO</value>
   </data>
+  <data name="SQL_C1_001" xml:space="preserve">
+    <value>SELECT d.DEPTNO, d.DNAME, e.EMPNO, e.ENAME 
+FROM DEPT d 
+INNER JOIN EMP e 
+ON e.DEPTNO = d.DEPTNO 
+ORDER BY d.DEPTNO, e.EMPNO </value>
+  </data>
 </root>

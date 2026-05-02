@@ -84,5 +84,18 @@ namespace ServiceApi.Resources.Sql {
                 return ResourceManager.GetString("SQL_B1_001", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SELECT d.DEPTNO, d.DNAME, e.EMPNO, e.ENAME 
+        ///FROM DEPT d 
+        ///INNER JOIN EMP e 
+        ///ON e.DEPTNO = d.DEPTNO 
+        ///ORDER BY d.DEPTNO, e.EMPNO .
+        /// </summary>
+        internal static string SQL_C1_001 {
+            get {
+                return ResourceManager.GetString("SQL_C1_001", resourceCulture);
+            }
+        }
     }
 }
