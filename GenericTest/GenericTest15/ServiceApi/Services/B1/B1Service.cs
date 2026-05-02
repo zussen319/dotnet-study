@@ -19,7 +19,7 @@ public class B1Service(string connectionString)
          *   WHERE DEPTNO = :DEPTNO 
          *   ORDER BY EMPNO
          */
-        string sql = SqlResource.GetSql(SqlId.SQL_B1_001);
+        string sql = SqlResourceProvider.GetSql(SqlId.SQL_B1_001);
           
         // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
         Action<OracleParameterCollection> bindAction = p => 

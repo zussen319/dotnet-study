@@ -8,11 +8,11 @@
  * ・リソースファイル.resxのアクセス修飾子 (Access Modifier)」がinternalになっていること
  */
 
-internal class MessageResource : ResourceBase
+internal class MessageResourceProvider : ResourceBase
 {
-    private static readonly MessageResource _instance = new(typeof(MessageResources));
+    private static readonly MessageResourceProvider _instance = new(typeof(MessageResources));
 
-    private MessageResource(Type resourceType) : base(resourceType) { }
+    private MessageResourceProvider(Type resourceType) : base(resourceType) { }
 
     public static string GetMessage(string messageId) => _instance.GetString(messageId);
 

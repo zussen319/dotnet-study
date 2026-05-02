@@ -25,7 +25,7 @@ public class C1Service(string connectionString)
          *   ON e.DEPTNO = d.DEPTNO
          *   ORDER BY d.DEPTNO, e.EMPNO
          */
-        string sql = SqlResource.GetSql(SqlId.SQL_C1_001);
+        string sql = SqlResourceProvider.GetSql(SqlId.SQL_C1_001);
 
         // --- Employeesマッピング定義 ---
         C1Response.Emp mapFunc(DbDataReader r) => new()

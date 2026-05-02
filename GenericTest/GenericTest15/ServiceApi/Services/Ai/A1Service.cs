@@ -11,7 +11,7 @@ public class A1Service(string connectionString)
 {
     public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
     {
-        string sql = SqlResource.GetSql(SqlId.SQL_A1_001);
+        string sql = SqlResourceProvider.GetSql(SqlId.SQL_A1_001);
           
         // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
         Action<OracleParameterCollection> bindAction = p => 
