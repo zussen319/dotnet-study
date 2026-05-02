@@ -1,5 +1,3 @@
 ﻿namespace ServiceApi.Responses;
 
-public abstract class ResponseBase /* : IApiResponse */
-{
-}
+public abstract class ResponseBase { }
