@@ -6,6 +6,11 @@ using ServiceApi.Requests.B1;
 using ServiceApi.Responses.B1;
 using ServiceApi.Services.B1;
 
+// プロジェクトのプロパティ
+// ・ターゲットプラットフォーム： .NET 10.0
+// ・ターゲットOS： Windows
+// プロジェクト依存関係に「ServiceApi」を指定する
+
 // -- 登録フェーズ --
 
 // 設定ファイルのビルド
@@ -21,6 +26,8 @@ IConfiguration config = new ConfigurationBuilder()
     .Build();
 
 // ビルダを生成
+// 以下のパッケージが必要
+// - Microsoft.Extensions.Hosting
 var builder = Host.CreateApplicationBuilder(args);
 // 共通Executorを登録
 builder.Services.AddTransient<IApiExecutor, ApiExecutor>();

@@ -27,12 +27,12 @@ public class C1Service(string connectionString)
          */
         string sql = SqlResource.GetSql(SqlId.SQL_C1_001);
 
-        // --- Employeesマッピングロジックを定義 ---
-        C1Response.Emp mapFunc(DbDataReader reader) => new()
+        // --- Employeesマッピング定義 ---
+        C1Response.Emp mapFunc(DbDataReader r) => new()
         {
-            EMPNO = reader.GetDecimal(reader.GetOrdinal("EMPNO")),
-            ENAME = reader.IsDBNull(reader.GetOrdinal("ENAME"))
-                ? string.Empty : reader.GetString(reader.GetOrdinal("ENAME"))
+            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")),
+            ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
+                ? string.Empty : r.GetString(r.GetOrdinal("ENAME"))
         };
 
         /*
