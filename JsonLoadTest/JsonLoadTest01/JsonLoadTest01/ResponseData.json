@@ -1,0 +1,17 @@
+[
+  {
+    "DEPTNO": 10,
+    "DNAME": "ACCOUNTING",
+    "Employees": [
+      { "EMPNO": 7782, "ENAME": "CLARK" },
+      { "EMPNO": 7839, "ENAME": "KING" }
+    ]
+  },
+  {
+    "DEPTNO": 20,
+    "DNAME": "RESEARCH",
+    "Employees": [
+      { "EMPNO": 7369, "ENAME": "SMITH" }
+    ]
+  }
+]
