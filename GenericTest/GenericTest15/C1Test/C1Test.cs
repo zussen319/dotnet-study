@@ -33,7 +33,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
 
 // メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = false;
+bool testMode = args.Contains("-t") || args.Contains("--test");
 
 if (testMode)
 {
@@ -74,14 +74,19 @@ try
         await foreach (var response in responseStream)
         {
             // 取得データをCSV形式で書き出し
-            string line = string.Join(",", new object?[]
+            string line1 = string.Join(",", new object?[]
             {
                 response.DEPTNO,
-                response.DNAME,
-                $"(Employees=[{response.Employees.Count}])"
+                response.DNAME
             });
-            await writer.WriteLineAsync(line);
-            Console.WriteLine(line);
+            await writer.WriteLineAsync(line1);
+            Console.WriteLine(line1);
+            foreach (var emp in response.Employees)
+            {
+                string line2 = $"  {emp.EMPNO},{emp.ENAME}";
+                await writer.WriteLineAsync(line2);
+                Console.WriteLine(line2);
+            }
 
             count++;
             // コンソールには進捗を表示（大量データの場合は一定数ごとに出すと効率的です）

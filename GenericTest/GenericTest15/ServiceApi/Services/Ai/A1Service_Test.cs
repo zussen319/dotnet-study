@@ -3,7 +3,8 @@ using ServiceApi.Responses.A1;
 
 namespace ServiceApi.Services.A1;
 
-public class A1Service_Test(string connectionString) : IA1Service
+public class A1Service_Test(string connectionString)
+    : TestServiceBase<A1Request, A1Response>, IA1Service
 {
     private readonly string _ = connectionString; // connectionStringを無視
 

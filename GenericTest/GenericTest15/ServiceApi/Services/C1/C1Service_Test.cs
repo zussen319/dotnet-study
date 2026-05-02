@@ -3,12 +3,19 @@ using ServiceApi.Responses.C1;
 
 namespace ServiceApi.Services.C1;
 
-public class C1Service_Test(string connectionString) : IC1Service
+public class C1Service_Test(string connectionString)
+    : TestServiceBase<C1Request, C1Response>, IC1Service
 {
     private readonly string _ = connectionString; // connectionStringを無視
 
     public async IAsyncEnumerable<C1Response> ExecuteAsync(C1Request request)
     {
+#if true
+        // レスポンスデータ準備（Jsonファイルから読み込み）
+        // ファイル名は"<クラス名>.json"とし、カレントフォルダに配置する
+        string filePath = Path.Combine(Directory.GetCurrentDirectory(), $"{this.GetType().Name}.json");
+        List<C1Response> responses = await LoadJsonDataAsync(filePath);
+#else
         // レスポンスデータを準備
         C1Response[] responses = [
             new() {
@@ -30,6 +37,9 @@ public class C1Service_Test(string connectionString) : IC1Service
                 ]
             }
         ];
+#endif
+        // 検索開始前の初期遅延（クエリ実行待ちをシミュレート）
+        await Task.Delay(2000);
 
         // 大量データを想定してループで回す
         foreach (var res in responses)

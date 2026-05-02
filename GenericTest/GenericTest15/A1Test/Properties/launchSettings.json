@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "A1Test": {
+      "commandName": "Project",
+      "commandLineArgs": "-t"
+    }
+  }
+}
