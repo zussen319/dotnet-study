@@ -10,5 +10,4 @@ public class B1Response : ResponseBase
     public decimal? SAL { get; init; }
     public decimal? COMM { get; init; }
     public decimal? DEPTNO { get; init; }
-
 }

@@ -26,7 +26,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
 
 // メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = false; // 実際はフラグ変数など
+bool testMode = true; // 実際はフラグ変数など
 
 if (testMode)
 {
@@ -56,7 +56,7 @@ try
     string outputPath = @"C:\temp\B1Test.csv";
     var paramSection = config.GetSection("param");
 
-    // 非同期ストリームとして受け取る
+    // （処理実行）非同期ストリームとして受け取る
     // B1Service（本物）か B1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IB1Service, B1Request, B1Response>(
         new B1Request
@@ -64,14 +64,13 @@ try
             DEPTNO = paramSection.GetValue<int>("DEPTNO")
         });
 
-    // 非同期でファイルを書き出す準備
-    // UTF-8(BOMなし)で、既存ファイルがあれば上書き
+    // （結果取得）非同期でファイルを書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
         await foreach (var response in responseStream)
         {
-            // DBから届いたデータを即座にCSV形式で書き出し
+            // 取得データをCSV形式で書き出し
             string line = string.Join(",", new object?[]
             {
                 response.EMPNO,

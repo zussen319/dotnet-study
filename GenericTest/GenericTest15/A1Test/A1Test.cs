@@ -56,7 +56,7 @@ try
     string outputPath = @"C:\temp\A1Test.csv";
     var paramSection = config.GetSection("param");
 
-    // 非同期ストリームとして受け取る
+    // （処理実行）非同期ストリームとして受け取る
     // A1Service（本物）か A1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IA1Service, A1Request, A1Response>(
         new A1Request
@@ -64,13 +64,9 @@ try
             A1Value = paramSection.GetValue<int>("A1Value")
         });
 
-    // 非同期でファイルを書き出す準備
-    // UTF-8(BOMなし)で、既存ファイルがあれば上書き
+    // （結果取得）非同期でファイルを書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
-        // ヘッダーの書き込み
-        await writer.WriteLineAsync("ID,Name");
-
         int count = 0;
         await foreach (var response in responseStream)
         {

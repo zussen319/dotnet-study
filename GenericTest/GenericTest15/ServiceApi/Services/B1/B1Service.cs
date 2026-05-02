@@ -11,6 +11,14 @@ public class B1Service(string connectionString)
 {
     public override IAsyncEnumerable<B1Response> ExecuteAsync(B1Request request)
     {
+        /*
+         * SQL_B1_001:
+         *   SELECT EMPNO, ENAME, JOB, MGR, TO_CHAR(HIREDATE, 'yyyy/mm/dd') HIREDATE, 
+         *          SAL, COMM, DEPTNO 
+         *   FROM EMP 
+         *   WHERE DEPTNO = :DEPTNO 
+         *   ORDER BY EMPNO
+         */
         string sql = SqlResource.GetSql(SqlId.SQL_B1_001);
           
         // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
