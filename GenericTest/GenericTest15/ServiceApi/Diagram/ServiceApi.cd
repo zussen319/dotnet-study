@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ClassDiagram MajorVersion="1" MinorVersion="1">
   <Class Name="ServiceApi.ApiExecutor" BaseTypeListCollapsed="true">
-    <Position X="4" Y="1" Width="3.25" />
+    <Position X="4.5" Y="1" Width="3.25" />
     <TypeIdentifier>
       <HashCode>AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>ApiExecutor.cs</FileName>
@@ -9,7 +9,7 @@
     <Lollipop Position="0.21" />
   </Class>
   <Class Name="ServiceApi.Services.ServiceBase&lt;TRequest, TResponse&gt;">
-    <Position X="1.75" Y="2.75" Width="2.5" />
+    <Position X="1.5" Y="2.75" Width="3" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAACAAAAEAAAAAAAAAAAAAAEAAAAAAAAAACEA=</HashCode>
       <FileName>Services\ServiceBase.cs</FileName>
