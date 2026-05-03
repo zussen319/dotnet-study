@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Oracle.ManagedDataAccess.Client;
 using ServiceApi.Requests;
+using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
 using ServiceApi.Services;
 
@@ -45,6 +46,8 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
         var enumerator = apiService.ExecuteAsync(request).GetAsyncEnumerator();
         try
         {
+            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, apiService.GetType().Name));
+
             while (true)
             {
                 /*
@@ -100,6 +103,8 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                  */
                 yield return response;
             }
+
+            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG002));
         }
         finally
         {

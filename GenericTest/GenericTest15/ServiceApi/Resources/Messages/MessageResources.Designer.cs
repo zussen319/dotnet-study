@@ -61,6 +61,33 @@ namespace ServiceApi.Resources.Messages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Service started. ({0}).
+        /// </summary>
+        internal static string MSG001 {
+            get {
+                return ResourceManager.GetString("MSG001", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Service completed..
+        /// </summary>
+        internal static string MSG002 {
+            get {
+                return ResourceManager.GetString("MSG002", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Service aborted by exception..
+        /// </summary>
+        internal static string MSG003 {
+            get {
+                return ResourceManager.GetString("MSG003", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Test Message..
         /// </summary>
         internal static string MSG991 {
