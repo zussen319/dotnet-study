@@ -109,35 +109,35 @@
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Resources.ResourceBase">
-    <Position X="13.5" Y="1" Width="2" />
+    <Position X="14" Y="1" Width="2" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAQAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Resources\ResourceBase.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Resources.Messages.MessageResourceProvider">
-    <Position X="12.25" Y="3.5" Width="2" />
+    <Position X="12.25" Y="3.5" Width="2.5" />
     <TypeIdentifier>
       <HashCode>ACAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Resources\Messages\MessageResourceProvider.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Resources.Messages.MessageId">
-    <Position X="12.25" Y="5.75" Width="1.5" />
+    <Position X="12.25" Y="5.75" Width="2.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAEAAAAAAAAAA=</HashCode>
       <FileName>Resources\Messages\MessageId.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Resources.Sql.SqlResourceProvider">
-    <Position X="14.75" Y="3.5" Width="2" />
+    <Position X="15.25" Y="3.5" Width="2.5" />
     <TypeIdentifier>
       <HashCode>AAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAA=</HashCode>
       <FileName>Resources\Sql\SqlResourceProvider.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Resources.Sql.SqlId">
-    <Position X="14.75" Y="5.75" Width="1.5" />
+    <Position X="15.25" Y="5.75" Width="2.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAgAAAAAAAAAAEEAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Resources\Sql\SqlId.cs</FileName>
