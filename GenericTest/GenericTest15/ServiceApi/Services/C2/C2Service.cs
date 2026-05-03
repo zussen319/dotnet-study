@@ -19,9 +19,9 @@ public class C2Service(string connectionString)
 
         /*
          * SQL_C2_001:
-         *   SELECT d.DEPTNO DEPTNO, d.DNAME DNAME,
-         *          e1.EMPNO MEMBER_EMPNO, e1.ENAME MEMBER_ENAME,
-         *          e2.EMPNO STAFF_EMPNO, e2.ENAME STAFF_ENAME 
+         *   SELECT d.DEPTNO DEPTNO, d.DNAME DNAME,               -- レベル１
+         *          e1.EMPNO MEMBER_EMPNO, e1.ENAME MEMBER_ENAME, -- レベル２
+         *          e2.EMPNO STAFF_EMPNO, e2.ENAME STAFF_ENAME    -- レベル３
          *   FROM DEPT d 
          *   INNER JOIN EMP e1 ON e1.DEPTNO = d.DEPTNO 
          *   INNER JOIN EMP e2 ON e2.MGR = e1.EMPNO 
@@ -29,7 +29,7 @@ public class C2Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C2_001);
 
-        // Memberマッピング定義
+        // レベル２：Memberマッピング定義
         C2Response.Member memberMapFunc(DbDataReader r) => new()
         {
             MEMBER_EMPNO = r.GetDecimal(r.GetOrdinal("MEMBER_EMPNO")),
@@ -38,7 +38,7 @@ public class C2Service(string connectionString)
             Staffs = [staffMapFunc(r)]
         };
 
-        // Staffマッピング定義
+        // レベル３：Staffマッピング定義
         C2Response.Staff staffMapFunc(DbDataReader r) => new()
         {
             STAFF_EMPNO = r.GetDecimal(r.GetOrdinal("STAFF_EMPNO")),
@@ -58,7 +58,7 @@ public class C2Service(string connectionString)
 
             if (dept == null || dept.DEPTNO != deptNo)
             {
-                // 先頭行、またはDEPTNOが不一致の場合
+                // レベル１：先頭レコード、またはDEPTNOが不一致の場合
                 if (dept != null)
                 {
                     // 作成済のオブジェクトを返却
@@ -77,12 +77,12 @@ public class C2Service(string connectionString)
             }
             else if (member?.MEMBER_EMPNO != memberEmpNo)
             {
-                // MEMBER_EMPNOが不一致の場合
+                // レベル２：MEMBER_EMPNOが不一致の場合
                 dept.Members.Add((member = memberMapFunc(reader)));
             }
             else
             {
-                // その他
+                // レベル３：その他
                 member?.Staffs.Add(staffMapFunc(reader));
             }
         }
