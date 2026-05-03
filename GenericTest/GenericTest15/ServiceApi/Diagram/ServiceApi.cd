@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="ServiceApi.ApiExecutor" BaseTypeListCollapsed="true">
+    <Position X="4" Y="1" Width="3.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>ApiExecutor.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.21" />
+  </Class>
+  <Class Name="ServiceApi.Services.ServiceBase&lt;TRequest, TResponse&gt;">
+    <Position X="1.75" Y="2.75" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAACAAAAEAAAAAAAAAAAAAAEAAAAAAAAAACEA=</HashCode>
+      <FileName>Services\ServiceBase.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="ServiceApi.Services.B1.B1Service">
+    <Position X="0.5" Y="5.75" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEA=</HashCode>
+      <FileName>Services\B1\B1Service.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="ServiceApi.Services.C1.C1Service">
+    <Position X="3.25" Y="5.75" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEA=</HashCode>
+      <FileName>Services\C1\C1Service.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="ServiceApi.Services.TestServiceBase&lt;TRequest, TResponse&gt;">
+    <Position X="7.75" Y="3.75" Width="2" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAEA=</HashCode>
+      <FileName>Services\TestServiceBase.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="ServiceApi.Services.B1.B1Service_Test">
+    <Position X="6" Y="5.75" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAA=</HashCode>
+      <FileName>Services\B1\B1Service_Test.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="ServiceApi.Services.C1.C1Service_Test">
+    <Position X="9" Y="5.75" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAA=</HashCode>
+      <FileName>Services\C1\C1Service_Test.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="ServiceApi.Requests.RequestBase">
+    <Position X="2.25" Y="7.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Requests\RequestBase.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Requests.B1.B1Request">
+    <Position X="1.25" Y="9.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Requests\B1\B1Request.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Requests.C1.C1Request">
+    <Position X="3.25" Y="9.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Requests\C1\C1Request.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Responses.ResponseBase">
+    <Position X="6.75" Y="7.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Responses\ResponseBase.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Responses.B1.B1Response">
+    <Position X="5.5" Y="9.25" Width="1.75" />
+    <TypeIdentifier>
+      <HashCode>IABEAAAACCACAAAAAIAAAAAAACAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Responses\B1\B1Response.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Responses.C1.C1Response">
+    <Position X="7.75" Y="9.25" Width="1.75" />
+    <Compartments>
+      <Compartment Name="Nested Types" Collapsed="false" />
+    </Compartments>
+    <NestedTypes>
+      <Class Name="ServiceApi.Responses.C1.C1Response.Emp">
+        <TypeIdentifier>
+          <NewMemberFileName>Responses\C1\C1Response.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Class>
+    </NestedTypes>
+    <TypeIdentifier>
+      <HashCode>IAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAEAAAAAAA=</HashCode>
+      <FileName>Responses\C1\C1Response.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Resources.ResourceBase">
+    <Position X="13.5" Y="1" Width="2" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAQAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Resources\ResourceBase.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Resources.Messages.MessageResourceProvider">
+    <Position X="12.25" Y="3.5" Width="2" />
+    <TypeIdentifier>
+      <HashCode>ACAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Resources\Messages\MessageResourceProvider.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Resources.Messages.MessageId">
+    <Position X="12.25" Y="5.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAEAAAAAAAAAA=</HashCode>
+      <FileName>Resources\Messages\MessageId.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Resources.Sql.SqlResourceProvider">
+    <Position X="14.75" Y="3.5" Width="2" />
+    <TypeIdentifier>
+      <HashCode>AAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAA=</HashCode>
+      <FileName>Resources\Sql\SqlResourceProvider.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ServiceApi.Resources.Sql.SqlId">
+    <Position X="14.75" Y="5.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAgAAAAAAAAAAEEAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Resources\Sql\SqlId.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>
