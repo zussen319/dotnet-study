@@ -2,5 +2,6 @@
   <Project Path="A1Test/A1Test.csproj" Id="cb89f637-6dc1-4e6f-8ce1-9aed6cb3a458" />
   <Project Path="B1Test/B1Test.csproj" Id="7e9bd21a-bd9f-4b34-aa54-056b01c16153" />
   <Project Path="C1Test/C1Test.csproj" Id="3cebba37-950a-4a54-8c91-eb8e0eb22571" />
+  <Project Path="C2Test/C2Test.csproj" Id="b4028a21-b605-4adf-b9b6-34e9f13c1696" />
   <Project Path="ServiceApi/ServiceApi.csproj" Id="fc020ba7-e1ec-441a-be20-34dfba89f147" />
 </Solution>

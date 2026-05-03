@@ -1,0 +1,52 @@
+[
+  {
+    "DEPTNO": 910,
+    "DNAME": "<TEST>ACCOUNTING",
+    "Members": [
+      {
+        "MEMBER_EMPNO": 9782,
+        "MEMBER_ENAME": "<TEST>CLARK",
+        "Staffs": [
+          {
+            "STAFF_EMPNO": 9943,
+            "STAFF_ENAME": "<TEST>MILLER"
+          }
+        ]
+      },
+      {
+        "MEMBER_EMPNO": 9839,
+        "MEMBER_ENAME": "<TEST>KING",
+        "Staffs": [
+          {
+            "STAFF_EMPNO": 9566,
+            "STAFF_ENAME": "<TEST>JONES"
+          },
+          {
+            "STAFF_EMPNO": 9698,
+            "STAFF_ENAME": "<TEST>BLAKE"
+          },
+          {
+            "STAFF_EMPNO": 9782,
+            "STAFF_ENAME": "<TEST>CLARK"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "DEPTNO": 920,
+    "DNAME": "<TEST>RESEARCH",
+    "Members": [
+      {
+        "MEMBER_EMPNO": 9566,
+        "MEMBER_ENAME": "<TEST>JONES",
+        "Staffs": [
+          {
+            "STAFF_EMPNO": 9788,
+            "STAFF_ENAME": "<TEST>SCOTT"
+          }
+        ]
+      }
+    ]
+  }
+]

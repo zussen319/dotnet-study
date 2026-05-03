@@ -50,7 +50,7 @@ public class C1Service(string connectionString)
                     //await Task.Delay(2000); // テスト用
                 }
 
-                // 新しいC1Responseを作成
+                // 新しいオブジェクトを作成
                 response = new C1Response
                 {
                     DEPTNO = deptNo,
