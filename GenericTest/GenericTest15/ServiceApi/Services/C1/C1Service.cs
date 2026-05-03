@@ -39,9 +39,9 @@ public class C1Service(string connectionString)
          * DEPTNOが同一のレコードをグループ化して返却する
          */
         C1Response? response = null;
-        await foreach (var r in ExecuteQueryAsync(sql))
+        await foreach (var reader in ExecuteQueryAsync(sql))
         {
-            decimal deptNo = r.GetDecimal(r.GetOrdinal("DEPTNO"));
+            decimal deptNo = reader.GetDecimal(reader.GetOrdinal("DEPTNO"));
             if (response == null || response.DEPTNO != deptNo)
             {
                 if (response != null) {
@@ -54,14 +54,14 @@ public class C1Service(string connectionString)
                 response = new C1Response
                 {
                     DEPTNO = deptNo,
-                    DNAME = r.IsDBNull(r.GetOrdinal("DNAME"))
-                        ? string.Empty : r.GetString(r.GetOrdinal("DNAME")),
-                    Employees = [empMapFunc(r)]
+                    DNAME = reader.IsDBNull(reader.GetOrdinal("DNAME"))
+                        ? string.Empty : reader.GetString(reader.GetOrdinal("DNAME")),
+                    Employees = [empMapFunc(reader)]
                 };
             } else
             {
                 // DEPTNOが同一の場合は、MapEmp を使ってリストに追加
-                response.Employees.Add(empMapFunc(r));
+                response.Employees.Add(empMapFunc(reader));
             }
         }
         // 最後のオブジェクトを返却
