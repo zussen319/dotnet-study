@@ -27,8 +27,8 @@ public class C1Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C1_001);
 
-        // --- Employeesマッピング定義 ---
-        C1Response.Emp mapFunc(DbDataReader r) => new()
+        // Empマッピング定義
+        C1Response.Emp empMapFunc(DbDataReader r) => new()
         {
             EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")),
             ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
@@ -44,26 +44,27 @@ public class C1Service(string connectionString)
             decimal deptNo = r.GetDecimal(r.GetOrdinal("DEPTNO"));
             if (response == null || response.DEPTNO != deptNo)
             {
-                if (response != null) { 
+                if (response != null) {
+                    // 作成済のオブジェクトを返却
                     yield return response;
                     //await Task.Delay(2000); // テスト用
                 }
 
-                // 新しいC1Responseを作成する
+                // 新しいC1Responseを作成
                 response = new C1Response
                 {
                     DEPTNO = deptNo,
                     DNAME = r.IsDBNull(r.GetOrdinal("DNAME"))
                         ? string.Empty : r.GetString(r.GetOrdinal("DNAME")),
-                    Employees = [mapFunc(r)]
+                    Employees = [empMapFunc(r)]
                 };
             } else
             {
                 // DEPTNOが同一の場合は、MapEmp を使ってリストに追加
-                response.Employees.Add(mapFunc(r));
+                response.Employees.Add(empMapFunc(r));
             }
         }
-        /* 最後のオブジェクトを返却 */
+        // 最後のオブジェクトを返却
         if (response != null) { yield return response; }
     }
 }

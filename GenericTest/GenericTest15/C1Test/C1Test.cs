@@ -33,7 +33,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
 
 // メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = args.Contains("-t") || args.Contains("--test");
+bool testMode = args.Contains("-t");
 
 if (testMode)
 {
