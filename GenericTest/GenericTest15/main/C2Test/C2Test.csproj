@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ServiceApi\ServiceApi.csproj" />
+    <ProjectReference Include="..\..\src\ServiceApi\ServiceApi.csproj" />
   </ItemGroup>
 
   <ItemGroup>

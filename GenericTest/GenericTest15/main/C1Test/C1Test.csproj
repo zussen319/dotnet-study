@@ -14,11 +14,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ServiceApi\ServiceApi.csproj" />
+    <ProjectReference Include="..\..\src\ServiceApi\ServiceApi.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="A1Test.json">
+    <None Update="C1Service_Test.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="C1Test.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
