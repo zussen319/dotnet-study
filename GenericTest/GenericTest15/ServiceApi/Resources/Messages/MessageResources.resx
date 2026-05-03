@@ -126,7 +126,10 @@
   <data name="MSG003" xml:space="preserve">
     <value>Service aborted by exception.</value>
   </data>
+  <data name="MSG004" xml:space="preserve">
+    <value>Type {0} does not properly implement IApiService.</value>
+  </data>
   <data name="MSG991" xml:space="preserve">
-    <value>Test Message.</value>
+    <value>Error reading Json ({0}): {1}</value>
   </data>
 </root>

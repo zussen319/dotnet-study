@@ -8,7 +8,10 @@ internal static class MessageId
     public const string MSG002 = "MSG002";
     /// <summary>Service aborted by exception.</summary>
     public const string MSG003 = "MSG003";
+    /// <summary>Type {0} does not properly implement IApiService.</summary>
+    public const string MSG004 = "MSG004";
 
-    /// <summary>Test Message.（テスト用）</summary>
+    /// <summary>Error reading Json ({0}): {1}</summary>
     public const string MSG991 = "MSG991";
+
 }

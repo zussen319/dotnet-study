@@ -13,7 +13,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    // Oracle接続オブジェクトを保持（プライマリコンストラクタの引数を使用）
+    // Oracleコネクションオブジェクトを保持（プライマリコンストラクタの引数を使用）
     protected OracleConnection Connection { get; } = new(connectionString);
 
     protected int FetchRows { get; } = fetchRows;
@@ -26,7 +26,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
         Func<DbDataReader, TResponse> mapFunc)
         => ExecuteQueryAsync(sql, _ => { }, mapFunc);
 
-    // --- 既存メソッドの統合：内部で上記の DataReader 版を呼び出す ---
+    // --- 既存メソッドの統合： DataReader 版を呼び出す ---
     protected virtual async IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         Action<OracleParameterCollection> bindAction,
@@ -56,7 +56,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
         // コマンド作成
         using var cmd = new OracleCommand(sql, this.Connection);
 
-        // パラメータをバインドする前に名前解決を有効にする
+        // パラメータをバインドする前に名前解決を有効化
         cmd.BindByName = true;
 
         // デリゲートを実行してパラメータを埋め込む
@@ -105,7 +105,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
     }
 
     /// <summary>
-    /// リソースを解放します。
+    /// リソース解放
     /// </summary>
     public void Dispose()
     {

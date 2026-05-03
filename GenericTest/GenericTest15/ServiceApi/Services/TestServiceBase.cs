@@ -1,4 +1,5 @@
 ﻿using ServiceApi.Requests;
+using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
 using System.Text.Json;
 
@@ -53,8 +54,10 @@ public abstract class TestServiceBase<TRequest, TResponse>
         catch (Exception ex)
         {
             // エラーハンドリング（ファイル不在、JSON構文エラー、requiredメンバ欠落など）
-            Console.WriteLine($"Error reading JSON: {ex.Message}");
-            throw;
+            string filename = Path.GetFileName(filePath);
+            // MSG991: Error reading Json ({0}): {1}
+            string message = MessageResourceProvider.GetMessage(MessageId.MSG991, filename, ex.Message);
+            throw new InvalidOperationException(message, ex);
         }
     }
 }

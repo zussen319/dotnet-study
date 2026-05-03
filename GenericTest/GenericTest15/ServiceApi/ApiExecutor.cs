@@ -19,7 +19,7 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
     {
         // IAsyncEnumerable を扱うため、Scopeの寿命管理に注意が必要です
         /*
-        * ## 3. リソース管理（Scopeとusing）の安全性
+        * ## リソース管理（Scopeとusing）の安全性
         * 非同期ストリームにおいて最も難しいのは「いつDB接続を閉じるか」ですが、
         * 今回の設計はここを解決しています。
         * 1. **"using var scope"**: "ApiExecutor" 内でスコープを作っています。
@@ -38,7 +38,9 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
 
         if (serviceInstance is not IApiService<TRequest, TResponse> apiService)
         {
-            throw new InvalidOperationException($"型 {typeof(TService).Name} は IApiService を正しく実装していません。");
+            // MSG004: Type {0} does not properly implement IApiService.
+            string message = MessageResourceProvider.GetMessage(MessageId.MSG004, serviceInstance.GetType().Name);
+            throw new InvalidOperationException(message);
         }
 
         // enumerator を手動で制御することで、 try-catch と yield return を共存させます

@@ -88,7 +88,16 @@ namespace ServiceApi.Resources.Messages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Test Message..
+        ///   Looks up a localized string similar to Type {0} does not properly implement IApiService..
+        /// </summary>
+        internal static string MSG004 {
+            get {
+                return ResourceManager.GetString("MSG004", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error reading Json ({0}): {1}.
         /// </summary>
         internal static string MSG991 {
             get {
