@@ -16,8 +16,6 @@ public abstract class ServiceBase<TRequest, TResponse>(
     // Oracleコネクションオブジェクトを保持（プライマリコンストラクタの引数を使用）
     protected OracleConnection Connection { get; } = new(connectionString);
 
-    protected int FetchRows { get; } = fetchRows;
-
     // 具象クラスに実装を強制するエントリポイント
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
 
@@ -83,7 +81,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
          * これだけでデフォルト状態 (FetchSize = 65536 バイトなど) に比べて、
          * ネットワーク通信回数が大幅に削減され、十分な高速化の恩恵を受けられます。
          */
-        reader.FetchSize = reader.RowSize * this.FetchRows;
+        reader.FetchSize = reader.RowSize * fetchRows;
 
         while (await reader.ReadAsync())
         {
