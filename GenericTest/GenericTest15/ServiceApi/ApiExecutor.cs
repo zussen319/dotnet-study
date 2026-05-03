@@ -32,8 +32,16 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
         */
         using var scope = serviceProvider.CreateScope();
 
-        // コンテナからインスタンスを取得
 
+#if true
+        // コンテナからインスタンスを取得
+        TService service = scope.ServiceProvider.GetRequiredService<TService>();
+        var enumerator = service.ExecuteAsync(request).GetAsyncEnumerator();
+
+        // 正常終了したかどうかを管理するフラグ
+        bool isCompleted = false;
+#else
+        // コンテナからインスタンスを取得
         var serviceInstance = scope.ServiceProvider.GetRequiredService<TService>();
 
         if (serviceInstance is not IApiService<TRequest, TResponse> apiService)
@@ -46,9 +54,11 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
         // enumerator を手動で制御することで、 try-catch と yield return を共存させます
 
         var enumerator = apiService.ExecuteAsync(request).GetAsyncEnumerator();
+#endif
         try
         {
-            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, apiService.GetType().Name));
+            // 処理開始ログ出力
+            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, service.GetType().Name));
 
             while (true)
             {
@@ -106,12 +116,33 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                 yield return response;
             }
 
-            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG002));
+            isCompleted = true; // 正常に終了
+            //Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG002));
         }
         finally
         {
-            // enumerator を確実に破棄する
+            // enumerator破棄
             await enumerator.DisposeAsync();
+
+#if true
+            // 処理終了ログ出力
+            string message = isCompleted
+                ? MessageResourceProvider.GetMessage(MessageId.MSG002)  // 正常終了時
+                : MessageResourceProvider.GetMessage(MessageId.MSG003); // 異常終了時
+            Console.WriteLine(message);
+#else
+            // 終了ログ
+            if (isCompleted)
+            {
+                // 正常終了 (MSG002: Service completed successfully.)
+                Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG002));
+            }
+            else
+            {
+                // 異常終了 (MSG003: Service aborted by exception.)
+                Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG003));
+            }
+#endif
         }
     }
 }
