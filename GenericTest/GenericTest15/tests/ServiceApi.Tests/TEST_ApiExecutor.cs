@@ -50,6 +50,9 @@ public class MockRequest : RequestBase { }
 
 public class TEST_ApiExecutor
 {
+    private const string _connectionString =
+        "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
+
     [Fact]
     public async Task RunAsync_ShouldDisposeService_WhenCompleted()
     {
@@ -246,8 +249,23 @@ public class TEST_ApiExecutor
         // 1. Setup: モックの準備
         var serviceProviderMock = new Mock<IServiceProvider>();
         var scopeMock = new Mock<IServiceScope>();
-        var scopeServiceProviderMock = new Mock<IServiceProvider>(); // Scope内部のProvider
-        var serviceMock = new Mock<B1Service>();
+        var scopeServiceProviderMock = new Mock<IServiceProvider>();
+        // Scope内部のProvider
+        //var serviceMock = new Mock<B1Service>();
+        // 引数にダミーの接続文字列を渡してモックを作成する
+        /*
+         * Moqがクラス（インターフェースではなく）をモックする場合、
+         * そのクラスを継承した「身代わりクラス」を動的に生成します。
+         * インターフェースの場合: Mock<IB1Service> と書けば、
+         * 中身が空っぽの身代わりを勝手に作れます。
+         * クラスの場合: Mock<B1Service> と書くと、そのクラスのコンストラクタを
+         * 呼び出す必要があります。
+         * 引数があるコンストラクタしか定義されていない場合、
+         * new Mock<B1Service>(引数) と明示しないと、Moqはインスタンス化に失敗してしまいます。
+         */
+        var serviceMock = new Mock<B1Service>(_connectionString);
+        // インターフェースをモックすれば、引数の心配は不要になります
+        // **** var serviceMock = new Mock<IB1Service>();
 
         // --- DIの連鎖を定義 ---
 
