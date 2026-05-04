@@ -247,6 +247,23 @@ public class TEST_ApiExecutor
          * スコープ付きサービスを取り出しているか」というDIの作法そのものがテストされています。
          */
         // 1. Setup: モックの準備
+        /*
+         * DI（依存性の注入）を利用したクラスをテストする際の、典型的な決まり文句
+         * (1) serviceProviderMock (外側の親)
+         *     アプリ全体のサービス提供者。CreateScope() という「新しい箱（スコープ）」を作る役割。
+         * (2) scopeMock (中間の箱)
+         *     CreateScope() を呼んだときに返される「一時的な境界線」。
+         *    「使い終わったら破棄される（Dispose）」という今回のテストの主役。
+         * (3) scopeServiceProviderMock (内側の担当者)
+         *     スコープ（箱）の中にいる専用のサービス提供者。
+         *     ここから本命の B1Service を取り出す。
+         *     
+         * // 実装コードのこの動きを...
+         * using (var scope = serviceProvider.CreateScope()) // ← (1),(2)が必要
+         * {
+         *     var service = scope.ServiceProvider.GetService<B1Service>(); // ←(3)が必要
+         * }
+         */
         var serviceProviderMock = new Mock<IServiceProvider>();
         var scopeMock = new Mock<IServiceScope>();
         var scopeServiceProviderMock = new Mock<IServiceProvider>();
@@ -263,12 +280,42 @@ public class TEST_ApiExecutor
          * 引数があるコンストラクタしか定義されていない場合、
          * new Mock<B1Service>(引数) と明示しないと、Moqはインスタンス化に失敗してしまいます。
          */
+        /*
+         * [1] モックのインスタンス化 (Arrange - 準備)
+         * まず、身代わりとなるオブジェクトを作成します。
+         */
         var serviceMock = new Mock<B1Service_Test>("dummy");
 
         // --- DIの連鎖を定義 ---
 
         // serviceProvider.CreateScope() が呼ばれたら scopeMock を返す
         // ※CreateScope は拡張メソッドなので、内部で呼ばれる IServiceScopeFactory をモックする
+        /*
+         * 「serviceProvider.CreateScope() という魔法の一行が、内部でどう動いているかを
+         * 再現している」処理です。
+         * .CreateScope() というメソッドは IServiceProvider に直接備わっているものではなく、
+         * 「拡張メソッド」という便利ツールです。
+         * この拡張メソッドの中身を覗くと、実は裏側で次のような泥臭いことをしています。
+         * serviceProvider に対して、「スコープを作る専門家（IServiceScopeFactory）を貸して」と頼む。
+         * その専門家（Factory）の CreateScope() メソッドを呼び出す。
+         * Moqは「拡張メソッド（CreateScope）」を直接 Setup することができません。
+         * そのため、拡張メソッドが裏で呼んでいる「本物の処理」を一つずつモックで
+         * 組み立ててあげる必要があるのです。
+         */
+        /*
+         * (1) スコープを作る専門家（Factory）のモック作成
+         *    スコープ（箱）を製造する工場」の身代わりを用意します。
+         * 
+         * (2) 「工場を貸して」と言われた時の設定
+         *     ApiExecutor が内部で CreateScope() を呼ぶと、裏側で
+         *     「IServiceScopeFactory をください」というリクエストが走ります。
+         *     その時に、先ほど作った「偽の工場」を渡すように約束しています。
+         * 
+         * (3) 「工場でスコープを作って」と言われた時の設定
+         *     「偽の工場」に対して、「スコープを作って！」という注文が入ったら、
+         *     あらかじめ準備しておいた「偽のスコープ（scopeMock）」を完成品として出すように教えています。
+         * 
+         */
         var scopeFactoryMock = new Mock<IServiceScopeFactory>();
         serviceProviderMock
             .Setup(x => x.GetService(typeof(IServiceScopeFactory)))
@@ -278,6 +325,32 @@ public class TEST_ApiExecutor
             .Setup(x => x.CreateScope())
             .Returns(scopeMock.Object);
 
+        /*
+         * 「新しく作ったスコープ（箱）の中から、本命のサービスを取り出せるようにする」
+         * という最終的な接続作業をしています。
+         * これまでの設定で「箱（スコープ）」までは作れましたが、
+         * その箱の中に「中身」を詰め込む作業がここにあたります。
+         * 
+         * (1) スコープと、その中の「案内役」を紐付ける
+         *     IServiceScope（箱）には、必ず ServiceProvider（案内役）が一人付いています。
+         *     この行では、「スコープの中にある ServiceProvider を見ろ」と言われたら、
+         *     あらかじめ準備しておいた 「スコープ専用の案内役（scopeServiceProviderMock）」 
+         *     を出すように設定しています。
+         * 
+         * (2) 「案内役」に、本命のサービスを渡すよう命じる
+         *     「スコープ専用の案内役」に対して、「B1Service_Test をください」というリクエストが来たら、
+         *     一番最初に作った 「身代わりのサービス（serviceMock）」 を渡すように約束させています。
+         */
+        /*
+         * なぜこの「二段構え」が必要なのか？
+         *   .NETのDI（依存性の注入）には大事なルールがあります。
+         *   外側の Provider: アプリ全体でずっと生きている。
+         *   スコープ内の Provider: そのスコープ（usingの中）だけで生きている。
+         *   ApiExecutor は行儀よく「スコープの中からサービスを取り出す」というコードを書いているため、
+         *   テスト側も 「スコープ専用の案内役（Provider）」をわざわざ用意して、
+         *   そこからサービスが出てくる という手順を踏まないと、
+         *   NullReferenceException になったり、本物のDIの動きをシミュレートできなかったりするのです。
+         */
         // scope.ServiceProvider が呼ばれたら、その内部用Providerを返す
         scopeMock.Setup(x => x.ServiceProvider).Returns(scopeServiceProviderMock.Object);
 
@@ -289,18 +362,109 @@ public class TEST_ApiExecutor
         // 2. 異常系の設定: サービスが呼び出されたら例外を投げるようにする
         // ExecuteAsync 自体は IAsyncEnumerable を返すので、
         // ここでは yield return の代わりに例外を投げるヘルパーを定義するか、単純に例外を投げます
+        /*
+         * [2] 振る舞いの設定 (Arrange - 準備)
+         * 「〇〇というメソッドが呼ばれたら、△△を返す（または例外を投げる）」
+         * というルールを教え込みます。
+         *   It.IsAny() (なんでもいいよ)
+         *   「特定の引数」ではなく、「どんなデータが渡されてもこの動きをしてほしい」という時に使います。
+         *   今回の It.IsAny<B1Request>() がこれにあたります。
+         */
+        /*
+         * この部分は、これまでの「複雑な入れ子構造（DIの準備）」を経て、ついにたどり着いた
+         * 「本番の処理をどう動かすか」を決めているメインの台本です。
+         * 
+         * (1) serviceMock.Setup(x => x.ExecuteAsync(...))
+         *     「もし、ExecuteAsync というメソッドが呼ばれたら……」という条件を指定しています。
+         *
+         * (2) It.IsAny<B1Request>()
+         *     「引数として渡される B1Request は、どんな中身（DEPTNOが10でも20でも）であっても……」
+         *     という、条件を広げる指定です。
+         *
+         * (3).Throws(new InvalidOperationException(...))
+         *     「本当の処理（JSON読み込みやDB接続）は一切せずに、即座にこの例外を投げ飛ばせ！」
+         *     と命じています。
+         * 
+         * なぜわざわざ「例外を投げる」ように決めるのか？
+         *     このテストの目的を思い出してみると、この設定の重要性が見えてきます。
+         *     テストしたいこと： ApiExecutor が、実行中に予期せぬエラーが起きても
+         *     「後片付け（Dispose）」を忘れないかどうか。
+         *     モックの役割： 本物のエラーが起きるのを待つのではなく、モックを使って
+         *     人工的にエラーを発生させること。
+         *     もしこの設定を Throws ではなく .Returns(...)（正常なデータを返す）
+         *     にしてしまうと、ApiExecutor の catch ブロックや finally ブロックが
+         *     「異常時に正しく動くか」をテストすることができなくなります。
+         *     
+         *   // ApiExecutor.cs の中
+         *   var enumerator = service.ExecuteAsync(request).GetAsyncEnumerator();
+         *   try {
+         *       // ここで enumerator.MoveNextAsync() などが呼ばれた瞬間、
+         *       // モックが「あ、台本通りに例外を投げなきゃ！」と反応します。
+         *   }
+         *   catch (Exception ex) {
+         *       // モックが投げた「予期せぬエラー」がここに飛んできます。
+         *   }
+         *   finally {
+         *       // ★ここが今回のテストの主役！
+         *       // 例外が起きても、ここを通って scope.Dispose() が呼ばれるかを確認します。
+         *   }
+         */
         serviceMock
             .Setup(x => x.ExecuteAsync(It.IsAny<B1Request>()))
             .Throws(new InvalidOperationException("予期せぬエラー"));
 
         // テスト対象のインスタンス化 (ServiceProviderを渡す)
+        /*
+         * [3] テスト対象への注入と実行 (Act - 実行)
+         * 作成したモックを、テストしたいクラス（ApiExecutor）に渡して実行します。
+         *   ポイント: モックそのもの（serviceMock）ではなく、
+         *   .Object プロパティを渡すのがMoqのルールです。
+         *   
+         *   .Object (本物として扱う)
+         *   Moqのツールキット（Mock<T>）から、実際のクラスのふりをした
+         *   インスタンスを取り出す魔法の言葉です。
+         */
+        /*
+         * なぜ ApiExecutor に serviceProviderMock.Object を渡すのか？
+         *   ApiExecutor のコンストラクタ（定義）は、以下のようになっていますよね。
+         *   public ApiExecutor(IServiceProvider serviceProvider)
+         *   テスト対象である ApiExecutor をインスタンス化するには、どうしても
+         *   IServiceProvider が必要です。
+         *   本番環境では： .NETのシステムが、本物の ServiceProvider を自動で渡してくれます。
+         *   テスト環境では： 私たちが手動で new する必要があるため、今まで苦労して組み立ててきた
+         *   「身代わり連鎖の出発点」である serviceProviderMock.Object を渡してあげます。
+         *   これによって、ApiExecutor が内部で serviceProvider.CreateScope() を呼んだ瞬間に、
+         *   あらかじめ設定しておいたモックの連鎖がスタートする仕掛けになっています。
+         */
         var executor = new ApiExecutor(serviceProviderMock.Object);
 
         // 3. Execution & Assertion: 例外が外まで伝播することを確認
         // 第1引数にダミーのRequestオブジェクトを渡します
+        /*
+         * var request の準備
+         *   RunAsync メソッドを呼び出すには、引数としてリクエストオブジェクトが必要です。
+         *   これは「実行するためのチケット」のようなものです。
+         *   今回のテストの目的は「エラーが起きた時の後片付け」なので、
+         *   DEPTNO が 10 でも 99 でもテストの結果（成功/失敗）には直接影響しませんが、
+         *   「メソッドを動かすための最小限のルール」として、有効なリクエストオブジェクトを準備しています。
+         */
         var request = new B1Request { DEPTNO = 10 };
 
         // IAsyncEnumerable なので、列挙を開始した瞬間に例外が発生することを検証
+        /*
+         * [4] 検証 (Assert - 検証)
+         * 期待通りの結果になったかを確認します。
+         * モック特有の検証として、「正しく呼ばれたか」のチェックもここで行います。
+         */
+        /*
+         * Assert.ThrowsAsync の中身で起きていること
+         * 準備が整い、いよいよ以下の「実行」に入ります。
+         * この await foreach が始まった瞬間に、ApiExecutor の内部で以下のことが一気に起きます。
+         * (1) 注入された serviceProviderMock から scopeMock を作る。
+         * (2) scopeMock の中のサービス (serviceMock) を取り出す。
+         * (3) serviceMock.ExecuteAsync を呼び出す。
+         * (4) モックの設定に従い、即座に InvalidOperationException が投げられる！
+         */
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await foreach (var _ in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
@@ -310,6 +474,52 @@ public class TEST_ApiExecutor
         });
 
         // 4. Verification: 重要！例外が起きても Dispose が呼ばれたか
+        /*
+         * Verify (ちゃんとやった？)
+         *「戻り値」がない処理（Dispose やログ出力など）が、
+         * 内部で正しく実行されたかを後から確認するコマンドです。
+         */
+        /*
+         * これはMoq（モックフレームワーク）の真骨頂とも言える機能で、
+         * 「目に見えない実行結果を、スパイに報告させる」ためのコードです。
+         * 一言で言うと、「scopeMock（身代わり）の Dispose メソッドが、
+         * プログラムの実行中に『ちょうど1回だけ』呼び出されたかをチェックせよ」という意味になります。
+         * 
+         * (1) x => x.Dispose() （何をチェックするか）
+         *     これは「検証したいアクション」を指定しています。
+         *     「scopeMock に対して Dispose() という操作が行われたかどうかを調べてください」
+         *     とMoqに命令しています。
+         *     
+         * (2) Times.Once （何回行われたか）
+         *     ここが非常に重要です。期待する呼び出し回数を指定します。
+         *     Times.Once: 「1回だけ」呼ばれたなら合格。
+         *     Times.Never: 「1回も」呼ばれなかったら合格。
+         *     Times.Exactly(3): 「ちょうど3回」呼ばれたら合格。
+         *     今回のテストでは、using ブロックを抜ける際に 「必ず1回だけ確実に」 破棄されてほしいので、
+         *     Once を指定しています。
+         */
+        /*
+         * なぜこの検証が必要なのか？
+         *     今回のテスト対象である ApiExecutor.RunAsync の中身を思い出してみましょう。
+         *     // ApiExecutor.cs のイメージ
+         *     public async IAsyncEnumerable<TResponse> RunAsync(...)
+         *     {
+         *         using var scope = _serviceProvider.CreateScope(); // ここで scope が作られる
+         *         try {
+         *             // ... ここで例外が発生して処理が中断される ...
+         *         }
+         *         catch (Exception ex) {
+         *             throw; // 例外を外に投げる
+         *         }
+         *         // using の効果で、ここで自動的に scope.Dispose() が呼ばれるはず！
+         *     }
+         * 
+         *     このテストの最大の目的は、「例外が起きて処理が途中で吹き飛んでも、
+         *     .NETの using の仕組み（または finally）によって、リソースの片付け（Dispose）
+         *     がサボられずに実行されたか」 を証明することです。
+         *     もし Verify が失敗して「0回しか呼ばれていない」と報告されたら、それは
+         *     リソースリーク（メモリやDB接続が開きっぱなしになる状態）が発生していることを意味します。
+         */
         scopeMock.Verify(x => x.Dispose(), Times.Once, "例外発生時でも Scope は破棄されるべきです。");
     }
 }
