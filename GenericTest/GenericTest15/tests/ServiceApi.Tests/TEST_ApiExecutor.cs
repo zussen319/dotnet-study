@@ -523,4 +523,78 @@ public class TEST_ApiExecutor
          */
         scopeMock.Verify(x => x.Dispose(), Times.Once, "例外発生時でも Scope は破棄されるべきです。");
     }
+
+    // 本物のDIコンテナを使ったテストコード
+    [Fact]
+    public async Task RunAsync_WithRealDI_ShouldWorkCorrect()
+    {
+        // 1. Arrange: 本番同様の DI コンテナを構築
+        var services = new ServiceCollection();
+
+        // テスト対象の ApiExecutor を登録
+        services.AddTransient<ApiExecutor>();
+
+        // B1Service_Test を登録 (本物の B1Service をテストしたい場合はここを書き換える)
+        services.AddTransient<B1Service_Test>(sp => new B1Service_Test(_connectionString));
+
+        // コンテナをビルドして ServiceProvider を取得
+        var serviceProvider = services.BuildServiceProvider();
+
+        // 2. Act: ApiExecutor をコンテナから取り出して実行
+        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
+        var request = new B1Request { DEPTNO = 10 };
+
+        var results = new List<B1Response>();
+
+        // 実際のメソッド呼び出し
+        await foreach (var response in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
+        {
+            results.Add(response);
+        }
+
+        // 3. Assert: 結果の検証
+        Assert.NotEmpty(results);
+        // JSONの内容が正しく取得できているか等の検証
+    }
+
+    // B1Service と B1Service_Test を切り替えてテストする
+    /*
+     * RunAsync の型引数に指定するため、また GetRequiredService で解決するために、
+     * 両方のクラスがコンテナに登録されている必要があります。
+     */
+    [Theory]
+    [InlineData("Real")] // 本物で実行
+    [InlineData("Test")] // テスト用(JSON)で実行
+    public async Task RunAsync_VerifyEachService(string mode)
+    {
+        // --- Arrange ---
+        var services = new ServiceCollection();
+        services.AddTransient<ApiExecutor>();
+
+        // 両方を登録しておく
+        services.AddTransient<B1Service>(sp => new B1Service(_connectionString));
+        services.AddTransient<B1Service_Test>(sp => new B1Service_Test("dummy_json_path"));
+
+        var serviceProvider = services.BuildServiceProvider();
+        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
+        var request = new B1Request { DEPTNO = 10 };
+
+        // --- Act & Assert ---
+        if (mode == "Real")
+        {
+            // B1Service を使って実行
+            await foreach (var res in executor.RunAsync<B1Service, B1Request, B1Response>(request))
+            {
+                Assert.NotNull(res);
+            }
+        }
+        else
+        {
+            // B1Service_Test を使って実行
+            await foreach (var res in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
+            {
+                Assert.NotNull(res);
+            }
+        }
+    }
 }
