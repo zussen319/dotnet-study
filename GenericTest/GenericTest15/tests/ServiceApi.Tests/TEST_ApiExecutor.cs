@@ -263,9 +263,7 @@ public class TEST_ApiExecutor
          * 引数があるコンストラクタしか定義されていない場合、
          * new Mock<B1Service>(引数) と明示しないと、Moqはインスタンス化に失敗してしまいます。
          */
-        var serviceMock = new Mock<B1Service>(_connectionString);
-        // インターフェースをモックすれば、引数の心配は不要になります
-        // **** var serviceMock = new Mock<IB1Service>();
+        var serviceMock = new Mock<B1Service_Test>("dummy");
 
         // --- DIの連鎖を定義 ---
 
@@ -285,7 +283,7 @@ public class TEST_ApiExecutor
 
         // scope内部のProviderから B1Service を取得できるようにする
         scopeServiceProviderMock
-            .Setup(x => x.GetService(typeof(B1Service)))
+            .Setup(x => x.GetService(typeof(B1Service_Test)))
             .Returns(serviceMock.Object);
 
         // 2. 異常系の設定: サービスが呼び出されたら例外を投げるようにする
@@ -305,7 +303,7 @@ public class TEST_ApiExecutor
         // IAsyncEnumerable なので、列挙を開始した瞬間に例外が発生することを検証
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var _ in executor.RunAsync<B1Service, B1Request, B1Response>(request))
+            await foreach (var _ in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
             {
                 // ここには到達しないはず
             }
