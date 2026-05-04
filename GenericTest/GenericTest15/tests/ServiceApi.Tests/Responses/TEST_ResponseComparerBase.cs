@@ -8,14 +8,14 @@ public abstract class TEST_ResponseComparerBase<TResponse> : IEqualityComparer<T
     /*
      * レスポンスクラスインスタンスの比較を行う
      */
-    public bool Equals(TResponse? x, TResponse? y)
+    public bool Equals(TResponse? obj1, TResponse? obj2)
     {
         // 片方または両方が null の場合の基本チェック
-        if (ReferenceEquals(x, y)) return true;
-        if (x == null || y == null) return false;
+        if (ReferenceEquals(obj1, obj2)) return true;
+        if (obj1 == null || obj2 == null) return false;
 
         // 具体的な比較は子クラスに任せる
-        return EqualsCore(x, y);
+        return EqualsCore(obj1, obj2);
     }
 
     public int GetHashCode(TResponse obj)
@@ -25,6 +25,6 @@ public abstract class TEST_ResponseComparerBase<TResponse> : IEqualityComparer<T
     }
 
     // 子クラスで実装する抽象メソッド
-    protected abstract bool EqualsCore(TResponse x, TResponse y);
+    protected abstract bool EqualsCore(TResponse obj1, TResponse obj2);
     protected abstract int GetHashCodeCore(TResponse obj);
 }

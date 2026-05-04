@@ -10,19 +10,19 @@ public class TEST_B1ResponseComparer : TEST_ResponseComparerBase<B1Response>
     // コンストラクタを private にして外部からの new を制限
     private TEST_B1ResponseComparer() { }
 
-    protected override bool EqualsCore(B1Response x, B1Response y)
+    protected override bool EqualsCore(B1Response obj1, B1Response obj2)
     {
-        if (ReferenceEquals(x, y)) return true;
-        if (x == null || y == null) return false;
+        if (ReferenceEquals(obj1, obj2)) return true;
+        if (obj1 == null || obj2 == null) return false;
 
-        return x.EMPNO == y.EMPNO &&
-               x.ENAME == y.ENAME &&
-               x.JOB == y.JOB &&
-               x.MGR == y.MGR &&
-               x.HIREDATE == y.HIREDATE &&
-               x.SAL == y.SAL &&
-               x.COMM == y.COMM &&
-               x.DEPTNO == y.DEPTNO;
+        return obj1.EMPNO == obj2.EMPNO &&
+               obj1.ENAME == obj2.ENAME &&
+               obj1.JOB == obj2.JOB &&
+               obj1.MGR == obj2.MGR &&
+               obj1.HIREDATE == obj2.HIREDATE &&
+               obj1.SAL == obj2.SAL &&
+               obj1.COMM == obj2.COMM &&
+               obj1.DEPTNO == obj2.DEPTNO;
     }
 
     protected override int GetHashCodeCore(B1Response obj)
