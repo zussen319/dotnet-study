@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ServiceApi/ServiceApi.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ServiceApi.Tests/ServiceApi.Tests.csproj" Id="8988d4d9-1f68-4146-bfd2-ac336e4d44b1" />
+  </Folder>
+</Solution>

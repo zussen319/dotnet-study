@@ -1,0 +1,42 @@
+[
+  {
+    "EMPNO": 9788,
+    "ENAME": "<TEST>SCOTT",
+    "JOB": "<TEST>ANALYST",
+    "MGR": 9566,
+    "HIREDATE": "1987/04/19",
+    "SAL": 3000,
+    "COMM": null,
+    "DEPTNO": 920
+  },
+  {
+    "EMPNO": 9902,
+    "ENAME": "<TEST>FORD",
+    "JOB": "<TEST>ANALYST",
+    "MGR": 9566,
+    "HIREDATE": "1981/12/03",
+    "SAL": 3000,
+    "COMM": null,
+    "DEPTNO": 920
+  },
+  {
+    "EMPNO": 9566,
+    "ENAME": "<TEST>JONES",
+    "JOB": "<TEST>MANAGER",
+    "MGR": 9839,
+    "HIREDATE": "1981/04/02",
+    "SAL": 2975,
+    "COMM": null,
+    "DEPTNO": 920
+  },
+  {
+    "EMPNO": 9839,
+    "ENAME": "<TEST>KING",
+    "JOB": "<TEST>PRESIDENT",
+    "MGR": null,
+    "HIREDATE": "1981/11/17",
+    "SAL": 5000,
+    "COMM": null,
+    "DEPTNO": 910
+  }
+]
