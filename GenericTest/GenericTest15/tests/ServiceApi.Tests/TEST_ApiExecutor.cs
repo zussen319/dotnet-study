@@ -615,7 +615,7 @@ public class TEST_ApiExecutor
         var serviceProvider = services.BuildServiceProvider();
         var executor = serviceProvider.GetRequiredService<ApiExecutor>();
 
-        // 共通メソッド内で new するのではなく、引数のラムダを実行してインスタンスを得る
+        // 引数のラムダを実行してインスタンスを得る
         var request = createRequest();
 
         var results = new List<TResponse>();
