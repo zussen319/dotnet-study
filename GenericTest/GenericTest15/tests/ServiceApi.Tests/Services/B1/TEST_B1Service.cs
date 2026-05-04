@@ -2,9 +2,10 @@
 using ServiceApi.Requests.B1;
 using ServiceApi.Responses.B1;
 using ServiceApi.Services.B1;
-using System.Data;
-
+using ServiceApi.Tests.Common;
 using ServiceApi.Tests.Responses.B1;
+using System.Data;
+using System.Data.Common;
 
 namespace ServiceApi.Tests.Services.B1;
 
@@ -23,8 +24,7 @@ public class TEST_B1Service
          * ・取得データ件数が一致すること
          * ・個々の取得データが一致すること
          */
-
-        OracleDbExecutor ora = new(_connectionString);
+        TEST_DbManipulator dbm = new(_connectionString);
 
         //
         // 確認用データ取得
@@ -40,9 +40,34 @@ public class TEST_B1Service
         {
             p.Add(new OracleParameter("DEPTNO", deptNo));
         };
-        DataTable expectDt = ora.ExecuteQuery(sql, bindAction);
+#if false
+        Func<DbDataReader, B1Response> mapFunc = r => new B1Response
+        {
+            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
+            ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
+                ? string.Empty : r.GetString(r.GetOrdinal("ENAME")),
+            JOB = r.IsDBNull(r.GetOrdinal("JOB"))
+                ? string.Empty : r.GetString(r.GetOrdinal("JOB")),
+            MGR = r.IsDBNull(r.GetOrdinal("MGR"))
+                ? null : r.GetDecimal(r.GetOrdinal("MGR")),
+            HIREDATE = r.IsDBNull(r.GetOrdinal("HIREDATE"))
+                ? string.Empty : r.GetString(r.GetOrdinal("HIREDATE")),
+            SAL = r.IsDBNull(r.GetOrdinal("SAL"))
+                ? null : r.GetDecimal(r.GetOrdinal("SAL")),
+            COMM = r.IsDBNull(r.GetOrdinal("COMM"))
+                ? null : r.GetDecimal(r.GetOrdinal("COMM")),
+            DEPTNO = r.IsDBNull(r.GetOrdinal("DEPTNO"))
+                ? null : r.GetDecimal(r.GetOrdinal("DEPTNO"))
+        };
+        List<B1Response> expectList = [];
+        await foreach (var item in dbm.ExecuteQueryAsync<B1Response>(sql, bindAction, mapFunc))
+        {
+            expectList.Add(item);
+        }
+#else
+        DataTable expectDt = dbm.ExecuteQuery(sql, bindAction);
 
-        List<B1Response> expectList = new();
+        List<B1Response> expectList = [];
         int rows = expectDt.Rows.Count;
         foreach (DataRow row in expectDt.Rows)
         {
@@ -58,13 +83,14 @@ public class TEST_B1Service
                 DEPTNO = row["DEPTNO"] == DBNull.Value ? null : Convert.ToDecimal(row["DEPTNO"])
             });
         }
+#endif
 
         //
         // テスト実行
         //
         B1Service service = new(_connectionString);
         B1Request request = new(){ DEPTNO = deptNo };
-        List<B1Response> resultList = new();
+        List<B1Response> resultList = [];
         await foreach (var item in service.ExecuteAsync(request))
         {
             resultList.Add(item);
@@ -88,7 +114,7 @@ public class TEST_B1Service
 
 #if true
     /*
-     * これらはExecuteAsync_Test01により確認できているため不要
+     * これらはExecuteAsync_Test01により確認できているため不要と判断
      */
     [Theory]
     [InlineData(10, 3)] // 部門10には3件のデータがある想定

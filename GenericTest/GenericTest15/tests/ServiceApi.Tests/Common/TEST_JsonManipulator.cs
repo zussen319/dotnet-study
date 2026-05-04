@@ -1,9 +1,8 @@
-﻿#if false
-using System.Text.Json;
+﻿using System.Text.Json;
 
-namespace ServiceApi.Tests;
+namespace ServiceApi.Tests.Common;
 
-public static class TestDataLoader
+public class TEST_JsonManipulator
 {
     /// <summary>
     /// 指定されたJSONファイルを読み込み、指定した型のリストとして返します。
@@ -32,4 +31,3 @@ public static class TestDataLoader
         return JsonSerializer.Deserialize<List<TResponse>>(jsonString, options) ?? new List<TResponse>();
     }
 }
-#endif
