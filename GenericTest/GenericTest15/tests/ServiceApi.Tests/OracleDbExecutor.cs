@@ -36,8 +36,14 @@ public class OracleDbExecutor(string connectionString) : IDisposable
         }
     }
 
+    /// <summary>
+    /// SQLを実行し、結果をDataTableで返却する（SELECT専用）
+    /// </summary>
     public DataTable ExecuteQuery(string sql) => ExecuteQuery(sql, _ => { });
 
+    /// <summary>
+    /// SQLを実行し、結果をDataTableで返却する（SELECT専用）
+    /// </summary>
     public DataTable ExecuteQuery(
         string sql,
         Action<OracleParameterCollection> bindAction)

@@ -40,3 +40,72 @@ public class TEST_B1ResponseComparer : TEST_ResponseComparerBase<B1Response>
         return hash.ToHashCode();
     }
 }
+
+#region テストコード
+
+public class ComparerTest
+{
+    /*
+     * TEST_B1ResponseComparer がすべてのプロパティを正しく比較できているかを検証する
+     */
+    [Fact]
+    public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
+    {
+        // Arrange
+        var obj1 = new B1Response { EMPNO = 1, ENAME = "A" };
+        var obj2 = new B1Response { EMPNO = 1, ENAME = "A" };
+        var comparer = TEST_B1ResponseComparer.Default;
+
+        // Act & Assert
+        Assert.True(comparer.Equals(obj1, obj2));
+    }
+
+    [Theory]
+    [InlineData(2, "A")] // EMPNOが違う
+    [InlineData(1, "B")] // ENAMEが違う
+    public void Equals_ShouldReturnFalse_WhenAnyPropertyDiffers(decimal empno, string ename)
+    {
+        // Arrange
+        var obj1 = new B1Response { EMPNO = 1, ENAME = "A" };
+        var obj2 = new B1Response { EMPNO = empno, ENAME = ename };
+        var comparer = TEST_B1ResponseComparer.Default;
+
+        // Act & Assert
+        Assert.False(comparer.Equals(obj1, obj2));
+    }
+
+    [Fact]
+    public void GetHashCode_ShouldBeSame_ForIdenticalObjects()
+    {
+        // Arrange
+        var obj1 = new B1Response { EMPNO = 100, ENAME = "KING" };
+        var obj2 = new B1Response { EMPNO = 100, ENAME = "KING" };
+        var comparer = TEST_B1ResponseComparer.Default;
+
+        // Act & Assert
+        Assert.Equal(comparer.GetHashCode(obj1), comparer.GetHashCode(obj2));
+    }
+
+    /*
+     * リスト内存在チェックのテスト
+     */
+    [Fact]
+    public void List_Contains_ShouldWorkWithCustomComparer()
+    {
+        // Arrange
+        var target = new B1Response { EMPNO = 10, ENAME = "ACCOUNTING" };
+        var list = new List<B1Response>
+        {
+            new B1Response { EMPNO = 20, ENAME = "RESEARCH" },
+            new B1Response { EMPNO = 10, ENAME = "ACCOUNTING" } // これを見つけたい
+        };
+
+        // Act
+        // 自作したComparerを第2引数に渡す
+        bool exists = list.Contains(target, TEST_B1ResponseComparer.Default);
+
+        // Assert
+        Assert.True(exists);
+    }
+}
+#endregion
