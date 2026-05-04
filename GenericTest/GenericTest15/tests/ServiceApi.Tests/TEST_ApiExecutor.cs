@@ -630,12 +630,13 @@ public class TEST_ApiExecutor
     public async Task Test_B1Service_WithGenericRunner()
     {
         // 1. Act: 共通ランナーで実行し、結果を受け取る
-        List<B1Response> results = await ExecuteGenericServiceTest<B1Service_Test, B1Request, B1Response>(() =>
-            new B1Request
-            {
-                DEPTNO = 10
-            }
-        );
+        List<B1Response> results = 
+            await ExecuteGenericServiceTest<B1Service_Test, B1Request, B1Response>(() =>
+                new B1Request
+                {
+                    DEPTNO = 10
+                }
+            );
 
         int cnt = results.Count;
         // 2. Assert: B1サービス特有の検証を行う
