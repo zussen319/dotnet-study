@@ -195,4 +195,105 @@ public class TEST_ApiExecutor
             }
         });
     }
+
+    [Fact]
+    public async Task RunAsync_WhenServiceThrowsException_ShouldStillDisposeScope()
+    {
+        /*
+         * ApiExecutor 内の using var scope が、例外発生時（catch を通った後）でも
+         * 確実に Dispose を呼び出していることを確認する
+         */
+        /*
+         * このテストの注目ポイント
+         * Assert.ThrowsAsync:
+         * ApiExecutor が内部で例外を握りつぶさず、呼び出し元に正しく伝えているかを
+         * チェックしています。
+         * 
+         * scopeMock.Verify(..., Times.Once):
+         * これが今回の肝です。finally ブロックが機能していれば、途中で処理が吹き飛んでも
+         * 必ず Dispose() が呼ばれるはずです。
+         * 
+         * DIスコープの身代わり:
+         * IServiceScopeFactory から順にモックをセットアップすることで、
+         * using var scope = ... の動きを完全に再現しています。
+         */
+        /*
+         * 1. Assert.ThrowsAsync の正当性
+         * ApiExecutor の実装を見ると、内部で catch (Exception ex) を行い、
+         * ログを出力した後に throw; しています。
+         * テストの価値: もし誤って throw; を書き忘れたり、例外を握りつぶしたり
+         * するようにコードを変更してしまった場合、このテストが即座に失敗します。
+         * 安心感: 呼び出し元（Program.cs など）がエラーを検知してプロセスを終了させたり、
+         * リトライしたりする「連鎖」が壊れていないことを保証しています。
+         * 
+         * 2. scopeMock.Verify の重要性
+         * ApiExecutor では using var scope = ... を使用しています。
+         * テストの価値: 非同期ストリーム（yield return）を扱うコードは、
+         * 例外が起きた時に「どこまで実行されて、どこを通らないか」が複雑になりがちです。
+         * 安心感: finally や using によるクリーンアップが、たとえ DB 接続エラーや
+         * システム例外が起きても、確実にリソースを解放することを数値（Times.Once）で証明しています。
+         * これは本番環境での接続プール枯渇（リーク）を防ぐための最強の盾です。
+         * 
+         * 3. DIスコープの再現
+         * serviceProvider.CreateScope() という一見シンプルな1行をモックするのは
+         * 少し手間がかかりますが、ここを正しく記述したことでテストの信頼性が高まっています。
+         * テストの価値: 実際の .NET 実行時と同じ
+         * 「Provider -> Factory -> Scope -> Provider -> Service」
+         * という解決の鎖をシミュレートできています。
+         * 安心感: ApiExecutor が「DIコンテナの仕組みを正しく利用して、
+         * スコープ付きサービスを取り出しているか」というDIの作法そのものがテストされています。
+         */
+        // 1. Setup: モックの準備
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        var scopeMock = new Mock<IServiceScope>();
+        var scopeServiceProviderMock = new Mock<IServiceProvider>(); // Scope内部のProvider
+        var serviceMock = new Mock<B1Service>();
+
+        // --- DIの連鎖を定義 ---
+
+        // serviceProvider.CreateScope() が呼ばれたら scopeMock を返す
+        // ※CreateScope は拡張メソッドなので、内部で呼ばれる IServiceScopeFactory をモックする
+        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        serviceProviderMock
+            .Setup(x => x.GetService(typeof(IServiceScopeFactory)))
+            .Returns(scopeFactoryMock.Object);
+
+        scopeFactoryMock
+            .Setup(x => x.CreateScope())
+            .Returns(scopeMock.Object);
+
+        // scope.ServiceProvider が呼ばれたら、その内部用Providerを返す
+        scopeMock.Setup(x => x.ServiceProvider).Returns(scopeServiceProviderMock.Object);
+
+        // scope内部のProviderから B1Service を取得できるようにする
+        scopeServiceProviderMock
+            .Setup(x => x.GetService(typeof(B1Service)))
+            .Returns(serviceMock.Object);
+
+        // 2. 異常系の設定: サービスが呼び出されたら例外を投げるようにする
+        // ExecuteAsync 自体は IAsyncEnumerable を返すので、
+        // ここでは yield return の代わりに例外を投げるヘルパーを定義するか、単純に例外を投げます
+        serviceMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<B1Request>()))
+            .Throws(new InvalidOperationException("予期せぬエラー"));
+
+        // テスト対象のインスタンス化 (ServiceProviderを渡す)
+        var executor = new ApiExecutor(serviceProviderMock.Object);
+
+        // 3. Execution & Assertion: 例外が外まで伝播することを確認
+        // 第1引数にダミーのRequestオブジェクトを渡します
+        var request = new B1Request { DEPTNO = 10 };
+
+        // IAsyncEnumerable なので、列挙を開始した瞬間に例外が発生することを検証
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in executor.RunAsync<B1Service, B1Request, B1Response>(request))
+            {
+                // ここには到達しないはず
+            }
+        });
+
+        // 4. Verification: 重要！例外が起きても Dispose が呼ばれたか
+        scopeMock.Verify(x => x.Dispose(), Times.Once, "例外発生時でも Scope は破棄されるべきです。");
+    }
 }
