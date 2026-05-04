@@ -597,4 +597,51 @@ public class TEST_ApiExecutor
             }
         }
     }
+
+    // 複数サービスクラスの対応（共通処理）
+    private async Task<List<TResponse>> ExecuteGenericServiceTest<TService, TRequest, TResponse>(
+        Func<TRequest> createRequest)
+        where TService : class, IApiService<TRequest, TResponse>
+        where TRequest : RequestBase
+        where TResponse : ResponseBase
+    {
+        var services = new ServiceCollection();
+        services.AddTransient<ApiExecutor>();
+
+        // TService のインスタンス化
+        services.AddTransient<TService>(sp =>
+            (TService)Activator.CreateInstance(typeof(TService), _connectionString)!);
+
+        var serviceProvider = services.BuildServiceProvider();
+        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
+
+        // 共通メソッド内で new するのではなく、引数のラムダを実行してインスタンスを得る
+        var request = createRequest();
+
+        var results = new List<TResponse>();
+        await foreach (var response in executor.RunAsync<TService, TRequest, TResponse>(request))
+        {
+            results.Add(response);
+        }
+        return results;
+    }
+
+    [Fact]
+    public async Task Test_B1Service_WithGenericRunner()
+    {
+        // 1. Act: 共通ランナーで実行し、結果を受け取る
+        List<B1Response> results = await ExecuteGenericServiceTest<B1Service_Test, B1Request, B1Response>(() =>
+            new B1Request
+            {
+                DEPTNO = 10
+            }
+        );
+
+        int cnt = results.Count;
+        // 2. Assert: B1サービス特有の検証を行う
+        //Assert.NotNull(results);
+        //Assert.Equal(3, results.Count); // 例えば3件返ってくるはず、という検証
+        //Assert.Equal("ACCOUNTING", results[0].DNAME); // 1件目の部署名が正しいか
+    }
+
 }
