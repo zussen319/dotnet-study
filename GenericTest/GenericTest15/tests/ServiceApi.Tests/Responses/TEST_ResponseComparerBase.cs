@@ -14,7 +14,7 @@ public abstract class TEST_ResponseComparerBase<TResponse> : IEqualityComparer<T
         if (ReferenceEquals(obj1, obj2)) return true;
         if (obj1 == null || obj2 == null) return false;
 
-        // 具体的な比較は子クラスに任せる
+        // 具体的な比較は派生クラスに任せる
         return EqualsCore(obj1, obj2);
     }
 
@@ -24,7 +24,7 @@ public abstract class TEST_ResponseComparerBase<TResponse> : IEqualityComparer<T
         return GetHashCodeCore(obj);
     }
 
-    // 子クラスで実装する抽象メソッド
+    // 派生クラスで実装する抽象メソッド
     protected abstract bool EqualsCore(TResponse obj1, TResponse obj2);
     protected abstract int GetHashCodeCore(TResponse obj);
 }

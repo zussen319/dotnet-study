@@ -7,16 +7,6 @@ public class OracleDbExecutor(string connectionString) : IDisposable
 {
     private OracleConnection Connection = new OracleConnection(connectionString);
 
-#if false
-    // コネクションを作成するヘルパー
-    private async Task<OracleConnection> CreateConnectionAsync()
-    {
-        var conn = new OracleConnection(connectionString);
-        await conn.OpenAsync();
-        return conn;
-    }
-#endif
-
     /// <summary>
     /// SQLを実行し、結果を1行ずつマッピングして返却する（SELECT専用）
     /// </summary>
@@ -25,7 +15,6 @@ public class OracleDbExecutor(string connectionString) : IDisposable
         object? parameters,
         Func<IDataRecord, T> map)
     {
-        //using var conn = await CreateConnectionAsync();
         using var cmd = Connection.CreateCommand();
         cmd.CommandText = sql;
 
@@ -65,6 +54,9 @@ public class OracleDbExecutor(string connectionString) : IDisposable
         return dt;
     }
 
+    /// <summary>
+    /// コネクションを解放する
+    /// </summary>
     public void Dispose()
     {
         if (this.Connection?.State == ConnectionState.Open)
