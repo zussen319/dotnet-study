@@ -6,6 +6,29 @@ namespace ServiceApi.Tests.Services.B1;
 
 public class TEST_B1Service_Test
 {
+    /*
+     * Json形式でデータを取得するSQL：
+        SET PAGESIZE 0
+        SET FEEDBACK OFF
+        SET LINESIZE 32767
+        SET LONG 2000000
+        SET TRIMSPOOL ON
+        SPOOL 'C:\temp\B1Service_Test.txt'
+        SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+                'EMPNO'    VALUE EMPNO,
+                'ENAME'    VALUE ENAME,
+                'JOB'      VALUE JOB,
+                'MGR'      VALUE MGR,
+                'HIREDATE' VALUE TO_CHAR(HIREDATE, 'yyyy/mm/dd'),
+                'SAL'      VALUE SAL,
+                'COMM'     VALUE COMM,
+                'DEPTNO'   VALUE DEPTNO
+            ) RETURNING CLOB
+        )
+        FROM EMP ORDER BY EMPNO;
+        SPOOL OFF
+    */
     //[Fact] // このメソッドがテストであることを示す属性：「引数なし」の単一テスト用
     // [Theory] は「データ駆動（引数あり）」テスト用
     //[Theory]

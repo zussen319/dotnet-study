@@ -10,6 +10,9 @@ namespace ServiceApi.Tests.Services.B1;
 
 public class TEST_B1Service
 {
+    private const string _connectionString =
+        "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
+
     [Theory]
     [InlineData(20)]  // 存在するデータ
     [InlineData(999)] // 存在しないデータ
@@ -21,8 +24,7 @@ public class TEST_B1Service
          * ・個々の取得データが一致すること
          */
 
-        string connectionString = "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
-        OracleDbExecutor ora = new(connectionString);
+        OracleDbExecutor ora = new(_connectionString);
 
         //
         // 確認用データ取得
@@ -60,7 +62,7 @@ public class TEST_B1Service
         //
         // テスト実行
         //
-        B1Service service = new(connectionString);
+        B1Service service = new(_connectionString);
         B1Request request = new(){ DEPTNO = deptNo };
         List<B1Response> resultList = new();
         await foreach (var item in service.ExecuteAsync(request))
@@ -83,4 +85,71 @@ public class TEST_B1Service
         }
         Assert.True(isMatch);
     }
+
+#if true
+    /*
+     * これらはExecuteAsync_Test01により確認できているため不要
+     */
+    [Theory]
+    [InlineData(10, 3)] // 部門10には3件のデータがある想定
+    [InlineData(20, 5)] // 部門20には5件のデータがある想定
+    public async Task ExecuteAsync_ShouldReturnDataFromDatabase(decimal deptNo, int expectedCount)
+    {
+        // Arrange
+        var service = new B1Service(_connectionString);
+        var request = new B1Request { DEPTNO = deptNo };
+        var results = new List<B1Response>();
+
+        // Act
+        await foreach (var item in service.ExecuteAsync(request))
+        {
+            results.Add(item);
+        }
+
+        // Assert
+        Assert.Equal(expectedCount, results.Count);
+
+        // データの整合性チェック（例：最初の1件のEMPNOが0でない等）
+        Assert.All(results, r => Assert.True(r.EMPNO > 0));
+        Assert.All(results, r => Assert.NotNull(r.ENAME));
+    }
+
+    /*
+     * B1ServiceとB1Service_Testの結果を比較する
+     * （B1Service_Test.jsonで読み込むデータには、実テーブルの全データを登録しておく）
+     */
+    [Theory]
+    [InlineData(10)]
+    public async Task Compare_RealService_With_TestService(decimal deptNo)
+    {
+        // Arrange
+        var realService = new B1Service(_connectionString);
+        var testService = new B1Service_Test(_connectionString);
+        var request = new B1Request { DEPTNO = deptNo };
+
+        var realList = new List<B1Response>();
+        var testList = new List<B1Response>();
+
+        // Act
+        await foreach (var r in realService.ExecuteAsync(request)) realList.Add(r);
+        await foreach (var t in testService.ExecuteAsync(request)) testList.Add(t);
+
+        // testListにはJsonファイルの全データがロードされるため
+        // request.DEPTNO と一致するものだけを抽出し、List を作り直す
+        var filteredTestList = testList
+            .Where(x => x.DEPTNO == request.DEPTNO)
+            .ToList();
+
+        // Assert
+        Assert.Equal(realList.Count, filteredTestList.Count);
+
+        // 以前作成した TEST_B1ResponseComparer を使って全プロパティを比較
+        var comparer = TEST_B1ResponseComparer.Default;
+        for (int i = 0; i < realList.Count; i++)
+        {
+            Assert.Equal(realList[i], filteredTestList[i], comparer);
+        }
+    }
+#endif
+
 }
