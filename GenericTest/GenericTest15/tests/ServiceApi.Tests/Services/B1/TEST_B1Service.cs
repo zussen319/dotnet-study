@@ -11,8 +11,13 @@ namespace ServiceApi.Tests.Services.B1;
 
 public class TEST_B1Service
 {
+#if true
+    private readonly string _connectionString =
+        TEST_ConfigurationManager.GetValue<string>(ConfigId.ConnectionString);
+#else
     private const string _connectionString =
         "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
+#endif
 
     [Theory]
     [InlineData(20,true)]   // 存在するデータ (dataExists:true)
