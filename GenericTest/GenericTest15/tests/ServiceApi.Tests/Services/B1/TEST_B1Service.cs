@@ -17,7 +17,7 @@ public class TEST_B1Service
     [Theory]
     [InlineData(20,true)]   // 存在するデータ (dataExists:true)
     [InlineData(999,false)] // 存在しないデータ (dataExists:false)
-    public async Task ExecuteAsync_Test01(decimal deptNo, bool dataExists)
+    public async Task ExecuteAsync_検索処理が正常に動作すること(decimal deptNo, bool dataExists)
     {
         /*
          * B1Service: ExecuteAsyncで取得した結果が、独自に取得した結果と一致すること

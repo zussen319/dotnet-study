@@ -49,7 +49,7 @@ public class ComparerTest
      * TEST_B1ResponseComparer がすべてのプロパティを正しく比較できているかを検証する
      */
     [Fact]
-    public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
+    public void Equals_全プロパティ一致時にTrueを返す()
     {
         // Arrange
         var obj1 = new B1Response { EMPNO = 1, ENAME = "A" };
@@ -63,7 +63,7 @@ public class ComparerTest
     [Theory]
     [InlineData(2, "A")] // EMPNOが違う
     [InlineData(1, "B")] // ENAMEが違う
-    public void Equals_ShouldReturnFalse_WhenAnyPropertyDiffers(decimal empno, string ename)
+    public void Equals_プロパティ不一致時にFalseを返す(decimal empno, string ename)
     {
         // Arrange
         var obj1 = new B1Response { EMPNO = 1, ENAME = "A" };
@@ -75,7 +75,7 @@ public class ComparerTest
     }
 
     [Fact]
-    public void GetHashCode_ShouldBeSame_ForIdenticalObjects()
+    public void GetHashCode_ハッシュコード一致確認()
     {
         // Arrange
         var obj1 = new B1Response { EMPNO = 100, ENAME = "KING" };
@@ -86,11 +86,12 @@ public class ComparerTest
         Assert.Equal(comparer.GetHashCode(obj1), comparer.GetHashCode(obj2));
     }
 
+#if false
     /*
-     * リスト内存在チェックのテスト
+     * リスト内存在チェック
      */
     [Fact]
-    public void List_Contains_ShouldWorkWithCustomComparer()
+    public void List_Contains_リスト内存在チェック_該当あり()
     {
         // Arrange
         var target = new B1Response { EMPNO = 10, ENAME = "ACCOUNTING" };
@@ -106,6 +107,32 @@ public class ComparerTest
 
         // Assert
         Assert.True(exists);
+    }
+#endif
+
+    /*
+     * リスト内存在チェック
+     */
+    [Theory]
+    [InlineData(10, "ACCOUNTING", true)] // 一致あり（完全一致）
+    [InlineData(20, "ACCOUNTING", false)] // 一致なし（部分一致：不一致とみなす）
+    [InlineData(99, "TEST", false)] // 一致なし
+    public void List_Contains_リスト内存在チェック(decimal empNo, string ename, bool expectResult)
+    {
+        // Arrange
+        var target = new B1Response { EMPNO = empNo, ENAME = ename };
+        var list = new List<B1Response>
+        {
+            new B1Response { EMPNO = 20, ENAME = "RESEARCH" },
+            new B1Response { EMPNO = 10, ENAME = "ACCOUNTING" }
+        };
+
+        // Act
+        // 自作したComparerを第2引数に渡す
+        bool exists = list.Contains(target, TEST_B1ResponseComparer.Default);
+
+        // Assert
+        Assert.True(exists == expectResult);
     }
 }
 #endregion

@@ -32,7 +32,7 @@ public class TEST_B1Service_Test
     */
     //[Fact(DisplayName = "B1Service_Test：JSONデータ読み込み")]
     [Fact]
-    public async Task ExecuteAsync_JSONデータ読み込み()
+    public async Task ExecuteAsync_テスト用JSONデータからResponseオブジェクトが生成されること()
     {
         /*
          * 指定したJsonファイルを読み込み、B1Responseオブジェクトを生成できること
