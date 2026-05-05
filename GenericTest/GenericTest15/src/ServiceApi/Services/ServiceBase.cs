@@ -125,6 +125,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// </summary>
     public void Dispose()
     {
+        // Connection.Close() を明示的に呼んでから Dispose すると、
+        // Oracleのセッションが即座に解放されやすくなり、DB側に優しいです。
         if (this.Connection is { State: ConnectionState.Open }) { this.Connection.Close(); }
         this.Connection?.Dispose();
         GC.SuppressFinalize(this);
@@ -136,7 +138,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
     public async ValueTask DisposeAsync()
     {
         if (this.Connection is { State: ConnectionState.Open }) { await this.Connection.CloseAsync(); }
-        if (this.Connection != null) { await this.Connection.DisposeAsync(); }
+        if (this.Connection is not null) { await this.Connection.DisposeAsync(); }
         GC.SuppressFinalize(this);
     }
 #else
