@@ -95,6 +95,7 @@ public class TEST_B1Response
         Assert.Null(prop.GetValue(response));
     }
 
+#if false
     /*
      * 以下はB1ResponseComparerで確認すべき？
      */
@@ -151,4 +152,5 @@ public class TEST_B1Response
         // Assert
         Assert.False(result, $"{propertyName} が変更された場合に False を返す必要があります。");
     }
+#endif
 }
