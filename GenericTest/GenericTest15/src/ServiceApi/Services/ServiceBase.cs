@@ -9,7 +9,7 @@ namespace ServiceApi.Services;
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
-) : IApiService<TRequest, TResponse>, IDisposable
+) : IApiService<TRequest, TResponse>, IDisposable, IAsyncDisposable // IAsyncDisposableを追加
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
@@ -37,6 +37,11 @@ public abstract class ServiceBase<TRequest, TResponse>(
         }
     }
 
+    /*
+     * ExecuteQueryAsync(string sql)（引数1つのもの）は、
+     * 基本の ExecuteQueryAsync(sql, _ => {}) で代用できるため、
+     * 具象クラスでの利用頻度が低ければ削除しても問題ありません。
+     */
     protected virtual IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(string sql)
         => ExecuteQueryAsync(sql, _ => { });
 
@@ -45,6 +50,16 @@ public abstract class ServiceBase<TRequest, TResponse>(
         string sql,
         Action<OracleParameterCollection> bindAction)
     {
+#if true
+        // 接続状態を確認 
+        if (this.Connection is { State: ConnectionState.Closed })
+        {
+            await this.Connection.OpenAsync();
+        }
+
+        // コマンド作成・パラメータのバインド前に名前解決を有効化
+        using var cmd = new OracleCommand(sql, Connection) { BindByName = true };
+#else
         // 接続状態を確認 
         if (this.Connection.State != ConnectionState.Open)
         {
@@ -56,11 +71,13 @@ public abstract class ServiceBase<TRequest, TResponse>(
 
         // パラメータをバインドする前に名前解決を有効化
         cmd.BindByName = true;
+#endif
 
         // デリゲートを実行してパラメータを埋め込む
         // bindAction(cmd.Parameters) により、具象クラス側で定義した詰め物処理が動く
         bindAction(cmd.Parameters);
 
+        // CommandBehavior.Default でも良いですが、念のため
         using var reader = await cmd.ExecuteReaderAsync();
 
         // FetchSizeの最適化
@@ -102,8 +119,29 @@ public abstract class ServiceBase<TRequest, TResponse>(
         }
     }
 
+#if true
     /// <summary>
-    /// リソース解放
+    /// 同期的リソース解放
+    /// </summary>
+    public void Dispose()
+    {
+        if (Connection is { State: ConnectionState.Open }) Connection.Close();
+        Connection?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// 非同期的リソース解放
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (Connection is { State: ConnectionState.Open }) await Connection.CloseAsync();
+        if (Connection != null) await Connection.DisposeAsync();
+        GC.SuppressFinalize(this);
+    }
+#else
+    /// <summary>
+    /// 同期的リソース解放
     /// </summary>
     public void Dispose()
     {
@@ -118,4 +156,42 @@ public abstract class ServiceBase<TRequest, TResponse>(
 
         GC.SuppressFinalize(this);
     }
+
+    /*
+     * バッチプログラムにおいて大量データを扱う場合、DB接続の解放待ち（I/O待ち）で
+     * スレッドが止まるのを防ぐため、DisposeAsync を実装します。
+     * ApiExecutor 側で await enumerator.DisposeAsync() が実行されると、
+     * この ServiceBase.DisposeAsync まで非同期の波が伝わり、理想的なリソース解放が行われます。
+     */
+
+    /// <summary>
+    /// 非同期的リソース解放
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        /*
+         * ?.（null条件演算子）と await の組み合わせは、対象が null の場合に 
+         * null（あるいは完了済みの ValueTask）として扱われるため、
+         * 実行時に例外を投げることなく安全にスルーされます。
+         */
+        if (Connection is { State: ConnectionState.Open })
+        {
+            await Connection.CloseAsync();
+        }
+        await (Connection?.DisposeAsync() ?? ValueTask.CompletedTask);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (Connection?.State == ConnectionState.Open)
+            {
+                Connection.Close();
+            }
+            Connection?.Dispose();
+        }
+    }
+#endif
 }
