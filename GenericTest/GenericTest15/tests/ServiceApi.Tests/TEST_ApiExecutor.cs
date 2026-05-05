@@ -602,9 +602,10 @@ public class TEST_ApiExecutor
     }
 #endif
 
+#if false
     [Theory]
     [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
+    public async Task RunAsync_正常系_B1Service実行_00(decimal deptNo)
     {
         // 1. Arrange: 本番同様の DI コンテナを構築
         var services = new ServiceCollection();
@@ -635,7 +636,7 @@ public class TEST_ApiExecutor
 
     [Theory]
     [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
+    public async Task RunAsync_正常系_B1Service_Test実行_00(decimal deptNo)
     {
         // 1. Arrange: 本番同様の DI コンテナを構築
         var services = new ServiceCollection();
@@ -663,29 +664,33 @@ public class TEST_ApiExecutor
 
         // 例外が発生しなければOK
     }
+#endif
 
-    // 複数サービスクラスの対応（共通処理）
-    private async Task<List<TResponse>> InvokeRunAsync<TService, TRequest, TResponse>(
+    // DIコンテナ構築・Executor実行（共通処理）
+    private async Task<List<TResponse>> InvokeTestExecutor<TService, TRequest, TResponse>(
         Func<TRequest> createRequest)
         where TService : class, IApiService<TRequest, TResponse>
         where TRequest : RequestBase
         where TResponse : ResponseBase
     {
+        // DIコンテナを構築
         var services = new ServiceCollection();
+
+        // ApiExecutorを登録
         services.AddTransient<ApiExecutor>();
 
-        // TService のインスタンス化
+        // TServiceのインスタンス化
         services.AddTransient<TService>(sp =>
             (TService)Activator.CreateInstance(typeof(TService), _connectionString)!);
 
+        // コンテナをビルド
         var serviceProvider = services.BuildServiceProvider();
+        // executorをコンテナから取り出す
         var executor = serviceProvider.GetRequiredService<ApiExecutor>();
 
-        // 引数のラムダを実行してインスタンスを得る
-        var request = createRequest();
-
-        var results = new List<TResponse>();
-        await foreach (var response in executor.RunAsync<TService, TRequest, TResponse>(request))
+        // 実行
+        List<TResponse> results = [];
+        await foreach (var response in executor.RunAsync<TService, TRequest, TResponse>(createRequest()))
         {
             results.Add(response);
         }
@@ -694,10 +699,10 @@ public class TEST_ApiExecutor
 
     [Theory]
     [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service実行_02(decimal deptNo)
+    public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
     {
         List<B1Response> results =
-            await InvokeRunAsync<B1Service, B1Request, B1Response>(() =>
+            await InvokeTestExecutor<B1Service, B1Request, B1Response>(() =>
                 new B1Request
                 {
                     DEPTNO = deptNo
@@ -708,10 +713,10 @@ public class TEST_ApiExecutor
 
     [Theory]
     [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service_Test実行_02(decimal deptNo)
+    public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
     {
         List<B1Response> results =
-            await InvokeRunAsync<B1Service_Test, B1Request, B1Response>(() =>
+            await InvokeTestExecutor<B1Service_Test, B1Request, B1Response>(() =>
                 new B1Request
                 {
                     DEPTNO = deptNo
@@ -719,7 +724,6 @@ public class TEST_ApiExecutor
             );
         // 例外が発生しなければOK
     }
-
 
     // ▼▼▼ CancellationToken対応テスト ▼▼▼
     /*
