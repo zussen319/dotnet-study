@@ -15,9 +15,9 @@ public class TEST_B1Service
         "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
 
     [Theory]
-    [InlineData(20)]  // 存在するデータ
-    [InlineData(999)] // 存在しないデータ
-    public async Task ExecuteAsync_Test01(decimal deptNo)
+    [InlineData(20,true)]   // 存在するデータ (dataExists:true)
+    [InlineData(999,false)] // 存在しないデータ (dataExists:false)
+    public async Task ExecuteAsync_Test01(decimal deptNo, bool dataExists)
     {
         /*
          * B1Service: ExecuteAsyncで取得した結果が、独自に取得した結果と一致すること
@@ -43,7 +43,6 @@ public class TEST_B1Service
 #if false
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response
         {
-#if true
             EMPNO = Convert.ToDecimal(r["EMPNO"]), // NOT NULL
             ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty,
             JOB = Convert.ToString(r["JOB"]) ?? string.Empty,
@@ -52,23 +51,6 @@ public class TEST_B1Service
             SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
             COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
             DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
-#else
-            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
-            ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
-                ? string.Empty : r.GetString(r.GetOrdinal("ENAME")),
-            JOB = r.IsDBNull(r.GetOrdinal("JOB"))
-                ? string.Empty : r.GetString(r.GetOrdinal("JOB")),
-            MGR = r.IsDBNull(r.GetOrdinal("MGR"))
-                ? null : r.GetDecimal(r.GetOrdinal("MGR")),
-            HIREDATE = r.IsDBNull(r.GetOrdinal("HIREDATE"))
-                ? string.Empty : r.GetString(r.GetOrdinal("HIREDATE")),
-            SAL = r.IsDBNull(r.GetOrdinal("SAL"))
-                ? null : r.GetDecimal(r.GetOrdinal("SAL")),
-            COMM = r.IsDBNull(r.GetOrdinal("COMM"))
-                ? null : r.GetDecimal(r.GetOrdinal("COMM")),
-            DEPTNO = r.IsDBNull(r.GetOrdinal("DEPTNO"))
-                ? null : r.GetDecimal(r.GetOrdinal("DEPTNO"))
-#endif
         };
         List<B1Response> expectList = [];
         await foreach (var item in dbm.ExecuteQueryAsync<B1Response>(sql, bindAction, mapFunc))
@@ -95,6 +77,11 @@ public class TEST_B1Service
             });
         }
 #endif
+
+        // テストデータ準備確認（deptNo指定）
+        // ・存在するはずのデータが存在しない
+        // ・存在しないはずのデータが存在する
+        Assert.True((dataExists == (expectList.Count > 0)), $"テストデータ指定誤り (deptNo:{deptNo})");
 
         //
         // テスト実行
