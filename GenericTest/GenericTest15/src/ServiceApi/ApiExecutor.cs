@@ -80,6 +80,19 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                     if (!await enumerator.MoveNextAsync()) break;
                     response = enumerator.Current;
                 }
+#if true
+                catch (Exception ex)
+                {
+                    // エラーメッセージ生成
+                    string message = ex switch
+                    {
+                        OracleException ox => $"[Database Error] Code: {ox.Number}, Message: {ox.Message}",
+                        _ => $"[System Error] {ex.Message}"
+                    };
+                    Console.WriteLine(message);
+                    throw;
+                }
+#else
                 catch (OracleException ex)
                 {
                     Console.WriteLine($"[Database Error] Code: {ex.Number}, Message: {ex.Message}");
@@ -90,6 +103,7 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                     Console.WriteLine($"[System Error] {ex.Message}");
                     throw;
                 }
+#endif
 
                 // yield return は try-catch の外で行う
                 /*

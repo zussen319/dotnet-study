@@ -47,9 +47,13 @@ public abstract class TestServiceBase<TRequest, TResponse>
 
             // デシリアライズ（JSONからオブジェクトへ変換）
             // .NET 8/10では required メンバーのチェックも自動で行われます
+#if true
             var result = await JsonSerializer.DeserializeAsync<List<TResponse>>(openStream, options);
-
+            return (result is { Count: > 0 } ? result : []);
+#else
+            var result = await JsonSerializer.DeserializeAsync<List<TResponse>>(openStream, options);
             return result ?? [];
+#endif
         }
         catch (Exception ex)
         {
