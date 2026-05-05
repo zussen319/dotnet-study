@@ -44,14 +44,14 @@ public class TEST_B1Service
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response
         {
 #if true
-            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")),
-            ENAME = r.GetValue(r.GetOrdinal("ENAME")) as string ?? string.Empty,
-            JOB = r.GetValue(r.GetOrdinal("JOB")) as string ?? string.Empty,
-            MGR = r.GetValue(r.GetOrdinal("MGR")) as decimal?,
-            HIREDATE = r.GetValue(r.GetOrdinal("HIREDATE")) as string ?? string.Empty,
-            SAL = r.GetValue(r.GetOrdinal("SAL")) as decimal?,
-            COMM = r.GetValue(r.GetOrdinal("COMM")) as decimal?,
-            DEPTNO = r.GetValue(r.GetOrdinal("DEPTNO")) as decimal?
+            EMPNO = Convert.ToDecimal(r["EMPNO"]), // NOT NULL
+            ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty,
+            JOB = Convert.ToString(r["JOB"]) ?? string.Empty,
+            MGR = r["MGR"] is DBNull ? null : Convert.ToDecimal(r["MGR"]),
+            HIREDATE = Convert.ToString(r["HIREDATE"]) ?? string.Empty,
+            SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
+            COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
+            DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
 #else
             EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
             ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))

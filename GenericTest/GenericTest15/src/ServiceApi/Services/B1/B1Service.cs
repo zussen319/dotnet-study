@@ -31,6 +31,16 @@ public class B1Service(string connectionString)
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
         {
 #if true
+#if true
+            EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL
+            ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty,  // string
+            JOB = Convert.ToString(r["JOB"]) ?? string.Empty,
+            MGR = r["MGR"] is DBNull ? null : Convert.ToDecimal(r["MGR"]), // decimal
+            HIREDATE = Convert.ToString(r["HIREDATE"]) ?? string.Empty,
+            SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
+            COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
+            DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
+#else
             EMPNO = Convert.ToDecimal(r["EMPNO"]),
             ENAME = r["ENAME"] as string ?? string.Empty,
             JOB = r["JOB"] as string ?? string.Empty,
@@ -39,6 +49,7 @@ public class B1Service(string connectionString)
             SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
             COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
             DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
+#endif
 #else
             EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
             ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
