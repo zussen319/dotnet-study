@@ -77,7 +77,7 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                 try
                 {
                     // NomveNextAsync (次の行の取得) の失敗を catch する
-                    if (!await enumerator.MoveNextAsync()) break;
+                    if (!await enumerator.MoveNextAsync()) { break; }
                     response = enumerator.Current;
                 }
 #if true

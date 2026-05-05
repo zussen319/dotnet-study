@@ -9,7 +9,7 @@ namespace ServiceApi.Services;
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
-) : IApiService<TRequest, TResponse>, IDisposable, IAsyncDisposable // IAsyncDisposableを追加
+) : IApiService<TRequest, TResponse>, IDisposable, IAsyncDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
@@ -125,8 +125,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// </summary>
     public void Dispose()
     {
-        if (Connection is { State: ConnectionState.Open }) Connection.Close();
-        Connection?.Dispose();
+        if (this.Connection is { State: ConnectionState.Open }) { this.Connection.Close(); }
+        this.Connection?.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -135,8 +135,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (Connection is { State: ConnectionState.Open }) await Connection.CloseAsync();
-        if (Connection != null) await Connection.DisposeAsync();
+        if (this.Connection is { State: ConnectionState.Open }) { await this.Connection.CloseAsync(); }
+        if (this.Connection != null) { await this.Connection.DisposeAsync(); }
         GC.SuppressFinalize(this);
     }
 #else
