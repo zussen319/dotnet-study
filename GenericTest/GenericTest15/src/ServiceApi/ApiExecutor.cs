@@ -37,12 +37,8 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
 
         // コンテナからインスタンスを取得
         TService service = scope.ServiceProvider.GetRequiredService<TService>();
-#if true
         // Service側の ExecuteAsync に ct を渡す
         var enumerator = service.ExecuteAsync(request, ct).GetAsyncEnumerator(ct);
-#else
-        var enumerator = service.ExecuteAsync(request).GetAsyncEnumerator();
-#endif
 
         // 正常終了したかどうかを管理するフラグ
         bool isCompleted = false;
@@ -88,14 +84,12 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                     if (!await enumerator.MoveNextAsync()) { break; }
                     response = enumerator.Current;
                 }
-#if true
                 catch (OperationCanceledException)
                 {
                     string message = MessageResourceProvider.GetMessage(MessageId.MSG005);
                     Console.WriteLine(message);
                     throw; // メイン側へ通知
                 }
-#endif
                 catch (Exception ex)
                 {
                     // エラーメッセージ生成
@@ -118,7 +112,6 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
             }
 
             isCompleted = true; // 正常に終了
-            //Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG002));
         }
         finally
         {

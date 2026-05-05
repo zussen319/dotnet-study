@@ -45,18 +45,11 @@ public abstract class TestServiceBase<TRequest, TResponse>
          * 読み込んだ分から即座に yield return できるようになり、
          * 本番用サービスの挙動（ストリーム処理）により近いスタブになります。
          */
-#if true
         // DeserializeAsyncEnumerable に ct を渡す
         var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
 
         // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
         await using var enumerator = enumerable.GetAsyncEnumerator(ct);
-#else
-        var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options);
-
-        // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
-        await using var enumerator = enumerable.GetAsyncEnumerator();
-#endif
 
         while (true)
         {
@@ -77,47 +70,8 @@ public abstract class TestServiceBase<TRequest, TResponse>
 
             if (item is null) { continue; }
 
-#if true
             await Task.Delay(1000, ct); // 待機シミュレーション（1秒待機中に中断可能）
-#else
-            await Task.Delay(1000); // 待機シミュレーション
-#endif
             yield return item;
         }
     }
-
-#if false
-/* このメソッドは使用していない */
-    /*
-     * Jsonシリアライズ
-     */
-    protected static async Task<List<TResponse>> LoadJsonDataAsync(string filePath)
-    {
-        // JSONのプロパティ名とC#のプロパティ名が完全一致している場合は
-        // オプション指定なしでも動作しますが、大文字小文字を区別しない設定が安全です。
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-        try
-        {
-            // ファイルをオープンして読み込み
-            using FileStream openStream = File.OpenRead(filePath);
-
-            // デシリアライズ（JSONからオブジェクトへ変換）
-            // .NET 8/10では required メンバーのチェックも自動で行われます
-            var result = await JsonSerializer.DeserializeAsync<List<TResponse>>(openStream, options);
-            return (result is { Count: > 0 } ? result : []);
-        }
-        catch (Exception ex)
-        {
-            // エラーハンドリング（ファイル不在、JSON構文エラー、requiredメンバ欠落など）
-            string filename = Path.GetFileName(filePath);
-            // MSG991: Error reading Json ({0}): {1}
-            string message = MessageResourceProvider.GetMessage(MessageId.MSG991, filename, ex.Message);
-            throw new InvalidOperationException(message, ex);
-        }
-    }
-#endif
 }

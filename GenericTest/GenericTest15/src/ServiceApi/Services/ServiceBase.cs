@@ -58,19 +58,11 @@ public abstract class ServiceBase<TRequest, TResponse>(
         Action<OracleParameterCollection> bindAction,
         [EnumeratorCancellation] CancellationToken ct = default) // 属性を追加
     {
-#if true
         // 接続状態を確認 
         if (this.Connection is { State: ConnectionState.Closed })
         {
             await this.Connection.OpenAsync(ct); // Tokenを渡す
         }
-#else
-        // 接続状態を確認 
-        if (this.Connection is { State: ConnectionState.Closed })
-        {
-            await this.Connection.OpenAsync();
-        }
-#endif
 
         // コマンド作成・パラメータのバインド前に名前解決を有効化
         using var cmd = new OracleCommand(sql, Connection) { BindByName = true };
@@ -79,13 +71,9 @@ public abstract class ServiceBase<TRequest, TResponse>(
         // bindAction(cmd.Parameters) により、具象クラス側で定義した詰め物処理が動く
         bindAction(cmd.Parameters);
 
-        // CommandBehavior.Default でも良いですが、念のため
-#if true
         // SQL実行自体にキャンセルを適用
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-#else
-        using var reader = await cmd.ExecuteReaderAsync();
-#endif
+        using var reader = await cmd.ExecuteReaderAsync(ct);  // CommandBehavior.Defaultでも良いですが、念のため
+
 
         // FetchSizeの最適化
         // 確定した RowSize を使って、FetchSizeを最適化する
@@ -127,7 +115,6 @@ public abstract class ServiceBase<TRequest, TResponse>(
         }
     }
 
-#if true
     /// <summary>
     /// 同期的リソース解放
     /// </summary>
@@ -149,59 +136,4 @@ public abstract class ServiceBase<TRequest, TResponse>(
         if (this.Connection is not null) { await this.Connection.DisposeAsync(); }
         GC.SuppressFinalize(this);
     }
-#else
-    /// <summary>
-    /// 同期的リソース解放
-    /// </summary>
-    public void Dispose()
-    {
-        // Connection.Close() を明示的に呼んでから Dispose すると、
-        // Oracleのセッションが即座に解放されやすくなり、DB側に優しいです。
-
-        if (this.Connection?.State == ConnectionState.Open) {
-            // ここはCloseAsync()ではなくClose()でよい
-            this.Connection.Close();
-        }
-        this.Connection?.Dispose();
-
-        GC.SuppressFinalize(this);
-    }
-
-    /*
-     * バッチプログラムにおいて大量データを扱う場合、DB接続の解放待ち（I/O待ち）で
-     * スレッドが止まるのを防ぐため、DisposeAsync を実装します。
-     * ApiExecutor 側で await enumerator.DisposeAsync() が実行されると、
-     * この ServiceBase.DisposeAsync まで非同期の波が伝わり、理想的なリソース解放が行われます。
-     */
-
-    /// <summary>
-    /// 非同期的リソース解放
-    /// </summary>
-    public async ValueTask DisposeAsync()
-    {
-        /*
-         * ?.（null条件演算子）と await の組み合わせは、対象が null の場合に 
-         * null（あるいは完了済みの ValueTask）として扱われるため、
-         * 実行時に例外を投げることなく安全にスルーされます。
-         */
-        if (Connection is { State: ConnectionState.Open })
-        {
-            await Connection.CloseAsync();
-        }
-        await (Connection?.DisposeAsync() ?? ValueTask.CompletedTask);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            if (Connection?.State == ConnectionState.Open)
-            {
-                Connection.Close();
-            }
-            Connection?.Dispose();
-        }
-    }
-#endif
 }
