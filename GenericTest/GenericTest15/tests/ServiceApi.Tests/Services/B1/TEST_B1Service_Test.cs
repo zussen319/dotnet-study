@@ -30,12 +30,6 @@ public class TEST_B1Service_Test
         FROM EMP ORDER BY EMPNO;
         SPOOL OFF
     */
-    //[Fact] // このメソッドがテストであることを示す属性：「引数なし」の単一テスト用
-    // [Theory] は「データ駆動（引数あり）」テスト用
-    //[Theory]
-    //[InlineData(920,3)] // ここで引数として渡したい値を指定
-    //[InlineData(910,1)] // 複数の値を試したい場合は、行を増やすだけ
-    //[InlineData(0,0)]   // 存在しない部門番号のテストなど
     //[Fact(DisplayName = "B1Service_Test：JSONデータ読み込み")]
     [Fact]
     public async Task ExecuteAsync_JSONデータ読み込み()
@@ -66,5 +60,44 @@ public class TEST_B1Service_Test
         // ・例外が発生しないこと
         // ・テストコード内で読み込んだ結果と件数が一致すること
         Assert.Equal(expectedList.Count, results.Count);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_待機中にキャンセルされ中断すること()
+    {
+        /*
+         * スタブ側（TestServiceBase）は Task.Delay を含んでいるため
+         * 「処理の途中でキャンセルされる」という、より現実的なテストが可能です。
+         */
+        // 1. 準備 (Arrange)
+        var service = new B1Service_Test("dummy_connection");
+        var request = new B1Request { DEPTNO = 999 };
+
+        // 500ms後にキャンセルを発動させる
+        // スタブには 2000ms (初期遅延) + 1000ms (1件ごと) の待機があるため、途中で止まるはず
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(500));
+
+        // 2. 実行 & 3. 検証 (Act & Assert)
+#if true
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var item in service.ExecuteAsync(request, cts.Token))
+            {
+                // 処理
+            }
+        });
+#else
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var item in service.ExecuteAsync(request, cts.Token))
+            {
+                // 成功（ここに来る前に止まるはず）
+            }
+        });
+#endif
+
+        // トークンが正しく紐付いているかも確認可能
+        Assert.Equal(cts.Token, exception.CancellationToken);
     }
 }

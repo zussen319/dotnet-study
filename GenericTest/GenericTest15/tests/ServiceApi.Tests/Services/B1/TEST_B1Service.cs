@@ -110,7 +110,37 @@ public class TEST_B1Service
         Assert.True(isMatch);
     }
 
-#if true
+    [Fact]
+    public async Task ExecuteAsync_キャンセル時に例外を投げること()
+    {
+        /*
+         * キャンセルのテストを組み込む場合、「タイムアウトや外部からのキャンセルによって、
+         * 意図したタイミングで例外が投げられるか」を検証するメソッドを追加するのが一般的です。
+         * xUnitでは、非同期の例外検証に Assert.ThrowsAsync<OperationCanceledException> を使用します。
+         * 
+         * 実DB接続を伴うため、SQL実行中やフェッチ中にキャンセルが発生することをシミュレートします。
+         */
+        // 1. 準備 (Arrange)
+        B1Service service = new(_connectionString);
+        B1Request request = new() { DEPTNO = 20 };
+
+        // 即座にキャンセルされるトークンを作成
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // 実行前にキャンセル状態にする
+
+        // 2. 実行 & 3. 検証 (Act & Assert)
+        // ExecuteAsync 自体は IAsyncEnumerable を返すだけなので、
+        // 実際に列挙を始めた（MoveNextAsyncが呼ばれた）タイミングで例外が発生することを検証
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var item in service.ExecuteAsync(request, cts.Token))
+            {
+                // ここには到達しないはず
+            }
+        });
+    }
+
+#if false
     /*
      * これらはExecuteAsync_Test01により確認できているため不要と判断
      */

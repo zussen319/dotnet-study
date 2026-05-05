@@ -6,6 +6,7 @@ using ServiceApi.Responses;
 using ServiceApi.Responses.B1;
 using ServiceApi.Services;
 using ServiceApi.Services.B1;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Tests;
 
@@ -645,4 +646,78 @@ public class TEST_ApiExecutor
         //Assert.Equal("ACCOUNTING", results[0].DNAME); // 1件目の部署名が正しいか
     }
 
+    // ▼▼▼ CancellationToken対応テスト ▼▼▼
+    /*
+     * 1. キャンセルの伝播:
+     *    上位（呼び出し元）からキャンセルが指示されたとき、ApiExecutor が
+     *    それを無視して処理を続行せず、即座に反応できること。
+     * 2. リソースの即時解放:
+     *    ApiExecutor 内の using var scope は、例外（キャンセル例外含む）が発生して
+     *    メソッドを抜ける瞬間に実行されます。これにより、キャンセルされた瞬間に
+     *    DB セッションやメモリが解放されることが保証されます。
+     */
+    [Fact]
+    public async Task RunAsync_ApiExecutorのキャンセルハンドリング確認()
+    {
+        // 1. 準備 (Arrange)
+        var services = new ServiceCollection();
+        var mockService = new Mock<IB1Service>();
+
+        /*
+         * 「即座に作業を拒否するサービス」の身代わりです。
+         * [EnumeratorCancellation] を付けることで、呼び出し元のキャンセル信号を
+         * 正しく受け取れるようになっています。
+         */
+        async IAsyncEnumerable<B1Response> CancelledStream(
+            B1Request req,
+            [EnumeratorCancellation] CancellationToken ct) // [EnumeratorCancellation]を付加し警告を解消
+        {
+            /*
+             * ct.ThrowIfCancellationRequested() は、キャンセル信号を受け取っている場合に
+             * OperationCanceledException（またはその派生クラス）をスローする標準的な書き方です。
+             */
+            ct.ThrowIfCancellationRequested();
+            yield break;
+        }
+
+        mockService
+            .Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
+            .Returns((B1Request req, CancellationToken ct) => CancelledStream(req, ct));
+
+        services.AddScoped(_ => mockService.Object);
+        var provider = services.BuildServiceProvider();
+
+        var executor = new ApiExecutor(provider);
+        var request = new B1Request { DEPTNO = 10 };
+
+        /*
+         * 「キャンセルボタン」の役割です。
+         * cts.Cancel() を呼ぶことで、実行中の処理に「止まってください」
+         * という合図を送ります。
+         */
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // 「実行前にすでにキャンセルボタンが押された状態」を作り出しています。
+
+        // 2. 実行 & 3. 検証 (Act & Assert)
+        /*
+         * 例外の検知: ApiExecutor が内部で例外を握りつぶさず、呼び出し元（テストコード）
+         * まで正しくエラーを投げ返してきたかをチェックしています。
+         * 型のリラックス: ThrowsAnyAsync<OperationCanceledException> とすることで、
+         * .NET 内部で発生する TaskCanceledException も含めて、
+         * キャンセル関連の例外であれば合格としています。
+         */
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            /*
+             * WithCancellation(cts.Token) を使うことで、先ほど作成したローカル関数
+             * CancelledStream の引数 ct に、キャンセル済みのトークンが流し込まれます。
+             */
+            var stream = executor.RunAsync<IB1Service, B1Request, B1Response>(request, cts.Token);
+
+            // WithCancellation(cts.Token) によって引数 ct にトークンが流し込まれる
+            await foreach (var item in stream.WithCancellation(cts.Token))
+            {
+            }
+        });
+    }
 }
