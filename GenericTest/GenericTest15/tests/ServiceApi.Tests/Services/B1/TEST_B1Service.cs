@@ -43,6 +43,16 @@ public class TEST_B1Service
 #if false
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response
         {
+#if true
+            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")),
+            ENAME = r.GetValue(r.GetOrdinal("ENAME")) as string ?? string.Empty,
+            JOB = r.GetValue(r.GetOrdinal("JOB")) as string ?? string.Empty,
+            MGR = r.GetValue(r.GetOrdinal("MGR")) as decimal?,
+            HIREDATE = r.GetValue(r.GetOrdinal("HIREDATE")) as string ?? string.Empty,
+            SAL = r.GetValue(r.GetOrdinal("SAL")) as decimal?,
+            COMM = r.GetValue(r.GetOrdinal("COMM")) as decimal?,
+            DEPTNO = r.GetValue(r.GetOrdinal("DEPTNO")) as decimal?
+#else
             EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
             ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
                 ? string.Empty : r.GetString(r.GetOrdinal("ENAME")),
@@ -58,6 +68,7 @@ public class TEST_B1Service
                 ? null : r.GetDecimal(r.GetOrdinal("COMM")),
             DEPTNO = r.IsDBNull(r.GetOrdinal("DEPTNO"))
                 ? null : r.GetDecimal(r.GetOrdinal("DEPTNO"))
+#endif
         };
         List<B1Response> expectList = [];
         await foreach (var item in dbm.ExecuteQueryAsync<B1Response>(sql, bindAction, mapFunc))

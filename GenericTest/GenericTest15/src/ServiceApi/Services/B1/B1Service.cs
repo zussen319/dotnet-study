@@ -30,6 +30,16 @@ public class B1Service(string connectionString)
         // マッピング用の式を定義 (引数：DbDataReader, 戻り値：B1Response)
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
         {
+#if true
+            EMPNO = Convert.ToDecimal(r["EMPNO"]),
+            ENAME = r["ENAME"] as string ?? string.Empty,
+            JOB = r["JOB"] as string ?? string.Empty,
+            MGR = r["MGR"] is DBNull ? null : Convert.ToDecimal(r["MGR"]),
+            HIREDATE = r["HIREDATE"] as string ?? string.Empty,
+            SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
+            COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
+            DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
+#else
             EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
             ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
                 ? string.Empty : r.GetString(r.GetOrdinal("ENAME")),
@@ -45,6 +55,7 @@ public class B1Service(string connectionString)
                 ? null : r.GetDecimal(r.GetOrdinal("COMM")),
             DEPTNO = r.IsDBNull(r.GetOrdinal("DEPTNO"))
                 ? null : r.GetDecimal(r.GetOrdinal("DEPTNO"))
+#endif
         };
 
         /*
