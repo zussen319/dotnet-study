@@ -30,9 +30,10 @@ public class TEST_B1Service_Test
         FROM EMP ORDER BY EMPNO;
         SPOOL OFF
     */
+
     //[Fact(DisplayName = "B1Service_Test：JSONデータ読み込み")]
     [Fact]
-    public async Task ExecuteAsync_テスト用JSONデータからResponseオブジェクトが生成されること()
+    public async Task ExecuteAsync_正常系_JSONデータ読み込み_01()
     {
         /*
          * 指定したJsonファイルを読み込み、B1Responseオブジェクトを生成できること
@@ -63,7 +64,7 @@ public class TEST_B1Service_Test
     }
 
     [Fact]
-    public async Task ExecuteAsync_待機中にキャンセルされ中断すること()
+    public async Task ExecuteAsync_異常系_実行キャンセル確認_01()
     {
         /*
          * スタブ側（TestServiceBase）は Task.Delay を含んでいるため

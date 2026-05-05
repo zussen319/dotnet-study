@@ -55,7 +55,7 @@ public class TEST_ApiExecutor
         "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
 
     [Fact]
-    public async Task RunAsync_正常終了時にサービスが破棄されること()
+    public async Task RunAsync_正常系_終了時サービス破棄確認_01()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -107,7 +107,7 @@ public class TEST_ApiExecutor
     [InlineData(1)]      // 最小件数
     [InlineData(100)]    // 中規模
     [InlineData(1000)]   // 大量データ想定
-    public async Task RunAsync_データ件数に関わらず正常に完了しサービスが破棄されること(int testCount)
+    public async Task RunAsync_正常系_終了時サービス破棄確認_02(int testCount)
     {
         /*
          * ### このテストで確認できていること
@@ -170,7 +170,7 @@ public class TEST_ApiExecutor
     }
 
     [Fact]
-    public async Task RunAsync_例外発生時に例外が呼び出し元に再送出されること()
+    public async Task RunAsync_異常系_呼出し元に例外伝播_01()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -201,7 +201,7 @@ public class TEST_ApiExecutor
     }
 
     [Fact]
-    public async Task RunAsync_例外発生時でもDIスコープが確実に破棄されること()
+    public async Task RunAsync_異常系_例外発生時DIスコープ破棄_01()
     {
         /*
          * ApiExecutor 内の using var scope が、例外発生時（catch を通った後）でも
@@ -525,6 +525,7 @@ public class TEST_ApiExecutor
         scopeMock.Verify(x => x.Dispose(), Times.Once, "例外発生時でも Scope は破棄されるべきです。");
     }
 
+#if false
     // 本物のDIコンテナを使ったテストコード
     [Fact]
     public async Task RunAsync_実機同様のDIコンテナ構成で正しく動作すること()
@@ -558,6 +559,7 @@ public class TEST_ApiExecutor
         // JSONの内容が正しく取得できているか等の検証
     }
 
+/* このテストはあまり意味がない？？ */
     // B1Service と B1Service_Test を切り替えてテストする
     /*
      * RunAsync の型引数に指定するため、また GetRequiredService で解決するために、
@@ -598,9 +600,72 @@ public class TEST_ApiExecutor
             }
         }
     }
+#endif
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
+    {
+        // 1. Arrange: 本番同様の DI コンテナを構築
+        var services = new ServiceCollection();
+
+        // テスト対象の ApiExecutor を登録
+        services.AddTransient<ApiExecutor>();
+
+        // サービスを登録
+        services.AddTransient<B1Service>(sp => new B1Service(_connectionString));
+
+        // コンテナをビルドして ServiceProvider を取得
+        var serviceProvider = services.BuildServiceProvider();
+
+        // 2. Act: ApiExecutor をコンテナから取り出して実行
+        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
+        // リクエストパラメータはサービスごとに異なる
+        B1Request request = new() { DEPTNO = deptNo };
+
+        // メソッド呼び出し
+        List<B1Response> results = [];
+        await foreach (var response in executor.RunAsync<B1Service, B1Request, B1Response>(request))
+        {
+            results.Add(response);
+        }
+
+        // 例外が発生しなければOK
+    }
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
+    {
+        // 1. Arrange: 本番同様の DI コンテナを構築
+        var services = new ServiceCollection();
+
+        // テスト対象の ApiExecutor を登録
+        services.AddTransient<ApiExecutor>();
+
+        // サービスを登録
+        services.AddTransient<B1Service_Test>(sp => new B1Service_Test(_connectionString));
+
+        // コンテナをビルドして ServiceProvider を取得
+        var serviceProvider = services.BuildServiceProvider();
+
+        // 2. Act: ApiExecutor をコンテナから取り出して実行
+        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
+        // リクエストパラメータはサービスごとに異なる
+        B1Request request = new () { DEPTNO = deptNo };
+
+        // 実際のメソッド呼び出し
+        List<B1Response> results = [];
+        await foreach (var response in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
+        {
+            results.Add(response);
+        }
+
+        // 例外が発生しなければOK
+    }
 
     // 複数サービスクラスの対応（共通処理）
-    private async Task<List<TResponse>> ExecuteGenericServiceTest<TService, TRequest, TResponse>(
+    private async Task<List<TResponse>> InvokeRunAsync<TService, TRequest, TResponse>(
         Func<TRequest> createRequest)
         where TService : class, IApiService<TRequest, TResponse>
         where TRequest : RequestBase
@@ -627,24 +692,34 @@ public class TEST_ApiExecutor
         return results;
     }
 
-    [Fact]
-    public async Task RunAsync_共通テストランナーを用いてB1サービスが実行できること()
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_B1Service実行_02(decimal deptNo)
     {
-        // 1. Act: 共通ランナーで実行し、結果を受け取る
-        List<B1Response> results = 
-            await ExecuteGenericServiceTest<B1Service_Test, B1Request, B1Response>(() =>
+        List<B1Response> results =
+            await InvokeRunAsync<B1Service, B1Request, B1Response>(() =>
                 new B1Request
                 {
-                    DEPTNO = 10
+                    DEPTNO = deptNo
                 }
             );
-
-        int cnt = results.Count;
-        // 2. Assert: B1サービス特有の検証を行う
-        //Assert.NotNull(results);
-        //Assert.Equal(3, results.Count); // 例えば3件返ってくるはず、という検証
-        //Assert.Equal("ACCOUNTING", results[0].DNAME); // 1件目の部署名が正しいか
+        // 例外が発生しなければOK
     }
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_B1Service_Test実行_02(decimal deptNo)
+    {
+        List<B1Response> results =
+            await InvokeRunAsync<B1Service_Test, B1Request, B1Response>(() =>
+                new B1Request
+                {
+                    DEPTNO = deptNo
+                }
+            );
+        // 例外が発生しなければOK
+    }
+
 
     // ▼▼▼ CancellationToken対応テスト ▼▼▼
     /*
@@ -657,7 +732,7 @@ public class TEST_ApiExecutor
      *    DB セッションやメモリが解放されることが保証されます。
      */
     [Fact]
-    public async Task RunAsync_ApiExecutorのキャンセルハンドリング確認()
+    public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認()
     {
         // 1. 準備 (Arrange)
         var services = new ServiceCollection();

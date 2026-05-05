@@ -28,7 +28,7 @@ public class TEST_B1Response
     };
 
     [Fact]
-    public void Properties_ShouldStoreValuesCorrectly()
+    public void Properties_正常系_プロパティ初期値_01()
     {
         /*
          * プロパティの代入テスト
@@ -50,6 +50,68 @@ public class TEST_B1Response
         Assert.Equal(response.DEPTNO, _deptnoValue);
     }
 
+    [Fact]
+    public void Properties_正常系_プロパティ初期値_02_string()
+    {
+        /*
+         * デフォルト値のテスト
+         * インスタンス化した直後に、string 型が null ではなく string.Empty になっているかを確認する
+        */
+        // Arrange & Act
+        // EMPNO は required なので最小限の初期化
+        var response = new B1Response { EMPNO = _empnoValue };
+
+        // Assert
+        Assert.NotNull(response.ENAME);
+        Assert.Equal(response.ENAME, string.Empty);
+
+        Assert.NotNull(response.JOB);
+        Assert.Equal(response.JOB, string.Empty);
+
+        Assert.NotNull(response.HIREDATE);
+        Assert.Equal(response.HIREDATE, string.Empty);
+    }
+
+    [Theory]
+    [InlineData(nameof(B1Response.MGR))]
+    [InlineData(nameof(B1Response.SAL))]
+    [InlineData(nameof(B1Response.COMM))]
+    [InlineData(nameof(B1Response.DEPTNO))]
+    public void Properties_正常系_プロパティ初期値_03_null許容decimal(string propertyName)
+    {
+        /*
+         * Null 許容・禁止の網羅テスト（Theory を活用）
+         * decimal? などの Nullable 型が正しく null を保持でき
+         * 逆に required な項目が値を保持しているかを検証する
+         */
+        // Arrange
+        var response = new B1Response { EMPNO = _empnoValue };
+        var prop = typeof(B1Response).GetProperty(propertyName);
+
+        // Act
+        prop!.SetValue(response, null);
+
+        // Assert
+        Assert.Null(prop.GetValue(response));
+    }
+
+    /*
+     * 以下はB1ResponseComparerで確認すべき？
+     */
+    [Fact]
+    public void Equals_正常系_オブジェクト比較_一致確認_01()
+    {
+        /*
+         * オブジェクトの一致テスト
+         */
+        var obj1 = CreateBase();
+        var obj2 = CreateBase();
+        var comparer = TEST_B1ResponseComparer.Default;
+
+        // Act & Assert
+        Assert.True(comparer.Equals(obj1, obj2));
+    }
+
     [Theory]
     // 各ケース：(変更するプロパティ名, 変更後の値)
     [InlineData(nameof(B1Response.EMPNO), 9999)]
@@ -61,7 +123,7 @@ public class TEST_B1Response
     [InlineData(nameof(B1Response.COMM), 100)]
     [InlineData(nameof(B1Response.DEPTNO), 10)]
     [InlineData(nameof(B1Response.MGR), null)] // NULLへの変更チェック
-    public void Equals_ShouldReturnFalse_WhenSinglePropertyIsDifferent(string propertyName, object? newValue)
+    public void Equals_正常系_オブジェクト比較_不一致確認_01(string propertyName, object? newValue)
     {
         /*
          * オブジェクトの不一致テスト
@@ -88,50 +150,5 @@ public class TEST_B1Response
 
         // Assert
         Assert.False(result, $"{propertyName} が変更された場合に False を返す必要があります。");
-    }
-
-    [Fact]
-    public void StringProperties_ShouldInitializeWithEmptyString()
-    {
-        /*
-         * デフォルト値のテスト
-         * インスタンス化した直後に、string 型が null ではなく string.Empty になっているかを確認する
-        */
-        // Arrange & Act
-        // EMPNO は required なので最小限の初期化
-        var response = new B1Response { EMPNO = _empnoValue };
-
-        // Assert
-        Assert.NotNull(response.ENAME);
-        Assert.Equal(response.ENAME, string.Empty);
-
-        Assert.NotNull(response.JOB);
-        Assert.Equal(response.JOB, string.Empty);
-
-        Assert.NotNull(response.HIREDATE);
-        Assert.Equal(response.HIREDATE, string.Empty);
-    }
-
-    [Theory]
-    [InlineData(nameof(B1Response.MGR))]
-    [InlineData(nameof(B1Response.SAL))]
-    [InlineData(nameof(B1Response.COMM))]
-    [InlineData(nameof(B1Response.DEPTNO))]
-    public void NullableProperties_ShouldAcceptNull(string propertyName)
-    {
-        /*
-         * Null 許容・禁止の網羅テスト（Theory を活用）
-         * decimal? などの Nullable 型が正しく null を保持でき
-         * 逆に required な項目が値を保持しているかを検証する
-         */
-        // Arrange
-        var response = new B1Response { EMPNO = _empnoValue };
-        var prop = typeof(B1Response).GetProperty(propertyName);
-
-        // Act
-        prop!.SetValue(response, null);
-
-        // Assert
-        Assert.Null(prop.GetValue(response));
     }
 }

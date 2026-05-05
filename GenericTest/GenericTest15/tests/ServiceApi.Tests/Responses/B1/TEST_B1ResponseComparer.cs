@@ -49,7 +49,7 @@ public class ComparerTest
      * TEST_B1ResponseComparer がすべてのプロパティを正しく比較できているかを検証する
      */
     [Fact]
-    public void Equals_全プロパティ一致時にTrueを返す()
+    public void Equals_全プロパティ一致時True返却()
     {
         // Arrange
         var obj1 = new B1Response { EMPNO = 1, ENAME = "A" };
@@ -63,7 +63,7 @@ public class ComparerTest
     [Theory]
     [InlineData(2, "A")] // EMPNOが違う
     [InlineData(1, "B")] // ENAMEが違う
-    public void Equals_プロパティ不一致時にFalseを返す(decimal empno, string ename)
+    public void Equals_プロパティ不一致時False返却(decimal empno, string ename)
     {
         // Arrange
         var obj1 = new B1Response { EMPNO = 1, ENAME = "A" };
