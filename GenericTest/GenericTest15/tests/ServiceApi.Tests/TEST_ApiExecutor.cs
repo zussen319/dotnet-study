@@ -55,7 +55,7 @@ public class TEST_ApiExecutor
         "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
 
     [Fact]
-    public async Task RunAsync_ShouldDisposeService_WhenCompleted()
+    public async Task RunAsync_正常終了時にサービスが破棄されること()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -107,7 +107,7 @@ public class TEST_ApiExecutor
     [InlineData(1)]      // 最小件数
     [InlineData(100)]    // 中規模
     [InlineData(1000)]   // 大量データ想定
-    public async Task RunAsync_ShouldCompleteAndDispose_RegardlessOfCount(int testCount)
+    public async Task RunAsync_データ件数に関わらず正常に完了しサービスが破棄されること(int testCount)
     {
         /*
          * ### このテストで確認できていること
@@ -170,7 +170,7 @@ public class TEST_ApiExecutor
     }
 
     [Fact]
-    public async Task RunAsync_ShouldRethrow_WhenExceptionOccurs()
+    public async Task RunAsync_例外発生時に例外が呼び出し元に再送出されること()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -201,7 +201,7 @@ public class TEST_ApiExecutor
     }
 
     [Fact]
-    public async Task RunAsync_WhenServiceThrowsException_ShouldStillDisposeScope()
+    public async Task RunAsync_例外発生時でもDIスコープが確実に破棄されること()
     {
         /*
          * ApiExecutor 内の using var scope が、例外発生時（catch を通った後）でも
@@ -527,7 +527,7 @@ public class TEST_ApiExecutor
 
     // 本物のDIコンテナを使ったテストコード
     [Fact]
-    public async Task RunAsync_WithRealDI_ShouldWorkCorrect()
+    public async Task RunAsync_実機同様のDIコンテナ構成で正しく動作すること()
     {
         // 1. Arrange: 本番同様の DI コンテナを構築
         var services = new ServiceCollection();
@@ -566,7 +566,7 @@ public class TEST_ApiExecutor
     [Theory]
     [InlineData("Real")] // 本物で実行
     [InlineData("Test")] // テスト用(JSON)で実行
-    public async Task RunAsync_VerifyEachService(string mode)
+    public async Task RunAsync_本番用とテスト用の各サービスが正しく切り替わること(string mode)
     {
         // --- Arrange ---
         var services = new ServiceCollection();
@@ -628,7 +628,7 @@ public class TEST_ApiExecutor
     }
 
     [Fact]
-    public async Task Test_B1Service_WithGenericRunner()
+    public async Task RunAsync_共通テストランナーを用いてB1サービスが実行できること()
     {
         // 1. Act: 共通ランナーで実行し、結果を受け取る
         List<B1Response> results = 
