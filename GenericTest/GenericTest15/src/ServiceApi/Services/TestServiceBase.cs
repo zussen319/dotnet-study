@@ -34,18 +34,18 @@ public abstract class TestServiceBase<TRequest, TResponse>
         }
 
         // 初期遅延のシミュレーション
-        // Delayにctを渡すことで、2秒待機中に中断されても即座に終了します
+        // Delayにctを渡すことで、待機中に中断されても即座に終了します
         await Task.Delay(2000, ct);
 
         using var stream = File.OpenRead(filePath);
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         /*
-         * JsonSerializer.DeserializeAsyncEnumerable を使うことで、JSONが巨大であっても
-         * 読み込んだ分から即座に yield return できるようになり、
+         * JsonSerializer.DeserializeAsyncEnumerable を使うことで、
+         * JSONが巨大であっても読み込んだ分から即座に yield return できるようになり
          * 本番用サービスの挙動（ストリーム処理）により近いスタブになります。
          */
-        // DeserializeAsyncEnumerable に ct を渡す
+        // DeserializeAsyncEnumerableにctを渡す
         var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
 
         // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
@@ -53,11 +53,12 @@ public abstract class TestServiceBase<TRequest, TResponse>
 
         while (true)
         {
-            TResponse? item;
+            TResponse? response;
             try
             {
-                if (!await enumerator.MoveNextAsync()) { break; } // ctはGetAsyncEnumeratorで渡されているので不要
-                item = enumerator.Current;
+                // ctはGetAsyncEnumeratorで渡されているためMoveNextAsyncでは不要
+                if (!await enumerator.MoveNextAsync()) { break; }
+                response = enumerator.Current;
             }
             catch (OperationCanceledException) { throw; } // キャンセルはそのまま投げる
             catch (JsonException jex)
@@ -68,10 +69,10 @@ public abstract class TestServiceBase<TRequest, TResponse>
                 throw new InvalidOperationException(message, jex);
             }
 
-            if (item is null) { continue; }
+            if (response is null) { continue; }
 
-            await Task.Delay(1000, ct); // 待機シミュレーション（1秒待機中に中断可能）
-            yield return item;
+            await Task.Delay(1000, ct); // 待機シミュレーション（待機中に中断可能）
+            yield return response;
         }
     }
 }

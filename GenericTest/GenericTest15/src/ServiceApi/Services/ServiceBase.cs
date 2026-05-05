@@ -35,24 +35,19 @@ public abstract class ServiceBase<TRequest, TResponse>(
         Func<DbDataReader, TResponse> mapFunc,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        // 戻り値が IAsyncEnumerable なので await foreach で繋ぐ
+        // 戻り値が IAsyncEnumerable であるため await foreach で繋ぐ
         await foreach (var reader in ExecuteQueryAsync(sql, bindAction, ct))
         {
             yield return mapFunc(reader);
         }
     }
 
-    /*
-     * ExecuteQueryAsync(string sql)（引数1つのもの）は、
-     * 基本の ExecuteQueryAsync(sql, _ => {}) で代用できるため、
-     * 具象クラスでの利用頻度が低ければ削除しても問題ありません。
-     */
     protected virtual IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         CancellationToken ct = default)
         => ExecuteQueryAsync(sql, _ => { }, ct);
 
-    // --- マッピング処理を外（具象クラス）で実装できるようにするエントリポイント ---
+    // マッピング処理を具象クラスで実装できるようにするエントリポイント
     protected virtual async IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         Action<OracleParameterCollection> bindAction,
@@ -61,19 +56,17 @@ public abstract class ServiceBase<TRequest, TResponse>(
         // 接続状態を確認 
         if (this.Connection is { State: ConnectionState.Closed })
         {
-            await this.Connection.OpenAsync(ct); // Tokenを渡す
+            await this.Connection.OpenAsync(ct);
         }
 
         // コマンド作成・パラメータのバインド前に名前解決を有効化
         using var cmd = new OracleCommand(sql, Connection) { BindByName = true };
 
-        // デリゲートを実行してパラメータを埋め込む
-        // bindAction(cmd.Parameters) により、具象クラス側で定義した詰め物処理が動く
+        // デリゲートを実行してパラメータをバインド
         bindAction(cmd.Parameters);
 
         // SQL実行自体にキャンセルを適用
         using var reader = await cmd.ExecuteReaderAsync(ct);  // CommandBehavior.Defaultでも良いですが、念のため
-
 
         // FetchSizeの最適化
         // 確定した RowSize を使って、FetchSizeを最適化する

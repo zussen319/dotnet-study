@@ -9,13 +9,13 @@ using System.Runtime.CompilerServices;
 namespace ServiceApi;
 
 //
-// サービスの生成、実行、破棄の「ライフサイクル」を一元管理します
+// サービスの生成・実行・破棄のライフサイクルを管理します
 //
 public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
 {
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
         TRequest request,
-        [EnumeratorCancellation] CancellationToken ct = default) // [EnumeratorCancellation] を付与して、非同期ストリームのキャンセルを有効化
+        [EnumeratorCancellation] CancellationToken ct = default) // 非同期ストリームのキャンセルを有効化
         where TService : IApiService<TRequest, TResponse>
         where TRequest : RequestBase
         where TResponse : ResponseBase
@@ -24,24 +24,25 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
         /*
         * ## リソース管理（Scopeとusing）の安全性
         * 非同期ストリームにおいて最も難しいのは「いつDB接続を閉じるか」ですが、
-        * 今回の設計はここを解決しています。
+        * ここでは以下のように解決しています。
         * 1. **"using var scope"**: "ApiExecutor" 内でスコープを作っています。
-        * 2. **"await foreach" の連鎖**: "Program.cs" がすべてのデータを読み終わる
+        * 2. **"await foreach" の連鎖**: 呼び出し元（メイン処理）がすべてのデータを読み終わる
         * （または途中で終了する）まで、"ApiExecutor" の "RunAsync"メソッドは
         * 「実行中」の状態を維持します。
-        * 3. **自動破棄**: メインプログラム側で "await foreach" が終わると
+        * 3. **自動破棄**: 呼び出し元で "await foreach" が終わると
         * 呼び出し階層を遡って "ApiExecutor" の "using scope"が抜け、
-        * 最終的に "ServiceBase の "Dispose"（接続解除）が確実に実行されます。
+        * 最終的に "ServiceBase の "Dispose"（接続解除）が実行されます。
         */
         using var scope = serviceProvider.CreateScope();
 
-        // コンテナからインスタンスを取得
+        // スコープからServiceインスタンスを取得
         TService service = scope.ServiceProvider.GetRequiredService<TService>();
-        // Service側の ExecuteAsync に ct を渡す
+        // ExecuteAsync実行
+        // Service側のExecuteAsyncにCancellationTokenを渡す
         var enumerator = service.ExecuteAsync(request, ct).GetAsyncEnumerator(ct);
 
         // 正常終了したかどうかを管理するフラグ
-        bool isCompleted = false;
+        bool isCompleted = false; // 未完了
 
         try
         {
@@ -81,11 +82,13 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                 try
                 {
                     // NomveNextAsync (次の行の取得) の失敗を catch する
+                    // ctはGetAsyncEnumeratorで渡されているためMoveNextAsyncでは不要
                     if (!await enumerator.MoveNextAsync()) { break; }
                     response = enumerator.Current;
                 }
                 catch (OperationCanceledException)
                 {
+                    // キャンセルは明示的に捕捉
                     string message = MessageResourceProvider.GetMessage(MessageId.MSG005);
                     Console.WriteLine(message);
                     throw; // メイン側へ通知
@@ -95,7 +98,9 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                     // エラーメッセージ生成
                     string message = ex switch
                     {
+                        // OracleException
                         OracleException ox => $"[Database Error] Code: {ox.Number}, Message: {ox.Message}",
+                        // その他の例外
                         _ => $"[System Error] {ex.Message}"
                     };
                     Console.WriteLine(message);
@@ -111,7 +116,7 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                 yield return response;
             }
 
-            isCompleted = true; // 正常に終了
+            isCompleted = true; // 処理完了
         }
         finally
         {
@@ -119,9 +124,9 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
             await enumerator.DisposeAsync();
 
             // 処理終了ログ出力
-            string message = isCompleted
-                ? MessageResourceProvider.GetMessage(MessageId.MSG002)  // 正常終了時
-                : MessageResourceProvider.GetMessage(MessageId.MSG003); // 異常終了時
+            string message = (isCompleted
+                ? MessageResourceProvider.GetMessage(MessageId.MSG002)   // 正常終了時
+                : MessageResourceProvider.GetMessage(MessageId.MSG003)); // 異常終了時
             Console.WriteLine(message);
         }
     }

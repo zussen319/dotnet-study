@@ -63,8 +63,8 @@ public class B1Service(string connectionString)
 
         /*
          * async/awaitキーワードは不要
-         * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
-         * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
+         * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返却するため
+         * 具象クラスは単なる「パス（中継役）」として振る舞えばよい
          */
         return ExecuteQueryAsync(sql, bindAction, mapFunc, ct);
     }
