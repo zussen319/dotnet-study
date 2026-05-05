@@ -79,23 +79,13 @@ public class TEST_B1Service_Test
         cts.CancelAfter(TimeSpan.FromMilliseconds(500));
 
         // 2. 実行 & 3. 検証 (Act & Assert)
-#if true
         var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
-            await foreach (var item in service.ExecuteAsync(request, cts.Token))
-            {
-                // 処理
-            }
-        });
-#else
-        var exception = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await foreach (var item in service.ExecuteAsync(request, cts.Token))
             {
                 // 成功（ここに来る前に止まるはず）
             }
         });
-#endif
 
         // トークンが正しく紐付いているかも確認可能
         Assert.Equal(cts.Token, exception.CancellationToken);

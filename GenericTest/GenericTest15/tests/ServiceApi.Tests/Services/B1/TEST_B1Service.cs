@@ -41,6 +41,9 @@ public class TEST_B1Service
             p.Add(new OracleParameter("DEPTNO", deptNo));
         };
 #if false
+        /*
+         * ストリーム使用
+         */
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response
         {
             EMPNO = Convert.ToDecimal(r["EMPNO"]), // NOT NULL
@@ -58,6 +61,9 @@ public class TEST_B1Service
             expectList.Add(item);
         }
 #else
+        /*
+         * DataTable使用
+         */
         DataTable expectDt = dbm.ExecuteQuery(sql, bindAction);
 
         List<B1Response> expectList = [];
