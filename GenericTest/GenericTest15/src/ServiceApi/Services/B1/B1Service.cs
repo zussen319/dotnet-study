@@ -3,13 +3,16 @@ using ServiceApi.Requests.B1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.B1;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.B1;
 
 public class B1Service(string connectionString)
     : ServiceBase<B1Request, B1Response>(connectionString), IB1Service
 {
-    public override IAsyncEnumerable<B1Response> ExecuteAsync(B1Request request)
+    public override IAsyncEnumerable<B1Response> ExecuteAsync(
+        B1Request request,
+        CancellationToken ct = default)
     {
         /*
          * SQL_B1_001:
@@ -63,6 +66,6 @@ public class B1Service(string connectionString)
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
          * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
          */
-        return ExecuteQueryAsync(sql, bindAction, mapFunc);
+        return ExecuteQueryAsync(sql, bindAction, mapFunc, ct);
     }
 }

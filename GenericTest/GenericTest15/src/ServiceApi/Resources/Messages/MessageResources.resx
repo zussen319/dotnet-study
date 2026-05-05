@@ -129,6 +129,9 @@
   <data name="MSG004" xml:space="preserve">
     <value>Type {0} does not properly implement IApiService.</value>
   </data>
+  <data name="MSG005" xml:space="preserve">
+    <value>Cancellation request detected.</value>
+  </data>
   <data name="MSG991" xml:space="preserve">
     <value>Error reading Json ({0}): {1}</value>
   </data>

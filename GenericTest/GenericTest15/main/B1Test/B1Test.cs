@@ -58,6 +58,12 @@ using IHost host = builder.Build();
 // -- 実行フェーズ --
 var executor = host.Services.GetRequiredService<IApiExecutor>();
 
+// --- キャンセル検証用テストコード ---
+// CancellationTokenSource を作成
+// 500ms 後に自動的にキャンセルを発動させる（スタブの Delay 2000ms より先に動く）
+//using var cts = new CancellationTokenSource();
+//cts.CancelAfter(TimeSpan.FromMilliseconds(500));
+
 try
 {
     string outputPath = @"C:\temp\B1Test.csv";
@@ -66,10 +72,7 @@ try
     // （処理実行）非同期ストリームとして受け取る
     // B1Service（本物）か B1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IB1Service, B1Request, B1Response>(
-        new B1Request
-        {
-            DEPTNO = paramSection.GetValue<int>("DEPTNO")
-        });
+        new B1Request { DEPTNO = paramSection.GetValue<int>("DEPTNO")} /*, cts.Token */);
 
     // （結果取得）非同期でファイルを書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
@@ -100,6 +103,10 @@ try
         // 最後にバッファを強制的にフラッシュ（usingを抜ける際にも行われますが念のため）
         await writer.FlushAsync();
     }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Operation cancelled by user.");
 }
 catch (Exception ex)
 {

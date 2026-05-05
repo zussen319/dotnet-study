@@ -3,13 +3,16 @@ using ServiceApi.Requests.A1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.A1;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.A1;
 
 public class A1Service(string connectionString)
     : ServiceBase<A1Request, A1Response>(connectionString), IA1Service
 {
-    public override IAsyncEnumerable<A1Response> ExecuteAsync(A1Request request)
+    public override IAsyncEnumerable<A1Response> ExecuteAsync(
+        A1Request request,
+        CancellationToken ct = default)
     {
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_A1_001);
           
@@ -33,6 +36,6 @@ public class A1Service(string connectionString)
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
          * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
          */
-        return ExecuteQueryAsync(sql, bindAction, mapFunc);
+        return ExecuteQueryAsync(sql, bindAction, mapFunc, ct);
     }
 }

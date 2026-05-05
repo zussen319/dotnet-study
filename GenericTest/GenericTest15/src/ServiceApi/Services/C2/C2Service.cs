@@ -2,13 +2,16 @@
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.C2;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.C2;
 
 public class C2Service(string connectionString)
     : ServiceBase<C2Request, C2Response>(connectionString), IC2Service
 {
-    public override async IAsyncEnumerable<C2Response> ExecuteAsync(C2Request request)
+    public override async IAsyncEnumerable<C2Response> ExecuteAsync(
+        C2Request request,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         /*
          * 1. **データの集約**: SQLの結果（フラットな行）を1行ずつ読み込む。
@@ -51,7 +54,7 @@ public class C2Service(string connectionString)
          */
         C2Response? dept = null;
         C2Response.Member? member = null;
-        await foreach (var reader in ExecuteQueryAsync(sql))
+        await foreach (var reader in ExecuteQueryAsync(sql, ct))
         {
             decimal deptNo = reader.GetDecimal(reader.GetOrdinal("DEPTNO"));
             decimal memberEmpNo = reader.GetDecimal(reader.GetOrdinal("MEMBER_EMPNO"));

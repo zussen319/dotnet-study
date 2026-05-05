@@ -2,13 +2,16 @@
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.C1;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.C1;
 
 public class C1Service(string connectionString)
     : ServiceBase<C1Request, C1Response>(connectionString), IC1Service
 {
-    public override async IAsyncEnumerable<C1Response> ExecuteAsync(C1Request request)
+    public override async IAsyncEnumerable<C1Response> ExecuteAsync(
+        C1Request request,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         /*
          * 1. **データの集約**: SQLの結果（フラットな行）を1行ずつ読み込む。
@@ -39,7 +42,7 @@ public class C1Service(string connectionString)
          * DEPTNOが同一のレコードをグループ化して返却する
          */
         C1Response? response = null;
-        await foreach (var reader in ExecuteQueryAsync(sql))
+        await foreach (var reader in ExecuteQueryAsync(sql, ct))
         {
             decimal deptNo = reader.GetDecimal(reader.GetOrdinal("DEPTNO"));
             if (response == null || response.DEPTNO != deptNo)

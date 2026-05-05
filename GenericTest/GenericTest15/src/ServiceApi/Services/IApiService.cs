@@ -12,5 +12,5 @@ public interface IApiService<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
+    IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request, CancellationToken ct = default);
 }

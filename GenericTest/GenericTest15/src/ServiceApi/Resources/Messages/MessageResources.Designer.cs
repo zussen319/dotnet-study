@@ -97,6 +97,15 @@ namespace ServiceApi.Resources.Messages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cancellation request detected..
+        /// </summary>
+        internal static string MSG005 {
+            get {
+                return ResourceManager.GetString("MSG005", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error reading Json ({0}): {1}.
         /// </summary>
         internal static string MSG991 {

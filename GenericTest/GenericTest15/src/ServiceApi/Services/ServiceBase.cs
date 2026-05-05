@@ -3,6 +3,7 @@ using ServiceApi.Requests;
 using ServiceApi.Responses;
 using System.Data;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services;
 
@@ -17,21 +18,25 @@ public abstract class ServiceBase<TRequest, TResponse>(
     protected OracleConnection Connection { get; } = new(connectionString);
 
     // 具象クラスに実装を強制するエントリポイント
-    public abstract IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request);
+    public abstract IAsyncEnumerable<TResponse> ExecuteAsync(
+        TRequest request,
+        CancellationToken ct = default);
 
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
-        Func<DbDataReader, TResponse> mapFunc)
-        => ExecuteQueryAsync(sql, _ => { }, mapFunc);
+        Func<DbDataReader, TResponse> mapFunc,
+        CancellationToken ct = default)
+        => ExecuteQueryAsync(sql, _ => { }, mapFunc, ct);
 
     // --- 既存メソッドの統合： DataReader 版を呼び出す ---
     protected virtual async IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         Action<OracleParameterCollection> bindAction,
-        Func<DbDataReader, TResponse> mapFunc)
+        Func<DbDataReader, TResponse> mapFunc,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         // 戻り値が IAsyncEnumerable なので await foreach で繋ぐ
-        await foreach (var reader in ExecuteQueryAsync(sql, bindAction))
+        await foreach (var reader in ExecuteQueryAsync(sql, bindAction, ct))
         {
             yield return mapFunc(reader);
         }
@@ -42,43 +47,45 @@ public abstract class ServiceBase<TRequest, TResponse>(
      * 基本の ExecuteQueryAsync(sql, _ => {}) で代用できるため、
      * 具象クラスでの利用頻度が低ければ削除しても問題ありません。
      */
-    protected virtual IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(string sql)
-        => ExecuteQueryAsync(sql, _ => { });
+    protected virtual IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
+        string sql,
+        CancellationToken ct = default)
+        => ExecuteQueryAsync(sql, _ => { }, ct);
 
     // --- マッピング処理を外（具象クラス）で実装できるようにするエントリポイント ---
     protected virtual async IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
-        Action<OracleParameterCollection> bindAction)
+        Action<OracleParameterCollection> bindAction,
+        [EnumeratorCancellation] CancellationToken ct = default) // 属性を追加
     {
 #if true
         // 接続状態を確認 
         if (this.Connection is { State: ConnectionState.Closed })
         {
-            await this.Connection.OpenAsync();
+            await this.Connection.OpenAsync(ct); // Tokenを渡す
         }
-
-        // コマンド作成・パラメータのバインド前に名前解決を有効化
-        using var cmd = new OracleCommand(sql, Connection) { BindByName = true };
 #else
         // 接続状態を確認 
-        if (this.Connection.State != ConnectionState.Open)
+        if (this.Connection is { State: ConnectionState.Closed })
         {
             await this.Connection.OpenAsync();
         }
-
-        // コマンド作成
-        using var cmd = new OracleCommand(sql, this.Connection);
-
-        // パラメータをバインドする前に名前解決を有効化
-        cmd.BindByName = true;
 #endif
+
+        // コマンド作成・パラメータのバインド前に名前解決を有効化
+        using var cmd = new OracleCommand(sql, Connection) { BindByName = true };
 
         // デリゲートを実行してパラメータを埋め込む
         // bindAction(cmd.Parameters) により、具象クラス側で定義した詰め物処理が動く
         bindAction(cmd.Parameters);
 
         // CommandBehavior.Default でも良いですが、念のため
+#if true
+        // SQL実行自体にキャンセルを適用
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+#else
         using var reader = await cmd.ExecuteReaderAsync();
+#endif
 
         // FetchSizeの最適化
         // 確定した RowSize を使って、FetchSizeを最適化する
@@ -100,7 +107,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
          */
         reader.FetchSize = reader.RowSize * fetchRows;
 
-        while (await reader.ReadAsync())
+        //while (await reader.ReadAsync())
+        while (await reader.ReadAsync(ct)) // フェッチ処理にキャンセルを適用
         {
             // DataReaderそのものを yield return する
             // 1行読み込むごとに呼び出し元へ yield return する

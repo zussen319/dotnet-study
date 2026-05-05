@@ -1,6 +1,7 @@
 ﻿using ServiceApi.Requests;
 using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace ServiceApi.Services;
@@ -10,9 +11,10 @@ public abstract class TestServiceBase<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(TRequest request)
+    public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
+        TRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
-#if true
         // レスポンスデータ準備（Jsonファイルから読み込み）
         // ファイル名は"<派生テストクラス名>.json"とし、カレントフォルダに配置する
         /*
@@ -32,7 +34,8 @@ public abstract class TestServiceBase<TRequest, TResponse>
         }
 
         // 初期遅延のシミュレーション
-        await Task.Delay(2000);
+        // Delayにctを渡すことで、2秒待機中に中断されても即座に終了します
+        await Task.Delay(2000, ct);
 
         using var stream = File.OpenRead(filePath);
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -42,19 +45,28 @@ public abstract class TestServiceBase<TRequest, TResponse>
          * 読み込んだ分から即座に yield return できるようになり、
          * 本番用サービスの挙動（ストリーム処理）により近いスタブになります。
          */
+#if true
+        // DeserializeAsyncEnumerable に ct を渡す
+        var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
+
+        // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
+        await using var enumerator = enumerable.GetAsyncEnumerator(ct);
+#else
         var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options);
 
         // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
         await using var enumerator = enumerable.GetAsyncEnumerator();
+#endif
 
         while (true)
         {
             TResponse? item;
             try
             {
-                if (!await enumerator.MoveNextAsync()) { break; }
+                if (!await enumerator.MoveNextAsync()) { break; } // ctはGetAsyncEnumeratorで渡されているので不要
                 item = enumerator.Current;
             }
+            catch (OperationCanceledException) { throw; } // キャンセルはそのまま投げる
             catch (JsonException jex)
             {
                 // Json構文エラー（カンマ忘れ、型違い等）をスタブ専用のメッセージで包む
@@ -65,25 +77,13 @@ public abstract class TestServiceBase<TRequest, TResponse>
 
             if (item is null) { continue; }
 
+#if true
+            await Task.Delay(1000, ct); // 待機シミュレーション（1秒待機中に中断可能）
+#else
             await Task.Delay(1000); // 待機シミュレーション
+#endif
             yield return item;
         }
-#else
-        // レスポンスデータ準備（Jsonファイルから読み込み）
-        // ファイル名は"<派生テストクラス名>.json"とし、カレントフォルダに配置する
-        string filePath = Path.Combine(Directory.GetCurrentDirectory(), $"{this.GetType().Name}.json");
-        List<TResponse> responses = await LoadJsonDataAsync(filePath);
-
-        // 検索開始前の初期遅延（クエリ実行待ちをシミュレート）
-        await Task.Delay(2000);
-
-        // 大量データを想定してループで回す
-        foreach (var response in responses)
-        {
-            await Task.Delay(1000); // 1件ごとに少し待機
-            yield return response;
-        }
-#endif
     }
 
 #if false

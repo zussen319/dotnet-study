@@ -4,6 +4,7 @@ using ServiceApi.Requests;
 using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
 using ServiceApi.Services;
+using System.Runtime.CompilerServices;
 
 namespace ServiceApi;
 
@@ -12,7 +13,9 @@ namespace ServiceApi;
 //
 public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
 {
-    public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(TRequest request)
+    public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
+        TRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default) // [EnumeratorCancellation] を付与して、非同期ストリームのキャンセルを有効化
         where TService : IApiService<TRequest, TResponse>
         where TRequest : RequestBase
         where TResponse : ResponseBase
@@ -34,7 +37,12 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
 
         // コンテナからインスタンスを取得
         TService service = scope.ServiceProvider.GetRequiredService<TService>();
+#if true
+        // Service側の ExecuteAsync に ct を渡す
+        var enumerator = service.ExecuteAsync(request, ct).GetAsyncEnumerator(ct);
+#else
         var enumerator = service.ExecuteAsync(request).GetAsyncEnumerator();
+#endif
 
         // 正常終了したかどうかを管理するフラグ
         bool isCompleted = false;
@@ -81,6 +89,13 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                     response = enumerator.Current;
                 }
 #if true
+                catch (OperationCanceledException)
+                {
+                    string message = MessageResourceProvider.GetMessage(MessageId.MSG005);
+                    Console.WriteLine(message);
+                    throw; // メイン側へ通知
+                }
+#endif
                 catch (Exception ex)
                 {
                     // エラーメッセージ生成
@@ -92,18 +107,6 @@ public class ApiExecutor(IServiceProvider serviceProvider) : IApiExecutor
                     Console.WriteLine(message);
                     throw;
                 }
-#else
-                catch (OracleException ex)
-                {
-                    Console.WriteLine($"[Database Error] Code: {ex.Number}, Message: {ex.Message}");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[System Error] {ex.Message}");
-                    throw;
-                }
-#endif
 
                 // yield return は try-catch の外で行う
                 /*
