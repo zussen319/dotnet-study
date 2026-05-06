@@ -35,18 +35,16 @@ public class C2Service(string connectionString)
         // レベル２：Memberマッピング定義
         C2Response.Member memberMapFunc(DbDataReader r) => new()
         {
-            MEMBER_EMPNO = r.GetDecimal(r.GetOrdinal("MEMBER_EMPNO")),
-            MEMBER_ENAME = r.IsDBNull(r.GetOrdinal("MEMBER_ENAME"))
-                ? string.Empty : r.GetString(r.GetOrdinal("MEMBER_ENAME")),
+            MEMBER_EMPNO = Convert.ToDecimal(r["MEMBER_EMPNO"]), // decimal - NOT NULL
+            MEMBER_ENAME = Convert.ToString(r["MEMBER_ENAME"]) ?? string.Empty,  // string
             Staffs = [staffMapFunc(r)]
         };
 
         // レベル３：Staffマッピング定義
         C2Response.Staff staffMapFunc(DbDataReader r) => new()
         {
-            STAFF_EMPNO = r.GetDecimal(r.GetOrdinal("STAFF_EMPNO")),
-            STAFF_ENAME = r.IsDBNull(r.GetOrdinal("STAFF_ENAME"))
-                ? string.Empty : r.GetString(r.GetOrdinal("STAFF_ENAME"))
+            STAFF_EMPNO = Convert.ToDecimal(r["STAFF_EMPNO"]), // decimal - NOT NULL
+            STAFF_ENAME = Convert.ToString(r["STAFF_ENAME"]) ?? string.Empty  // string
         };
 
         /*
@@ -56,8 +54,8 @@ public class C2Service(string connectionString)
         C2Response.Member? member = null;
         await foreach (var reader in ExecuteQueryAsync(sql, ct))
         {
-            decimal deptNo = reader.GetDecimal(reader.GetOrdinal("DEPTNO"));
-            decimal memberEmpNo = reader.GetDecimal(reader.GetOrdinal("MEMBER_EMPNO"));
+            decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]); // decimal - NOT NULL
+            decimal memberEmpNo = Convert.ToDecimal(reader["MEMBER_EMPNO"]); // decimal - NOT NULL
 
             if (dept == null || dept.DEPTNO != deptNo)
             {
@@ -73,8 +71,7 @@ public class C2Service(string connectionString)
                 dept = new C2Response
                 {
                     DEPTNO = deptNo,
-                    DNAME = reader.IsDBNull(reader.GetOrdinal("DNAME"))
-                        ? string.Empty : reader.GetString(reader.GetOrdinal("DNAME")),
+                    DNAME = Convert.ToString(reader["DNAME"]) ?? string.Empty,
                     Members = [(member = memberMapFunc(reader))]
                 };
             }

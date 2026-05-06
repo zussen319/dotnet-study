@@ -33,9 +33,8 @@ public class C1Service(string connectionString)
         // Empマッピング定義
         C1Response.Emp empMapFunc(DbDataReader r) => new()
         {
-            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")),
-            ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
-                ? string.Empty : r.GetString(r.GetOrdinal("ENAME"))
+            EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL
+            ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty  // string
         };
 
         /*
@@ -44,7 +43,7 @@ public class C1Service(string connectionString)
         C1Response? response = null;
         await foreach (var reader in ExecuteQueryAsync(sql, ct))
         {
-            decimal deptNo = reader.GetDecimal(reader.GetOrdinal("DEPTNO"));
+            decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
             if (response == null || response.DEPTNO != deptNo)
             {
                 if (response != null) {
@@ -57,8 +56,7 @@ public class C1Service(string connectionString)
                 response = new C1Response
                 {
                     DEPTNO = deptNo,
-                    DNAME = reader.IsDBNull(reader.GetOrdinal("DNAME"))
-                        ? string.Empty : reader.GetString(reader.GetOrdinal("DNAME")),
+                    DNAME = Convert.ToString(reader["DNAME"]) ?? string.Empty,
                     Employees = [empMapFunc(reader)]
                 };
             } else
