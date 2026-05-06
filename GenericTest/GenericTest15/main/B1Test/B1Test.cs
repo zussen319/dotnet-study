@@ -25,12 +25,12 @@ IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("B1Test.json", optional: false, reloadOnChange: true)
     .Build();
 
-// ビルダを生成
+// アプリケーション構成の組み立て (Application Builder)
 // 以下のパッケージが必要
 // - Microsoft.Extensions.Hosting
-var builder = Host.CreateApplicationBuilder(args);
+var appBuilder = Host.CreateApplicationBuilder(args);
 // 共通Executorを登録
-builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
+appBuilder.Services.AddTransient<IApiExecutor, ApiExecutor>();
 
 // メイン側で「テスト用か、本番用か」を判断して登録
 bool testMode = args.Contains("-t");
@@ -42,7 +42,7 @@ if (testMode)
         "Data Source=localhost:1521/XE;Persisite Security Info=True;User ID=scott;Password=tiger";
 
     // テスト用を登録
-    builder.Services.AddTransient<IB1Service, B1Service_Test>(sp => new B1Service_Test(connStr));
+    appBuilder.Services.AddTransient<IB1Service, B1Service_Test>(sp => new B1Service_Test(connStr));
 }
 else
 {
@@ -50,14 +50,16 @@ else
     string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
 
     // 本物を登録
-    builder.Services.AddTransient<IB1Service, B1Service>(sp => new B1Service(connStr));
+    appBuilder.Services.AddTransient<IB1Service, B1Service>(sp => new B1Service(connStr));
 }
 
-using IHost host = builder.Build();
-CancellationToken ct = default;
+// 構成を確定させ、実行ホストを生成 (Application Host)
+using IHost appHost = appBuilder.Build();
 
 // -- 実行フェーズ --
-var executor = host.Services.GetRequiredService<IApiExecutor>();
+var executor = appHost.Services.GetRequiredService<IApiExecutor>();
+
+CancellationToken ct = default;
 
 try
 {
