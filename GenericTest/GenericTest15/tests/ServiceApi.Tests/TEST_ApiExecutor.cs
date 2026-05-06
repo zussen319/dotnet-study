@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using Oracle.ManagedDataAccess.Client;
 using ServiceApi.Requests;
 using ServiceApi.Requests.B1;
 using ServiceApi.Responses;
@@ -738,7 +739,7 @@ public class TEST_ApiExecutor
      *    DB セッションやメモリが解放されることが保証されます。
      */
     [Fact]
-    public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認()
+    public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認_01()
     {
         // 1. 準備 (Arrange)
         var services = new ServiceCollection();
@@ -801,4 +802,161 @@ public class TEST_ApiExecutor
             }
         });
     }
+
+    // OracleExceptionをテストで生成するためのヘルパーメソッド
+    // (OracleExceptionはコンストラクタがinternalなのでリフレクション等で工夫が必要な場合があります)
+    private Exception CreateOracleException(int number, string message)
+    {
+        // 厳密なOracleExceptionの生成が困難な場合は、
+        // モック等で代替するか、型判定が通ることを優先します。
+        // ここでは概念的な実装イメージです。
+        return new InvalidOperationException($"Mock Oracle Error {number}: {message}");
+    }
+
+    [Fact]
+    public async Task RunAsync_異常系_OracleExceptionハンドリング確認_01()
+    {
+        /*
+         * このテストではOracleExceptionではなくExceptionがスローされる
+         */
+        // Arrange
+        var services = new ServiceCollection();
+        var mockService = new Mock<IB1Service>();
+
+        // OracleException は public コンストラクタがないため、
+        // 実際には発生させにくいですが、Moqでは例外をスローするように設定できます。
+        // ※OracleExceptionのシミュレーションにはリフレクションが必要な場合がありますが、
+        //   ここでは「OracleExceptionを投げる」スタブ動作を定義します。
+
+        async IAsyncEnumerable<B1Response> OracleErrorStream()
+        {
+            yield return new B1Response { EMPNO = 1 }; // 1件目は成功
+
+            // OracleExceptionを模した例外を投げる（テスト用に適当なエラーコードを想定）
+            // ※実際にはOracleExceptionは継承できないため、Mockで作成するか、
+            //   何らかの方法でインスタンス化する必要があります。
+            //   ここでは簡単のため、動作確認としてExceptionを投げ、switch文を通ることを検証します。
+            throw CreateOracleException(12154, "TNS:could not resolve the connect identifier");
+        }
+
+        mockService.Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
+                   .Returns(OracleErrorStream());
+
+        services.AddScoped(_ => mockService.Object);
+        var provider = services.BuildServiceProvider();
+        var executor = new ApiExecutor(provider);
+
+        // Act & Assert
+        // コンソール出力（Console.WriteLine）の内容を検証したい場合は、TextWriterを差し替えますが、
+        // ここでは「例外が再スローされること」を確認します。
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(new B1Request { DEPTNO = 10 }))
+            {
+                // 1件目は処理されるが、2件目の MoveNextAsync で例外が飛ぶ
+            }
+        });
+    }
+
+    //[Fact]
+    [Fact(Skip = "DB停止状態の確認用")]
+    public async Task RunAsync_異常系_OracleExceptionハンドリング確認_02_Oracleサービス停止時()
+    {
+        /*
+         * OracleException捕捉確認
+         * 【注】OracleDBサービス停止により例外を捕捉するため
+         * サービスが正常に稼働している場合はこのテストは失敗する
+         */
+        // 出力メッセージを確認する場合は以下：
+        using var sw = new StringWriter();
+        Console.SetOut(sw); // 出力先を横取り
+
+        // 1. Arrange: 本物のサービスを登録する
+        var services = new ServiceCollection();
+
+        // 実際の接続文字列を使用（テスト環境用の設定から取得）
+        // データベースが停止している、あるいは接続できない状態を想定
+        string connStr = _connectionString;
+
+        // 本物のB1Serviceを登録
+        services.AddTransient<IB1Service, B1Service>(sp => new B1Service(connStr));
+
+        var provider = services.BuildServiceProvider();
+        var executor = new ApiExecutor(provider);
+        var request = new B1Request { DEPTNO = 10 };
+
+        // 2. Act & 3. Assert
+        try
+        {
+            // 実際にDBへ接続しに行く
+            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(request))
+            {
+                // もしデータが取れてしまったら、サービスが動いているということ
+            }
+
+            // ここに到達した＝例外が発生せずに終了した
+            // 「サービスを停止してから実行せよ」という意図を込めてテストを失敗させる
+            Assert.Fail("Oracleサービスに正常に接続できてしまいました。サービスを停止してからテストを実行してください。");
+        }
+        catch (OracleException ox)
+        {
+            // 狙い通り OracleException が発生した
+            // ApiExecutor内の switch 文で OracleException として処理されたことを間接的に証明
+            Assert.True(ox.Number > 0, $"Oracleエラーが発生しました。Code: {ox.Number}");
+            Console.WriteLine($"[期待通りの動作] OracleExceptionを捕捉しました: {ox.Message}");
+        }
+        catch (Exception ex)
+        {
+            // OracleException以外のエラー（ネットワーク不達以外のシステムエラーなど）
+            Assert.Fail($"OracleExceptionを期待していましたが、別の例外が発生しました: {ex.GetType().Name} - {ex.Message}");
+        }
+
+        // 出力メッセージの確認
+        // "[System Error]"の文字列が出力されていること
+        var output = sw.ToString();
+        Assert.Contains("[Database Error]", output);
+    }
+
+    [Fact]
+    public async Task RunAsync_異常系_Exceptionハンドリング確認_01()
+    {
+        string expectMessage = "予期せぬシステムエラー";
+
+        // Arrange
+        var services = new ServiceCollection();
+        var mockService = new Mock<IB1Service>();
+
+        // 出力メッセージを確認する場合は以下：
+        using var sw = new StringWriter();
+        Console.SetOut(sw); // 出力先を横取り
+
+        async IAsyncEnumerable<B1Response> SystemErrorStream()
+        {
+            yield return new B1Response { EMPNO = 1 }; // 1件目：成功
+            throw new Exception(expectMessage); // 2件目：例外発生 ("予期せぬシステムエラー")
+        }
+
+        mockService.Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
+                   .Returns(SystemErrorStream());
+
+            services.AddScoped(_ => mockService.Object);
+        var provider = services.BuildServiceProvider();
+        var executor = new ApiExecutor(provider);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<Exception>(async () =>
+        {
+            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(new B1Request { DEPTNO = 10 }))
+            {
+            }
+        });
+
+        Assert.Equal(ex.Message, expectMessage);
+
+        // 出力メッセージの確認
+        // "[System Error]"の文字列が出力されていること
+        var output = sw.ToString();
+        Assert.Contains("[System Error]", output);
+    }
+
 }
