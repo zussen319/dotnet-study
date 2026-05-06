@@ -54,7 +54,7 @@ else
 }
 
 using IHost host = builder.Build();
-CancellationToken ct = CancellationToken.None;
+CancellationToken ct = default;
 
 // -- 実行フェーズ --
 var executor = host.Services.GetRequiredService<IApiExecutor>();

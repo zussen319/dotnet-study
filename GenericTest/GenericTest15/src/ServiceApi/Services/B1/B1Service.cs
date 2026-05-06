@@ -3,7 +3,6 @@ using ServiceApi.Requests.B1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.B1;
 using System.Data.Common;
-using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.B1;
 
@@ -33,7 +32,6 @@ public class B1Service(string connectionString)
         // マッピング用の式を定義 (引数：DbDataReader, 戻り値：B1Response)
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
         {
-#if true
             EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL
             ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty,  // string
             JOB = Convert.ToString(r["JOB"]) ?? string.Empty,
@@ -42,23 +40,6 @@ public class B1Service(string connectionString)
             SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
             COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
             DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
-#else
-            EMPNO = r.GetDecimal(r.GetOrdinal("EMPNO")), // NOT NULL
-            ENAME = r.IsDBNull(r.GetOrdinal("ENAME"))
-                ? string.Empty : r.GetString(r.GetOrdinal("ENAME")),
-            JOB = r.IsDBNull(r.GetOrdinal("JOB"))
-                ? string.Empty : r.GetString(r.GetOrdinal("JOB")),
-            MGR = r.IsDBNull(r.GetOrdinal("MGR"))
-                ? null : r.GetDecimal(r.GetOrdinal("MGR")),
-            HIREDATE = r.IsDBNull(r.GetOrdinal("HIREDATE"))
-                ? string.Empty : r.GetString(r.GetOrdinal("HIREDATE")),
-            SAL = r.IsDBNull(r.GetOrdinal("SAL"))
-                ? null : r.GetDecimal(r.GetOrdinal("SAL")),
-            COMM = r.IsDBNull(r.GetOrdinal("COMM"))
-                ? null : r.GetDecimal(r.GetOrdinal("COMM")),
-            DEPTNO = r.IsDBNull(r.GetOrdinal("DEPTNO"))
-                ? null : r.GetDecimal(r.GetOrdinal("DEPTNO"))
-#endif
         };
 
         /*
