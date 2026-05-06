@@ -52,13 +52,9 @@ public class MockRequest : RequestBase { }
 
 public class TEST_ApiExecutor
 {
-#if true
+    // DB接続文字列：テスト用設定ファイル（ServiceApi.Test.Json）から取得
     private readonly string _connectionString =
         TEST_ConfigurationManager.GetValue<string>(ConfigId.ConnectionString);
-#else
-    private const string _connectionString =
-        "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
-#endif
 
     [Fact]
     public async Task RunAsync_正常系_終了時サービス破棄確認_01()
