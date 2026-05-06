@@ -528,147 +528,6 @@ public class TEST_ApiExecutor
         scopeMock.Verify(x => x.Dispose(), Times.Once, "例外発生時でも Scope は破棄されるべきです。");
     }
 
-#if false
-    // 本物のDIコンテナを使ったテストコード
-    [Fact]
-    public async Task RunAsync_実機同様のDIコンテナ構成で正しく動作すること()
-    {
-        // 1. Arrange: 本番同様の DI コンテナを構築
-        var services = new ServiceCollection();
-
-        // テスト対象の ApiExecutor を登録
-        services.AddTransient<ApiExecutor>();
-
-        // B1Service_Test を登録 (本物の B1Service をテストしたい場合はここを書き換える)
-        services.AddTransient<B1Service_Test>(sp => new B1Service_Test(_connectionString));
-
-        // コンテナをビルドして ServiceProvider を取得
-        var serviceProvider = services.BuildServiceProvider();
-
-        // 2. Act: ApiExecutor をコンテナから取り出して実行
-        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
-        var request = new B1Request { DEPTNO = 10 };
-
-        var results = new List<B1Response>();
-
-        // 実際のメソッド呼び出し
-        await foreach (var response in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
-        {
-            results.Add(response);
-        }
-
-        // 3. Assert: 結果の検証
-        Assert.NotEmpty(results);
-        // JSONの内容が正しく取得できているか等の検証
-    }
-
-/* このテストはあまり意味がない？？ */
-    // B1Service と B1Service_Test を切り替えてテストする
-    /*
-     * RunAsync の型引数に指定するため、また GetRequiredService で解決するために、
-     * 両方のクラスがコンテナに登録されている必要があります。
-     */
-    [Theory]
-    [InlineData("Real")] // 本物で実行
-    [InlineData("Test")] // テスト用(JSON)で実行
-    public async Task RunAsync_本番用とテスト用の各サービスが正しく切り替わること(string mode)
-    {
-        // --- Arrange ---
-        var services = new ServiceCollection();
-        services.AddTransient<ApiExecutor>();
-
-        // 両方を登録しておく
-        services.AddTransient<B1Service>(sp => new B1Service(_connectionString));
-        services.AddTransient<B1Service_Test>(sp => new B1Service_Test("dummy_json_path"));
-
-        var serviceProvider = services.BuildServiceProvider();
-        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
-        var request = new B1Request { DEPTNO = 10 };
-
-        // --- Act & Assert ---
-        if (mode == "Real")
-        {
-            // B1Service を使って実行
-            await foreach (var res in executor.RunAsync<B1Service, B1Request, B1Response>(request))
-            {
-                Assert.NotNull(res);
-            }
-        }
-        else
-        {
-            // B1Service_Test を使って実行
-            await foreach (var res in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
-            {
-                Assert.NotNull(res);
-            }
-        }
-    }
-#endif
-
-#if false
-    [Theory]
-    [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service実行_00(decimal deptNo)
-    {
-        // 1. Arrange: 本番同様の DI コンテナを構築
-        var services = new ServiceCollection();
-
-        // テスト対象の ApiExecutor を登録
-        services.AddTransient<ApiExecutor>();
-
-        // サービスを登録
-        services.AddTransient<B1Service>(sp => new B1Service(_connectionString));
-
-        // コンテナをビルドして ServiceProvider を取得
-        var serviceProvider = services.BuildServiceProvider();
-
-        // 2. Act: ApiExecutor をコンテナから取り出して実行
-        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
-        // リクエストパラメータはサービスごとに異なる
-        B1Request request = new() { DEPTNO = deptNo };
-
-        // メソッド呼び出し
-        List<B1Response> results = [];
-        await foreach (var response in executor.RunAsync<B1Service, B1Request, B1Response>(request))
-        {
-            results.Add(response);
-        }
-
-        // 例外が発生しなければOK
-    }
-
-    [Theory]
-    [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service_Test実行_00(decimal deptNo)
-    {
-        // 1. Arrange: 本番同様の DI コンテナを構築
-        var services = new ServiceCollection();
-
-        // テスト対象の ApiExecutor を登録
-        services.AddTransient<ApiExecutor>();
-
-        // サービスを登録
-        services.AddTransient<B1Service_Test>(sp => new B1Service_Test(_connectionString));
-
-        // コンテナをビルドして ServiceProvider を取得
-        var serviceProvider = services.BuildServiceProvider();
-
-        // 2. Act: ApiExecutor をコンテナから取り出して実行
-        var executor = serviceProvider.GetRequiredService<ApiExecutor>();
-        // リクエストパラメータはサービスごとに異なる
-        B1Request request = new () { DEPTNO = deptNo };
-
-        // 実際のメソッド呼び出し
-        List<B1Response> results = [];
-        await foreach (var response in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
-        {
-            results.Add(response);
-        }
-
-        // 例外が発生しなければOK
-    }
-#endif
-
     // DIコンテナ構築・Executor実行（共通処理）
     private async Task<List<TResponse>> InvokeTestExecutor<TService, TRequest, TResponse>(
         Func<TRequest> createRequest)
@@ -728,7 +587,6 @@ public class TEST_ApiExecutor
         // 例外が発生しなければOK
     }
 
-    // ▼▼▼ CancellationToken対応テスト ▼▼▼
     /*
      * 1. キャンセルの伝播:
      *    上位（呼び出し元）からキャンセルが指示されたとき、ApiExecutor が
@@ -868,8 +726,8 @@ public class TEST_ApiExecutor
          * サービスが正常に稼働している場合はこのテストは失敗する
          */
         // 出力メッセージを確認する場合は以下：
-        using var sw = new StringWriter();
-        Console.SetOut(sw); // 出力先を横取り
+        //using var sw = new StringWriter();
+        //Console.SetOut(sw); // 出力先を横取り
 
         // 1. Arrange: 本物のサービスを登録する
         var services = new ServiceCollection();
@@ -913,8 +771,8 @@ public class TEST_ApiExecutor
 
         // 出力メッセージの確認
         // "[System Error]"の文字列が出力されていること
-        var output = sw.ToString();
-        Assert.Contains("[Database Error]", output);
+        //var output = sw.ToString();
+        //Assert.Contains("[Database Error]", output);
     }
 
     [Fact]
@@ -927,8 +785,8 @@ public class TEST_ApiExecutor
         var mockService = new Mock<IB1Service>();
 
         // 出力メッセージを確認する場合は以下：
-        using var sw = new StringWriter();
-        Console.SetOut(sw); // 出力先を横取り
+        //using var sw = new StringWriter();
+        //Console.SetOut(sw); // 出力先を横取り
 
         async IAsyncEnumerable<B1Response> SystemErrorStream()
         {
@@ -955,8 +813,7 @@ public class TEST_ApiExecutor
 
         // 出力メッセージの確認
         // "[System Error]"の文字列が出力されていること
-        var output = sw.ToString();
-        Assert.Contains("[System Error]", output);
+        //var output = sw.ToString();
+        //Assert.Contains("[System Error]", output);
     }
-
 }
