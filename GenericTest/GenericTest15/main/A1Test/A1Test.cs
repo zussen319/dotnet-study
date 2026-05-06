@@ -63,7 +63,7 @@ try
     string outputPath = @"C:\temp\A1Test.csv";
     var paramSection = config.GetSection("param");
 
-    // （処理実行）非同期ストリームとして受け取る
+    // （処理実行）検索結果を受け取る
     // A1Service（本物）か A1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IA1Service, A1Request, A1Response>(
         new A1Request
@@ -71,7 +71,7 @@ try
             A1Value = paramSection.GetValue<int>("A1Value")
         });
 
-    // （結果取得）非同期でファイルを書き出す
+    // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;

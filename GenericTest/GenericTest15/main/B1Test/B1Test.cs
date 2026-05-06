@@ -54,31 +54,26 @@ else
 }
 
 using IHost host = builder.Build();
+CancellationToken ct = CancellationToken.None;
 
 // -- 実行フェーズ --
 var executor = host.Services.GetRequiredService<IApiExecutor>();
-
-// --- キャンセル検証用テストコード ---
-// CancellationTokenSource を作成
-// 500ms 後に自動的にキャンセルを発動させる（スタブの Delay 2000ms より先に動く）
-//using var cts = new CancellationTokenSource();
-//cts.CancelAfter(TimeSpan.FromMilliseconds(500));
 
 try
 {
     string outputPath = @"C:\temp\B1Test.csv";
     var paramSection = config.GetSection("param");
 
-    // （処理実行）非同期ストリームとして受け取る
+    // （処理実行）検索結果を受け取る
     // B1Service（本物）か B1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IB1Service, B1Request, B1Response>(
-        new B1Request { DEPTNO = paramSection.GetValue<int>("DEPTNO")} /*, cts.Token */);
+        new B1Request { DEPTNO = paramSection.GetValue<int>("DEPTNO")}, ct);
 
-    // （結果取得）非同期でファイルを書き出す
+    // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream)
+        await foreach (var response in responseStream.WithCancellation(ct).ConfigureAwait(false))
         {
             // 取得データをCSV形式で書き出し
             string line = string.Join(",", new object?[]
@@ -92,7 +87,7 @@ try
                 response.COMM,
                 response.DEPTNO
             });
-            await writer.WriteLineAsync(line);
+            await writer.WriteLineAsync(line).ConfigureAwait(false);
             Console.WriteLine(line);
 
             count++;

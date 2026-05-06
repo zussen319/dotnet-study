@@ -1,7 +1,8 @@
 {
   "profiles": {
     "C2Test": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "-t"
     }
   }
 }

@@ -54,6 +54,7 @@ else
 }
 
 using IHost host = builder.Build();
+CancellationToken ct = CancellationToken.None;
 
 // -- 実行フェーズ --
 var executor = host.Services.GetRequiredService<IApiExecutor>();
@@ -63,15 +64,15 @@ try
     string outputPath = @"C:\temp\C1Test.csv";
     var paramSection = config.GetSection("param");
 
-    // （処理実行）非同期ストリームとして受け取る
+    // （処理実行）検索結果を受け取る
     // C1Service（本物）か C1Service_Test（ダミー）かはDIが自動判断
-    var responseStream = executor.RunAsync<IC1Service, C1Request, C1Response>(new C1Request {});
+    var responseStream = executor.RunAsync<IC1Service, C1Request, C1Response>(new C1Request {}, ct);
 
-    // （結果取得）非同期でファイルを書き出す
+    // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream)
+        await foreach (var response in responseStream.WithCancellation(ct).ConfigureAwait(false))
         {
             // 取得データをCSV形式で書き出し
             string line1 = string.Join(",", new object?[]
@@ -79,12 +80,12 @@ try
                 response.DEPTNO,
                 response.DNAME
             });
-            await writer.WriteLineAsync(line1);
+            await writer.WriteLineAsync(line1).ConfigureAwait(false);
             Console.WriteLine(line1);
             foreach (var emp in response.Employees)
             {
                 string line2 = $"  {emp.EMPNO},{emp.ENAME}";
-                await writer.WriteLineAsync(line2);
+                await writer.WriteLineAsync(line2).ConfigureAwait(false);
                 Console.WriteLine(line2);
             }
 
@@ -96,6 +97,10 @@ try
         // 最後にバッファを強制的にフラッシュ（usingを抜ける際にも行われますが念のため）
         await writer.FlushAsync();
     }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Operation cancelled by user.");
 }
 catch (Exception ex)
 {
