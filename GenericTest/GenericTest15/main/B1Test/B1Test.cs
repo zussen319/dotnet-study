@@ -53,7 +53,7 @@ else
     appBuilder.Services.AddTransient<IB1Service, B1Service>(sp => new B1Service(connStr));
 }
 
-// 構成を確定させ、実行ホストを生成 (Application Host)
+// 構成を確定し実行ホストを生成
 using IHost appHost = appBuilder.Build();
 
 // -- 実行フェーズ --
@@ -69,7 +69,7 @@ try
     // （処理実行）検索結果を受け取る
     // B1Service（本物）か B1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IB1Service, B1Request, B1Response>(
-        new B1Request { DEPTNO = paramSection.GetValue<int>("DEPTNO")}, ct);
+        new B1Request { DEPTNO = paramSection.GetValue<int>("DEPTNO") }, ct);
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))

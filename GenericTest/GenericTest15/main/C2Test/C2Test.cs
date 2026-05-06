@@ -53,7 +53,7 @@ else
     appBuilder.Services.AddTransient<IC2Service, C2Service>(sp => new C2Service(connStr));
 }
 
-// 構成を確定させ、実行ホストを生成 (Application Host)
+// 構成を確定し実行ホストを生成
 using IHost appHost = appBuilder.Build();
 
 // -- 実行フェーズ --
@@ -64,7 +64,7 @@ CancellationToken ct = default;
 try
 {
     string outputPath = @"C:\temp\C2Test.csv";
-    var paramSection = config.GetSection("param");
+    //var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
     // C2Service（本物）か C2Service_Test（ダミー）かはDIが自動判断
