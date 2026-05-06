@@ -44,9 +44,9 @@ public class C1Service(string connectionString)
         await foreach (var reader in ExecuteQueryAsync(sql, ct))
         {
             decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
-            if (response == null || response.DEPTNO != deptNo)
+            if (response is null || response.DEPTNO != deptNo)
             {
-                if (response != null) {
+                if (response is not null) {
                     // 作成済のオブジェクトを返却
                     yield return response;
                     //await Task.Delay(2000); // テスト用
@@ -66,6 +66,6 @@ public class C1Service(string connectionString)
             }
         }
         // 最後のオブジェクトを返却
-        if (response != null) { yield return response; }
+        if (response is not null) { yield return response; }
     }
 }

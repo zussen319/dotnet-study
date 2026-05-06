@@ -57,10 +57,10 @@ public class C2Service(string connectionString)
             decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]); // decimal - NOT NULL
             decimal memberEmpNo = Convert.ToDecimal(reader["MEMBER_EMPNO"]); // decimal - NOT NULL
 
-            if (dept == null || dept.DEPTNO != deptNo)
+            if (dept is null || dept.DEPTNO != deptNo)
             {
                 // レベル１：先頭レコード、またはDEPTNOが不一致の場合
-                if (dept != null)
+                if (dept is not null)
                 {
                     // 作成済のオブジェクトを返却
                     yield return dept;
@@ -87,6 +87,6 @@ public class C2Service(string connectionString)
             }
         }
         // 最後のオブジェクトを返却
-        if (dept != null) { yield return dept; }
+        if (dept is not null) { yield return dept; }
     }
 }
