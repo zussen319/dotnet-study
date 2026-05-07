@@ -3,10 +3,13 @@ using Moq;
 using Oracle.ManagedDataAccess.Client;
 using ServiceApi.Requests;
 using ServiceApi.Requests.B1;
+using ServiceApi.Requests.C1;
 using ServiceApi.Responses;
 using ServiceApi.Responses.B1;
+using ServiceApi.Responses.C1;
 using ServiceApi.Services;
 using ServiceApi.Services.B1;
+using ServiceApi.Services.C1;
 using ServiceApi.Tests.Common;
 using System.Runtime.CompilerServices;
 
@@ -580,6 +583,35 @@ public class TEST_ApiExecutor
         List<B1Response> results =
             await InvokeTestExecutor<B1Service_Test, B1Request, B1Response>(() =>
                 new B1Request
+                {
+                    DEPTNO = deptNo
+                }
+            );
+        // 例外が発生しなければOK
+    }
+
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_C1Service実行_01(decimal deptNo)
+    {
+        List<C1Response> results =
+            await InvokeTestExecutor<C1Service, C1Request, C1Response>(() =>
+                new C1Request
+                {
+                    DEPTNO = deptNo
+                }
+            );
+        // 例外が発生しなければOK
+    }
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_C1Service_Test実行_01(decimal deptNo)
+    {
+        List<C1Response> results =
+            await InvokeTestExecutor<C1Service_Test, C1Request, C1Response>(() =>
+                new C1Request
                 {
                     DEPTNO = deptNo
                 }

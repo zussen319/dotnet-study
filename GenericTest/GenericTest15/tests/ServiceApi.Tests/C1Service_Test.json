@@ -1,0 +1,34 @@
+[
+  {
+    "DEPTNO": 910,
+    "DNAME": "<TEST>ACCOUNTING",
+    "Employees": [
+      {
+        "EMPNO": 9782,
+        "ENAME": "<TEST>CLARK"
+      },
+      {
+        "EMPNO": 9839,
+        "ENAME": "<TEST>KING"
+      },
+      {
+        "EMPNO": 9934,
+        "ENAME": "<TEST>MILLER"
+      }
+    ]
+  },
+  {
+    "DEPTNO": 920,
+    "DNAME": "<TEST>RESEARCH",
+    "Employees": [
+      {
+        "EMPNO": 9369,
+        "ENAME": "<TEST>SMITH"
+      },
+      {
+        "EMPNO": 9566,
+        "ENAME": "<TEST>JONES"
+      }
+    ]
+  }
+]
