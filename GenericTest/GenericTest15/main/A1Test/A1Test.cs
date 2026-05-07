@@ -68,7 +68,7 @@ try
     var responseStream = executor.RunAsync<IA1Service, A1Request, A1Response>(
         new A1Request
         {
-            A1Value = paramSection.GetValue<int>("A1Value")
+            A1Value = paramSection.GetValue<decimal>("A1Value")
         });
 
     // （結果取得）検索結果をファイルに書き出す

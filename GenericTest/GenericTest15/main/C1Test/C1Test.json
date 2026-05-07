@@ -1,7 +1,8 @@
 ﻿{
-    "config": {
-        "ConnectionString" : "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger"
-    },
-    "param": {
-    }
+  "config": {
+    "ConnectionString": "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger"
+  },
+  "param": {
+    "DEPTNO": 10
+  }
 }

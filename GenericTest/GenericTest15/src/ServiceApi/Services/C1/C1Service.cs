@@ -1,4 +1,5 @@
-﻿using ServiceApi.Requests.C1;
+﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Requests.C1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.C1;
 using System.Data.Common;
@@ -26,9 +27,16 @@ public class C1Service(string connectionString)
          *   FROM DEPT d
          *   INNER JOIN EMP e
          *   ON e.DEPTNO = d.DEPTNO
+         *   WHERE d.DEPTNO = :DEPTNO
          *   ORDER BY d.DEPTNO, e.EMPNO
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C1_001);
+
+        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
+        Action<OracleParameterCollection> bindAction = p =>
+        {
+            p.Add(new OracleParameter("DEPTNO", request.DEPTNO));
+        };
 
         // Empマッピング定義
         C1Response.Emp empMapFunc(DbDataReader r) => new()
@@ -41,7 +49,7 @@ public class C1Service(string connectionString)
          * DEPTNOが同一のレコードをグループ化して返却する
          */
         C1Response? response = null;
-        await foreach (var reader in ExecuteQueryAsync(sql, ct))
+        await foreach (var reader in ExecuteQueryAsync(sql, bindAction, ct))
         {
             decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
             if (response is null || response.DEPTNO != deptNo)

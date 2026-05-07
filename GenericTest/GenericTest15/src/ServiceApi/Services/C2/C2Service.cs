@@ -1,4 +1,5 @@
-﻿using ServiceApi.Requests.C2;
+﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Requests.C2;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.C2;
 using System.Data.Common;
@@ -28,9 +29,16 @@ public class C2Service(string connectionString)
          *   FROM DEPT d 
          *   INNER JOIN EMP e1 ON e1.DEPTNO = d.DEPTNO 
          *   INNER JOIN EMP e2 ON e2.MGR = e1.EMPNO 
+         *   WHERE d.DEPTNO = :DEPTNO
          *   ORDER BY d.DEPTNO, e1.EMPNO, e2.EMPNO
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C2_001);
+
+        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
+        Action<OracleParameterCollection> bindAction = p =>
+        {
+            p.Add(new OracleParameter("DEPTNO", request.DEPTNO));
+        };
 
         // レベル２：Memberマッピング定義
         C2Response.Member memberMapFunc(DbDataReader r) => new()
@@ -52,7 +60,7 @@ public class C2Service(string connectionString)
          */
         C2Response? dept = null;
         C2Response.Member? member = null;
-        await foreach (var reader in ExecuteQueryAsync(sql, ct))
+        await foreach (var reader in ExecuteQueryAsync(sql, bindAction, ct))
         {
             decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]); // decimal - NOT NULL
             decimal memberEmpNo = Convert.ToDecimal(reader["MEMBER_EMPNO"]); // decimal - NOT NULL
