@@ -46,11 +46,11 @@ public class TEST_B1Service_Test
         // 1. 準備 (Arrange)
         // サービスをインスタンス化
         var service = new B1Service_Test("dummy_connection");
-        var request = new B1Request { DEPTNO = 999 };
+        IEnumerable<B1Request> requests = [new B1Request { DEPTNO = 999 }];
 
         // 2. 実行 (Act)
         var results = new List<B1Response>();
-        await foreach (var item in service.ExecuteAsync(request))
+        await foreach (var item in service.ExecuteAsync(requests))
         {
             // IAsyncEnumerableをListに変換して中身を検証しやすくする
             results.Add(item);
@@ -72,7 +72,7 @@ public class TEST_B1Service_Test
          */
         // 1. 準備 (Arrange)
         var service = new B1Service_Test("dummy_connection");
-        var request = new B1Request { DEPTNO = 999 };
+        IEnumerable<B1Request> requests = [new B1Request { DEPTNO = 999 }];
 
         // 500ms後にキャンセルを発動させる
         // スタブには 2000ms (初期遅延) + 1000ms (1件ごと) の待機があるため、途中で止まるはず
@@ -82,7 +82,7 @@ public class TEST_B1Service_Test
         // 2. 実行 & 3. 検証 (Act & Assert)
         var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await foreach (var item in service.ExecuteAsync(request, cts.Token))
+            await foreach (var item in service.ExecuteAsync(requests, cts.Token))
             {
                 // 成功（ここに来る前に止まるはず）
             }

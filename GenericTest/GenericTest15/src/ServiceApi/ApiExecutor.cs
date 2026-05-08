@@ -119,8 +119,11 @@ public class ApiExecutor(IServiceProvider appServices) : IApiExecutor
          * を継承して OracleConnection を保持している場合、この CreateScope() がないと
          * メモリリークやDB接続リークの直接的な原因になります。
          */
+#if true
+        await using var scope = appServices.CreateAsyncScope();
+#else
         using IServiceScope scope = appServices.CreateScope();
-
+#endif
         // スコープからServiceインスタンスを取得
         /* 
          * スコープ内にServiceインスタンスを作成する

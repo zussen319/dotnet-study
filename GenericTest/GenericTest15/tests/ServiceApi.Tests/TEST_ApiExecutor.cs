@@ -87,8 +87,15 @@ public class TEST_ApiExecutor
             await Task.Yield();
         }
 
+#if true
+        mockService.Setup(s => s.ExecuteAsync(
+                It.IsAny<IEnumerable<MockRequest>>(), // 単一の MockRequest から変更
+                It.IsAny<CancellationToken>()))       // 第2引数のキャンセル判定も追加
+           .Returns(FakeStream());
+#else
         mockService.Setup(s => s.ExecuteAsync(It.IsAny<MockRequest>()))
                    .Returns(FakeStream());
+#endif
 
         // mock.Object を渡せば、本物の IB1Service として振る舞う
         services.AddTransient(_ => mockService.Object);
@@ -97,10 +104,18 @@ public class TEST_ApiExecutor
 
         // Act
         int count = 0;
+#if true
+        var requests = new[] { new MockRequest() }; // IEnumerable として渡す
+        await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(requests))
+        {
+            count++;
+        }
+#else
         await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(new MockRequest()))
         {
             count++;
         }
+#endif
 
         // Assert
         Assert.Equal(2, count);
@@ -153,19 +168,26 @@ public class TEST_ApiExecutor
         }
 
         // ExecuteAsyncが呼ばれたら指定件数のストリームを返す
+#if true
+        mockService.Setup(s => s.ExecuteAsync(
+                        It.IsAny<IEnumerable<B1Request>>(),
+                        It.IsAny<CancellationToken>()))
+                   .Returns(FakeStream(testCount));
+#else
         mockService.Setup(s => s.ExecuteAsync(It.IsAny<B1Request>()))
                    .Returns(FakeStream(testCount));
+#endif
 
         // ApiExecutorが内部でCreateScope()するため、Scopedで登録
         services.AddScoped(_ => mockService.Object);
 
         var provider = services.BuildServiceProvider();
         var executor = new ApiExecutor(provider);
-        var request = new B1Request { DEPTNO = 10 };
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
 
         // Act
         int actualCount = 0;
-        await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(request))
+        await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(requests))
         {
             actualCount++;
         }
@@ -173,7 +195,81 @@ public class TEST_ApiExecutor
         // Assert
         Assert.Equal(testCount, actualCount); // 期待した件数が届いているか
         Assert.True(isServiceDisposed, $"件数 {testCount} において、サービスが正しく破棄されていません。");
+        /*
+         * ServiceBase が IAsyncDisposable を実装しているため、
+         * もし IDisposable.Dispose() の検知でテストが失敗（isServiceDisposed が false のまま）する場合は
+         * As<IAsyncDisposable>() のセットアップに切り替えてみてください。
+         * （↓次のメソッド参照）
+         */
     }
+
+#if true
+    /* DisposeAsyncテストコード追加 */
+    /*
+     * 1. ValueTask への対応:
+     *    IAsyncDisposable.DisposeAsync() は Task ではなく ValueTask を返します。
+     *    Moq でセットアップする場合、.Returns(new ValueTask(Task.CompletedTask)) 
+     *    と記述することで、正常に完了した非同期タスクをシミュレートできます。
+     * 
+     * 2. mockService.As<T>() の活用:
+     *    IApiService 自体は IAsyncDisposable を継承していなくても、具象クラス（ServiceBase）
+     *    が継承している場合、DI コンテナは実行時にキャストして呼び出します。
+     *    テストでも .As<IAsyncDisposable>() を使うことで、その「暗黙的な型変換と呼び出し」を再現・検証できます。
+     * 
+     * 3. 検証の優先順位:
+     *    最近の .NET (Core以降) では、IAsyncDisposable がある場合は Dispose()（同期）よりも
+     *    DisposeAsync()（非同期）が優先されます。そのため、両方チェックするのではなく、
+     *    まずはこの DisposeAsync() が呼ばれていることを確認するのが今の C# の作法として適切です。
+     * 
+     * さらに厳密にするなら
+     * もし「同期・非同期のどちらでもいいから、とにかく何らかの形で破棄されたこと」を保証したい場合は、
+     * 両方の Callback で共通のフラグを true にするか、MockBehavior.Strict を検討しても良いですが、
+     * まずは上記のコードで DisposeAsync を狙い撃ちにするのが最も実態に近いテストになります。
+     */
+    [Fact]
+    public async Task RunAsync_正常系_非同期破棄の検証_01()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        bool isAsyncDisposed = false; // 非同期破棄フラグ
+
+        var mockService = new Mock<IApiService<MockRequest, MockResponse>>();
+
+        // --- IAsyncDisposable インターフェースとしてセットアップ ---
+        mockService.As<IAsyncDisposable>()
+                   .Setup(s => s.DisposeAsync())
+                   .Returns(new ValueTask(Task.CompletedTask)) // ValueTask を返す
+                   .Callback(() => isAsyncDisposed = true);
+
+        // テスト用のダミーストリーム
+        async IAsyncEnumerable<MockResponse> FakeStream()
+        {
+            yield return new MockResponse { Id = 1 };
+            await Task.Yield();
+        }
+
+        // メソッドのセットアップ（前回の修正通り）
+        mockService.Setup(s => s.ExecuteAsync(
+                        It.IsAny<IEnumerable<MockRequest>>(),
+                        It.IsAny<CancellationToken>()))
+                   .Returns(FakeStream());
+
+        services.AddTransient(_ => mockService.Object);
+        var provider = services.BuildServiceProvider();
+        var executor = new ApiExecutor(provider);
+
+        // Act
+        var requests = new[] { new MockRequest() };
+        await foreach (var _ in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(requests))
+        {
+            // ストリームを消費
+        }
+
+        // Assert
+        // ApiExecutor 内の using IServiceScope scope が抜けた際に DisposeAsync が呼ばれたか
+        Assert.True(isAsyncDisposed, "処理完了後に DisposeAsync が呼び出されていません。");
+    }
+#endif
 
     [Fact]
     public async Task RunAsync_異常系_呼出し元に例外伝播_01()
@@ -188,8 +284,15 @@ public class TEST_ApiExecutor
             throw new InvalidOperationException("DB接続エラー");
         }
 
+#if true
+        mockService.Setup(s => s.ExecuteAsync(
+                        It.IsAny<IEnumerable<MockRequest>>(),
+                        It.IsAny<CancellationToken>()))
+                   .Returns(ErrorStream());
+#else
         mockService.Setup(s => s.ExecuteAsync(It.IsAny<MockRequest>()))
                    .Returns(ErrorStream());
+#endif
 
         services.AddTransient(_ => mockService.Object);
         var provider = services.BuildServiceProvider();
@@ -199,7 +302,7 @@ public class TEST_ApiExecutor
         // 例外が外側まで伝播することを確認
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(new MockRequest()))
+            await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(new[] { new MockRequest() }))
             {
                 // 1件目は取れるが、2件目の取得で例外が飛ぶ
             }
@@ -417,9 +520,16 @@ public class TEST_ApiExecutor
          *       // 例外が起きても、ここを通って scope.Dispose() が呼ばれるかを確認します。
          *   }
          */
+#if true
+        serviceMock.Setup(x => x.ExecuteAsync(
+                        It.IsAny<IEnumerable<B1Request>>(),
+                        It.IsAny<CancellationToken>()))
+                   .Throws(new InvalidOperationException("予期せぬエラー"));
+#else
         serviceMock
             .Setup(x => x.ExecuteAsync(It.IsAny<B1Request>()))
             .Throws(new InvalidOperationException("予期せぬエラー"));
+#endif
 
         // テスト対象のインスタンス化 (ServiceProviderを渡す)
         /*
@@ -456,7 +566,7 @@ public class TEST_ApiExecutor
          *   DEPTNO が 10 でも 99 でもテストの結果（成功/失敗）には直接影響しませんが、
          *   「メソッドを動かすための最小限のルール」として、有効なリクエストオブジェクトを準備しています。
          */
-        var request = new B1Request { DEPTNO = 10 };
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
 
         // IAsyncEnumerable なので、列挙を開始した瞬間に例外が発生することを検証
         /*
@@ -475,7 +585,7 @@ public class TEST_ApiExecutor
          */
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var _ in executor.RunAsync<B1Service_Test, B1Request, B1Response>(request))
+            await foreach (var _ in executor.RunAsync<B1Service_Test, B1Request, B1Response>(requests))
             {
                 // ここには到達しないはず
             }
@@ -533,7 +643,7 @@ public class TEST_ApiExecutor
 
     // DIコンテナ構築・Executor実行（共通処理）
     private async Task<List<TResponse>> InvokeTestExecutor<TService, TRequest, TResponse>(
-        Func<TRequest> createRequest)
+        Func<IEnumerable<TRequest>> createRequest)
         where TService : class, IApiService<TRequest, TResponse>
         where TRequest : RequestBase
         where TResponse : ResponseBase
@@ -568,10 +678,7 @@ public class TEST_ApiExecutor
     {
         List<B1Response> results =
             await InvokeTestExecutor<B1Service, B1Request, B1Response>(() =>
-                new B1Request
-                {
-                    DEPTNO = deptNo
-                }
+                new[] {new B1Request { DEPTNO = deptNo }}
             );
         // 例外が発生しなければOK
     }
@@ -582,10 +689,7 @@ public class TEST_ApiExecutor
     {
         List<B1Response> results =
             await InvokeTestExecutor<B1Service_Test, B1Request, B1Response>(() =>
-                new B1Request
-                {
-                    DEPTNO = deptNo
-                }
+                new[] { new B1Request { DEPTNO = deptNo } }
             );
         // 例外が発生しなければOK
     }
@@ -597,10 +701,7 @@ public class TEST_ApiExecutor
     {
         List<C1Response> results =
             await InvokeTestExecutor<C1Service, C1Request, C1Response>(() =>
-                new C1Request
-                {
-                    DEPTNO = deptNo
-                }
+                new[] { new C1Request { DEPTNO = deptNo } }
             );
         // 例外が発生しなければOK
     }
@@ -611,10 +712,7 @@ public class TEST_ApiExecutor
     {
         List<C1Response> results =
             await InvokeTestExecutor<C1Service_Test, C1Request, C1Response>(() =>
-                new C1Request
-                {
-                    DEPTNO = deptNo
-                }
+                new[] { new C1Request { DEPTNO = deptNo } }
             );
         // 例外が発生しなければOK
     }
@@ -641,7 +739,7 @@ public class TEST_ApiExecutor
          * 正しく受け取れるようになっています。
          */
         async IAsyncEnumerable<B1Response> CancelledStream(
-            B1Request req,
+            IEnumerable<B1Request> reqs,
             [EnumeratorCancellation] CancellationToken ct) // [EnumeratorCancellation]を付加し警告を解消
         {
             /*
@@ -651,16 +749,22 @@ public class TEST_ApiExecutor
             ct.ThrowIfCancellationRequested();
             yield break;
         }
-
+#if true
+        mockService.Setup(s => s.ExecuteAsync(
+                       It.IsAny<IEnumerable<B1Request>>(), 
+                       It.IsAny<CancellationToken>()))
+                   .Returns((IEnumerable<B1Request> reqs, CancellationToken ct) => CancelledStream(reqs, ct));
+#else
         mockService
             .Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
             .Returns((B1Request req, CancellationToken ct) => CancelledStream(req, ct));
+#endif
 
         services.AddScoped(_ => mockService.Object);
         var provider = services.BuildServiceProvider();
 
         var executor = new ApiExecutor(provider);
-        var request = new B1Request { DEPTNO = 10 };
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
 
         /*
          * 「キャンセルボタン」の役割です。
@@ -684,7 +788,7 @@ public class TEST_ApiExecutor
              * WithCancellation(cts.Token) を使うことで、先ほど作成したローカル関数
              * CancelledStream の引数 ct に、キャンセル済みのトークンが流し込まれます。
              */
-            var stream = executor.RunAsync<IB1Service, B1Request, B1Response>(request, cts.Token);
+            var stream = executor.RunAsync<IB1Service, B1Request, B1Response>(requests, cts.Token);
 
             // WithCancellation(cts.Token) によって引数 ct にトークンが流し込まれる
             await foreach (var item in stream.WithCancellation(cts.Token))
@@ -729,7 +833,9 @@ public class TEST_ApiExecutor
             throw CreateOracleException(12154, "TNS:could not resolve the connect identifier");
         }
 
-        mockService.Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
+        mockService.Setup(s => s.ExecuteAsync(
+                       It.IsAny<IEnumerable<B1Request>>(),
+                       It.IsAny<CancellationToken>()))
                    .Returns(OracleErrorStream());
 
         services.AddScoped(_ => mockService.Object);
@@ -741,7 +847,7 @@ public class TEST_ApiExecutor
         // ここでは「例外が再スローされること」を確認します。
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(new B1Request { DEPTNO = 10 }))
+            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(new[] { new B1Request { DEPTNO = 10 } }))
             {
                 // 1件目は処理されるが、2件目の MoveNextAsync で例外が飛ぶ
             }
@@ -773,13 +879,13 @@ public class TEST_ApiExecutor
 
         var provider = services.BuildServiceProvider();
         var executor = new ApiExecutor(provider);
-        var request = new B1Request { DEPTNO = 10 };
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
 
         // 2. Act & 3. Assert
         try
         {
             // 実際にDBへ接続しに行く
-            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(request))
+            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(requests))
             {
                 // もしデータが取れてしまったら、サービスが動いているということ
             }
@@ -826,7 +932,9 @@ public class TEST_ApiExecutor
             throw new Exception(expectMessage); // 2件目：例外発生 ("予期せぬシステムエラー")
         }
 
-        mockService.Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
+        mockService.Setup(s => s.ExecuteAsync(
+                       It.IsAny<IEnumerable<B1Request>>(),
+                       It.IsAny<CancellationToken>()))
                    .Returns(SystemErrorStream());
 
             services.AddScoped(_ => mockService.Object);
@@ -836,7 +944,8 @@ public class TEST_ApiExecutor
         // Act & Assert
         var ex = await Assert.ThrowsAsync<Exception>(async () =>
         {
-            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(new B1Request { DEPTNO = 10 }))
+            await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(
+                new [] { new B1Request { DEPTNO = 10 }}))
             {
             }
         });
