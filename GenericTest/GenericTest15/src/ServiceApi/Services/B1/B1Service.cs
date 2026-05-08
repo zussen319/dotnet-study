@@ -10,7 +10,7 @@ public class B1Service(string connectionString)
     : ServiceBase<B1Request, B1Response>(connectionString), IB1Service
 {
     public override IAsyncEnumerable<B1Response> ExecuteAsync(
-        B1Request request,
+        IEnumerable<B1Request> requests,
         CancellationToken ct = default)
     {
         /*
@@ -24,9 +24,9 @@ public class B1Service(string connectionString)
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_B1_001);
           
         // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
-        Action<OracleParameterCollection> bindAction = p => 
+        Action<OracleParameterCollection, B1Request> bindAction = (p, req) => 
         {
-            p.Add(new OracleParameter("DEPTNO", request.DEPTNO));
+            p.Add(new OracleParameter("DEPTNO", req.DEPTNO));
         };
 
         // マッピング用の式を定義 (引数：DbDataReader, 戻り値：B1Response)
@@ -47,6 +47,6 @@ public class B1Service(string connectionString)
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返却するため
          * 具象クラスは単なる「パス（中継役）」として振る舞えばよい
          */
-        return ExecuteQueryAsync(sql, bindAction, mapFunc, ct);
+        return ExecuteQueryAsync(sql, requests, bindAction, mapFunc, ct);
     }
 }

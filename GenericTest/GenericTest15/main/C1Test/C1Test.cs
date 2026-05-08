@@ -69,7 +69,7 @@ try
     // （処理実行）検索結果を受け取る
     // C1Service（本物）か C1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IC1Service, C1Request, C1Response>(
-        new C1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") }, ct);
+        [new C1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") }], ct);
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))

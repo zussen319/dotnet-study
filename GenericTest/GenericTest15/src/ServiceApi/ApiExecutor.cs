@@ -55,7 +55,7 @@ public class ApiExecutor(IServiceProvider appServices) : IApiExecutor
      */
 
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
-        TRequest request,
+        IEnumerable<TRequest> requests,
         [EnumeratorCancellation] CancellationToken ct = default) // 非同期ストリームのキャンセルを有効化
         where TService : IApiService<TRequest, TResponse>
         where TRequest : RequestBase
@@ -148,7 +148,7 @@ public class ApiExecutor(IServiceProvider appServices) : IApiExecutor
          */
         TService service = scope.ServiceProvider.GetRequiredService<TService>();
         // ExecuteAsync実行
-        var enumerator = service.ExecuteAsync(request, ct).GetAsyncEnumerator(ct);
+        var enumerator = service.ExecuteAsync(requests, ct).GetAsyncEnumerator(ct);
 
         // 正常終了したかどうかを管理するフラグ
         bool isCompleted = false; // 未完了

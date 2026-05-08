@@ -12,7 +12,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
     where TResponse : ResponseBase
 {
     public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
-        TRequest request,
+        IEnumerable<TRequest> _,  // リクエストは参照していない
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         // レスポンスデータ準備（Jsonファイルから読み込み）

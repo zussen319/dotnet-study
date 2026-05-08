@@ -11,16 +11,9 @@ public class C1Service(string connectionString)
     : ServiceBase<C1Request, C1Response>(connectionString), IC1Service
 {
     public override async IAsyncEnumerable<C1Response> ExecuteAsync(
-        C1Request request,
+        IEnumerable<C1Request> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        /*
-         * 1. **データの集約**: SQLの結果（フラットな行）を1行ずつ読み込む。
-         * 2. **親のインスタンス化**: `DEPTNO` が変わったら新しい `DeptResponse` を作成する。
-         * 3. **子の追加**: 同じ `DEPTNO` の間は、その `DeptResponse.Employees` リストに対して `new EmpResponse { ... }` を `Add` し続ける。
-         * 4. **ストリーミング送出**: 次の `DEPTNO` に移る直前、完成した `DeptResponse` を `yield return` する。
-         */
-
         /*
          * SQL_C1_001:
          *   SELECT d.DEPTNO, d.DNAME, e.EMPNO, e.ENAME
@@ -32,6 +25,59 @@ public class C1Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C1_001);
 
+#if true
+        // パラメータ設定用の式を定義
+        Action<OracleParameterCollection, C1Request> bindAction = (p, req) =>
+        {
+            p.Add(new OracleParameter("DEPTNO", req.DEPTNO));
+        };
+
+        // Empマッピング定義
+        C1Response.Emp empMapFunc(DbDataReader r) => new()
+        {
+            EMPNO = Convert.ToDecimal(r["EMPNO"]),
+            ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty
+        };
+
+        // リクエスト1件ごとに処理を完結させる
+        foreach (var req in requests)
+        {
+            C1Response? response = null;
+
+            // 1つのリクエスト（1つのSQL実行結果）を処理
+            // この ExecuteQueryAsync は「単一のリクエスト」を配列化して渡す
+            await foreach (var reader in ExecuteQueryAsync(sql, [req], bindAction, ct))
+            {
+                decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
+
+                if (response is null || response.DEPTNO != deptNo)
+                {
+                    if (response is not null)
+                    {
+                        // 作成済のオブジェクトを返却
+                        yield return response;
+                        //await Task.Delay(2000); // テスト用
+                    }
+
+                    // 新しいオブジェクトを作成
+                    response = new C1Response
+                    {
+                        DEPTNO = deptNo,
+                        DNAME = Convert.ToString(reader["DNAME"]) ?? string.Empty,
+                        Employees = [empMapFunc(reader)]
+                    };
+                }
+                else
+                {
+                    // DEPTNOが同一の場合は、MapEmp を使ってリストに追加
+                    response.Employees.Add(empMapFunc(reader));
+                }
+            }
+
+            // リクエスト1件分のSQL実行が終わったら、残っているresponseを返却
+            if (response is not null) { yield return response; }
+        }
+#else
         // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
         Action<OracleParameterCollection> bindAction = p =>
         {
@@ -75,5 +121,6 @@ public class C1Service(string connectionString)
         }
         // 最後のオブジェクトを返却
         if (response is not null) { yield return response; }
+#endif
     }
 }

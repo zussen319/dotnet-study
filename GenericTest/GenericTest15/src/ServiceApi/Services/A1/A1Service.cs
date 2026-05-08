@@ -3,7 +3,6 @@ using ServiceApi.Requests.A1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.A1;
 using System.Data.Common;
-using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.A1;
 
@@ -11,15 +10,15 @@ public class A1Service(string connectionString)
     : ServiceBase<A1Request, A1Response>(connectionString), IA1Service
 {
     public override IAsyncEnumerable<A1Response> ExecuteAsync(
-        A1Request request,
+        IEnumerable<A1Request> requests,
         CancellationToken ct = default)
     {
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_A1_001);
           
         // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
-        Action<OracleParameterCollection> bindAction = p => 
+        Action<OracleParameterCollection, A1Request> bindAction = (p, req) => 
         {
-            p.Add(new OracleParameter("VAL", request.A1Value));
+            p.Add(new OracleParameter("VAL", req.A1Value));
         };
 
         // マッピング用の式を定義 (引数：DbDataReader, 戻り値：A1Response)
@@ -36,6 +35,6 @@ public class A1Service(string connectionString)
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
          * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
          */
-        return ExecuteQueryAsync(sql, bindAction, mapFunc, ct);
+        return ExecuteQueryAsync(sql, requests, bindAction, mapFunc, ct);
     }
 }
