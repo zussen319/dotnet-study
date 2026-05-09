@@ -102,7 +102,6 @@ public class TEST_ApiExecutor
 #if true
     /* 正常系：リソース破棄（Dispose）の検証（同期・非同期問わず）*/
 
-#if true
     // --- 統合版スタブクラス ---// --- 統合版スタブクラス（正常系・異常系共用） ---
     public class DisposableStub : TestServiceBase<MockRequest, MockResponse>
     {
@@ -138,31 +137,6 @@ public class TEST_ApiExecutor
             return base.DisposeAsync();
         }
     }
-#else
-    // --- 統合版スタブクラス ---// --- 統合版スタブクラス（正常系・異常系共用） ---
-    public class DisposableStub : IApiService<MockRequest, MockResponse>, IDisposable, IAsyncDisposable
-    {
-        public static bool IsDisposed { get; set; }
-        public static bool IsInstantiated { get; set; } // 追加：インスタンス化フラグ
-
-        // コンストラクタが呼ばれたらフラグを立てる
-        public DisposableStub(string connectionString)
-        {
-            IsInstantiated = true;
-        }
-
-        public async IAsyncEnumerable<MockResponse> ExecuteAsync(
-            IEnumerable<MockRequest> requests,
-            [EnumeratorCancellation] CancellationToken ct = default)
-        {
-            yield return new MockResponse { Id = 1 };
-            await Task.Yield();
-        }
-
-        public void Dispose() => IsDisposed = true;
-        public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
-    }
-#endif
 
     [Fact]
     public async Task RunAsync_正常系_リソース破棄の検証_01()
