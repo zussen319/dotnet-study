@@ -1,6 +1,4 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using ServiceApi;
 using ServiceApi.Requests.A1;
 using ServiceApi.Responses.A1;
@@ -10,8 +8,6 @@ using ServiceApi.Services.A1;
 // ・ターゲットプラットフォーム： .NET 10.0
 // ・ターゲットOS： Windows
 // プロジェクト依存関係に「ServiceApi」を指定する
-
-// -- 登録フェーズ --
 
 // 設定ファイルのビルド
 // ConfigurationBuilderを使ってJSONを読み込む
@@ -25,46 +21,11 @@ IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("A1Test.json", optional: false, reloadOnChange: true)
     .Build();
 
-#if true
 bool testMode = args.Contains("-t");
 string connStr = testMode
     ? "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger"
     : config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
 var executor = new ApiExecutor();
-#else
-// ビルダを生成
-// 以下のパッケージが必要
-// - Microsoft.Extensions.Hosting
-var builder = Host.CreateApplicationBuilder(args);
-// 共通Executorを登録
-builder.Services.AddTransient<IApiExecutor, ApiExecutor>();
-
-// メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = args.Contains("-t");
-
-if (testMode)
-{
-    // スタブではDB接続文字列は使用しないため任意の値でよい
-    string connStr =
-        "Data Source=localhost:1521/XE;Persisite Security Info=True;User ID=scott;Password=tiger";
-
-    // テスト用を登録
-    builder.Services.AddTransient<IA1Service, A1Service_Test>(sp => new A1Service_Test(connStr));
-}
-else
-{
-    // DB接続文字列はメイン側で取得する
-    string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
-
-    // 本物を登録
-    builder.Services.AddTransient<IA1Service, A1Service>(sp => new A1Service(connStr));
-}
-
-using IHost host = builder.Build();
-
-// -- 実行フェーズ --
-var executor = host.Services.GetRequiredService<IApiExecutor>();
-#endif
 
 try
 {
@@ -72,20 +33,11 @@ try
     var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
-#if true
     IEnumerable<A1Request> requests = 
         new[] { new A1Request { A1Value = paramSection.GetValue<decimal>("A1Value") } };
     var responseStream = testMode
         ? executor.RunAsync<A1Service_Test, A1Request, A1Response>(connStr, requests)
         : executor.RunAsync<A1Service, A1Request, A1Response>(connStr, requests);
-#else
-    // A1Service（本物）か A1Service_Test（ダミー）かはDIが自動判断
-    var responseStream = executor.RunAsync<IA1Service, A1Request, A1Response>(
-        [new A1Request
-        {
-            A1Value = paramSection.GetValue<decimal>("A1Value")
-        }]);
-#endif
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))

@@ -7,8 +7,6 @@ namespace ServiceApi.Services.A1;
 public class A1Service_Test(string connectionString)
     : TestServiceBase<A1Request, A1Response>(connectionString), IA1Service
 {
-    //private readonly string _ = connectionString; // connectionStringを無視
-
     public override async IAsyncEnumerable<A1Response> ExecuteAsync(
         IEnumerable<A1Request> requests,
         [EnumeratorCancellation] CancellationToken ct = default)

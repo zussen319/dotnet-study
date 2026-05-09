@@ -27,8 +27,7 @@ public class C2Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C2_001);
 
-#if true
-        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
+        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, C2Request, 戻り値：なし)
         Action<OracleParameterCollection, C2Request> bindAction = (p, req) =>
         {
             p.Add(new OracleParameter("DEPTNO", req.DEPTNO));
@@ -95,69 +94,5 @@ public class C2Service(string connectionString)
             // リクエスト1件分のSQL実行が終わったら、残っているresponseを返却
             if (dept is not null) { yield return dept; }
         }
-#else
-        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
-        Action<OracleParameterCollection> bindAction = p =>
-        {
-            p.Add(new OracleParameter("DEPTNO", request.DEPTNO));
-        };
-
-        // レベル２：Memberマッピング定義
-        C2Response.Member memberMapFunc(DbDataReader r) => new()
-        {
-            MEMBER_EMPNO = Convert.ToDecimal(r["MEMBER_EMPNO"]), // decimal - NOT NULL
-            MEMBER_ENAME = Convert.ToString(r["MEMBER_ENAME"]) ?? string.Empty,  // string
-            Staffs = [staffMapFunc(r)]
-        };
-
-        // レベル３：Staffマッピング定義
-        C2Response.Staff staffMapFunc(DbDataReader r) => new()
-        {
-            STAFF_EMPNO = Convert.ToDecimal(r["STAFF_EMPNO"]), // decimal - NOT NULL
-            STAFF_ENAME = Convert.ToString(r["STAFF_ENAME"]) ?? string.Empty  // string
-        };
-
-        /*
-         * DEPTNOが同一のレコードをグループ化して返却する
-         */
-        C2Response? dept = null;
-        C2Response.Member? member = null;
-        await foreach (var reader in ExecuteQueryAsync(sql, bindAction, ct))
-        {
-            decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]); // decimal - NOT NULL
-            decimal memberEmpNo = Convert.ToDecimal(reader["MEMBER_EMPNO"]); // decimal - NOT NULL
-
-            if (dept is null || dept.DEPTNO != deptNo)
-            {
-                // レベル１：先頭レコード、またはDEPTNOが不一致の場合
-                if (dept is not null)
-                {
-                    // 作成済のオブジェクトを返却
-                    yield return dept;
-                    //await Task.Delay(2000); // テスト用
-                }
-
-                // 新しいオブジェクトを作成
-                dept = new C2Response
-                {
-                    DEPTNO = deptNo,
-                    DNAME = Convert.ToString(reader["DNAME"]) ?? string.Empty,
-                    Members = [(member = memberMapFunc(reader))]
-                };
-            }
-            else if (member?.MEMBER_EMPNO != memberEmpNo)
-            {
-                // レベル２：MEMBER_EMPNOが不一致の場合
-                dept.Members.Add((member = memberMapFunc(reader)));
-            }
-            else
-            {
-                // レベル３：その他
-                member?.Staffs.Add(staffMapFunc(reader));
-            }
-        }
-        // 最後のオブジェクトを返却
-        if (dept is not null) { yield return dept; }
-#endif
     }
 }

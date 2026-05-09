@@ -1,6 +1,4 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using ServiceApi;
 using ServiceApi.Requests.C2;
 using ServiceApi.Responses.C2;
@@ -25,47 +23,11 @@ IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("C2Test.json", optional: false, reloadOnChange: true)
     .Build();
 
-#if true
 bool testMode = args.Contains("-t");
 string connStr = testMode
     ? "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger"
     : config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
 var executor = new ApiExecutor();
-#else
-// アプリケーション構成の組み立て (Application Builder)
-// 以下のパッケージが必要
-// - Microsoft.Extensions.Hosting
-var appBuilder = Host.CreateApplicationBuilder(args);
-// 共通Executorを登録
-appBuilder.Services.AddTransient<IApiExecutor, ApiExecutor>();
-
-// メイン側で「テスト用か、本番用か」を判断して登録
-bool testMode = args.Contains("-t");
-
-if (testMode)
-{
-    // スタブではDB接続文字列は使用しないため任意の値でよい
-    string connStr =
-        "Data Source=localhost:1521/XE;Persisite Security Info=True;User ID=scott;Password=tiger";
-
-    // テスト用を登録
-    appBuilder.Services.AddTransient<IC2Service, C2Service_Test>(sp => new C2Service_Test(connStr));
-}
-else
-{
-    // DB接続文字列はメイン側で取得する
-    string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
-
-    // 本物を登録
-    appBuilder.Services.AddTransient<IC2Service, C2Service>(sp => new C2Service(connStr));
-}
-
-// 構成を確定し実行ホストを生成
-using IHost appHost = appBuilder.Build();
-
-// -- 実行フェーズ --
-var executor = appHost.Services.GetRequiredService<IApiExecutor>();
-#endif
 CancellationToken ct = default;
 
 try
@@ -74,17 +36,11 @@ try
     var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
-#if true
     IEnumerable<C2Request> requests = 
         new[] { new C2Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") } };
     var responseStream = testMode
         ? executor.RunAsync<C2Service_Test, C2Request, C2Response>(connStr, requests, ct)
         : executor.RunAsync<C2Service, C2Request, C2Response>(connStr, requests, ct);
-#else
-    // C2Service（本物）か C2Service_Test（ダミー）かはDIが自動判断
-    var responseStream = executor.RunAsync<IC2Service, C2Request, C2Response>(
-        [new C2Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") }], ct);
-#endif
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))

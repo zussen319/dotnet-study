@@ -25,7 +25,6 @@ public class C1Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C1_001);
 
-#if true
         // パラメータ設定用の式を定義
         Action<OracleParameterCollection, C1Request> bindAction = (p, req) =>
         {
@@ -77,50 +76,5 @@ public class C1Service(string connectionString)
             // リクエスト1件分のSQL実行が終わったら、残っているresponseを返却
             if (response is not null) { yield return response; }
         }
-#else
-        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
-        Action<OracleParameterCollection> bindAction = p =>
-        {
-            p.Add(new OracleParameter("DEPTNO", request.DEPTNO));
-        };
-
-        // Empマッピング定義
-        C1Response.Emp empMapFunc(DbDataReader r) => new()
-        {
-            EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL
-            ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty  // string
-        };
-
-        /*
-         * DEPTNOが同一のレコードをグループ化して返却する
-         */
-        C1Response? response = null;
-        await foreach (var reader in ExecuteQueryAsync(sql, bindAction, ct))
-        {
-            decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
-            if (response is null || response.DEPTNO != deptNo)
-            {
-                if (response is not null) {
-                    // 作成済のオブジェクトを返却
-                    yield return response;
-                    //await Task.Delay(2000); // テスト用
-                }
-
-                // 新しいオブジェクトを作成
-                response = new C1Response
-                {
-                    DEPTNO = deptNo,
-                    DNAME = Convert.ToString(reader["DNAME"]) ?? string.Empty,
-                    Employees = [empMapFunc(reader)]
-                };
-            } else
-            {
-                // DEPTNOが同一の場合は、MapEmp を使ってリストに追加
-                response.Employees.Add(empMapFunc(reader));
-            }
-        }
-        // 最後のオブジェクトを返却
-        if (response is not null) { yield return response; }
-#endif
     }
 }

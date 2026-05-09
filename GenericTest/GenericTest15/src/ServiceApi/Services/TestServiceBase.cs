@@ -14,15 +14,11 @@ public abstract class TestServiceBase<TRequest, TResponse>
     protected TestServiceBase(string _) { }
 
     public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
-        IEnumerable<TRequest> _,  // リクエストは参照していない
+        IEnumerable<TRequest> _,  // リクエストは参照しない
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         // レスポンスデータ準備（Jsonファイルから読み込み）
         // ファイル名は"<派生テストクラス名>.json"とし、カレントフォルダに配置する
-        /*
-         * BaseDirectory を使うことで、実行バイナリと同じ場所にある JSON を
-         * より確実に指し示すことができます。
-         */
         string filePath = 
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{GetType().Name}.json");
 
@@ -36,7 +32,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
         }
 
         // 初期遅延のシミュレーション
-        // Delayにctを渡すことで、待機中に中断されても即座に終了します
+        // Delayにctを渡すことで、待機中に中断されても即座に終了する
         await Task.Delay(2000, ct);
 
         using var stream = File.OpenRead(filePath);
@@ -47,7 +43,6 @@ public abstract class TestServiceBase<TRequest, TResponse>
          * JSONが巨大であっても読み込んだ分から即座に yield return できるようになり
          * 本番用サービスの挙動（ストリーム処理）により近いスタブになります。
          */
-        // DeserializeAsyncEnumerableにctを渡す
         var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
 
         // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
@@ -62,7 +57,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
                 if (!await enumerator.MoveNextAsync()) { break; }
                 response = enumerator.Current;
             }
-            catch (OperationCanceledException) { throw; } // キャンセルはそのまま投げる
+            catch (OperationCanceledException) { throw; }  // キャンセルはそのまま投げる
             catch (JsonException jex)
             {
                 // Json構文エラー（カンマ忘れ、型違い等）をスタブ専用のメッセージで包む
@@ -79,7 +74,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
     }
 
     // IAsyncDisposable の実装
-    // テスト用ベースクラスでは特に解放するものがないため、完了したTaskを返すだけでOK
+    // テスト用ベースクラスでは特に解放するものがないため、完了したTaskを返す
     public virtual ValueTask DisposeAsync()
         => ValueTask.CompletedTask;
 }
