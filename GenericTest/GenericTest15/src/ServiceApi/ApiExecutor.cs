@@ -7,11 +7,23 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi;
 
-//
 // サービスの生成・実行・破棄のライフサイクルを管理します
-//
+
+/// <summary>
+/// サービスの生成・実行・破棄のライフサイクルを管理する
+/// </summary>
 public class ApiExecutor /* : IApiExecutor */
 {
+    /// <summary>
+    /// サービス実行
+    /// </summary>
+    /// <typeparam name="TService">サービスクラス</typeparam>
+    /// <typeparam name="TRequest">リクエストクラス</typeparam>
+    /// <typeparam name="TResponse">レスポンスクラス</typeparam>
+    /// <param name="connectionString">DB接続文字列</param>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,
             IEnumerable<TRequest> requests,
@@ -44,19 +56,18 @@ public class ApiExecutor /* : IApiExecutor */
                     TResponse response;
                     try
                     {
-                        // NomveNextAsync (次の行の取得) の失敗をcatchする
+                        // 次の行データを取得
                         if (!await enumerator.MoveNextAsync()) { break; }
                         response = enumerator.Current;
                     }
                     catch (OperationCanceledException)
                     {
-                        // キャンセルは明示的に捕捉
+                        // キャンセルは明示的に捕捉する
                         Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG005));
                         throw;
                     }
                     catch (Exception ex)
                     {
-                        // エラーメッセージ生成
                         string message = ex switch
                         {
                             // OracleException
@@ -70,9 +81,9 @@ public class ApiExecutor /* : IApiExecutor */
 
                     // yield return は try-catch の外で行う
                     /*
-                     * C# では try-catch ブロックの内部で yield return を直接記述することができません
-                     * （try-finally であれば可能ですが、 catch があるとコンパイルエラーになります）。
-                     * これは、例外が発生した際に反復子の状態を安全に復元するのが難しいためです。
+                     * C#ではtry-catchブロックの内部でyield returnを直接記述することができません。
+                     * （try-finally であれば可能ですが、catchがあるとコンパイルエラーになります）
+                     * これは例外が発生した際に反復子の状態を安全に復元するのが難しいためです。
                      */
                     yield return response;
                 }

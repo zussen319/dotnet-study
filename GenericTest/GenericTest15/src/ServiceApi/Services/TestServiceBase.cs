@@ -6,6 +6,11 @@ using System.Text.Json;
 
 namespace ServiceApi.Services;
 
+/// <summary>
+/// テスト用サービスクラス（基底）
+/// </summary>
+/// <typeparam name="TRequest">リクエストクラス</typeparam>
+/// <typeparam name="TResponse">レスポンスクラス</typeparam>
 public abstract class TestServiceBase<TRequest, TResponse>
     : IApiService<TRequest, TResponse>
     where TRequest : RequestBase
@@ -13,6 +18,14 @@ public abstract class TestServiceBase<TRequest, TResponse>
 {
     protected TestServiceBase(string _) { }
 
+    /// <summary>
+    /// サービスエントリポイント
+    /// </summary>
+    /// <param name="_">dummy</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
+    /// <exception cref="FileNotFoundException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> _,  // リクエストは参照しない
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -72,8 +85,11 @@ public abstract class TestServiceBase<TRequest, TResponse>
         }
     }
 
-    // IAsyncDisposable の実装
-    // テスト用ベースクラスでは特に解放するものがないためCompletedTaskを返す
+    /// <summary>
+    /// 非同期的リソース解放
+    /// </summary>
+    /// <returns></returns>
     public virtual ValueTask DisposeAsync()
         => ValueTask.CompletedTask;
+        // テスト用ベースクラスでは特に解放するものがないためCompletedTaskを返す
 }

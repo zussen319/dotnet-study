@@ -7,6 +7,13 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services;
 
+/// <summary>
+/// サービスクラス（基底）
+/// </summary>
+/// <typeparam name="TRequest">リクエストクラス</typeparam>
+/// <typeparam name="TResponse">レスポンスクラス</typeparam>
+/// <param name="connectionString">DB接続文字列</param>
+/// <param name="fetchRows">フェッチ行数指定</param>
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
@@ -14,14 +21,30 @@ public abstract class ServiceBase<TRequest, TResponse>(
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    // Oracleコネクションオブジェクトを保持（プライマリコンストラクタの引数を使用）
+    /// <summary>
+    /// Oracleコネクション
+    /// </summary>
     protected OracleConnection Connection { get; } = new(connectionString);
 
     // 具象クラスに実装を強制するエントリポイント
+    /// <summary>
+    /// サービスエントリポイント
+    /// </summary>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> requests,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// DB検索処理（ストリーム版）
+    /// </summary>
+    /// <param name="sql">SQL文</param>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="mapFunc">マッピング用デリゲート</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>DB検索結果</returns>
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -29,7 +52,15 @@ public abstract class ServiceBase<TRequest, TResponse>(
         CancellationToken ct = default)
         => ExecuteQueryAsync(sql, requests, (_, _) => { }, mapFunc, ct);
 
-    // --- 既存メソッドの統合：DataReader版を呼び出す ---
+    /// <summary>
+    /// DB検索処理（ストリーム版）
+    /// </summary>
+    /// <param name="sql">SQL文</param>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="bindAction">パラメータバインド用アクション</param>
+    /// <param name="mapFunc">マッピング用デリゲート</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>DB検索結果</returns>
     protected virtual async IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -44,6 +75,13 @@ public abstract class ServiceBase<TRequest, TResponse>(
         }
     }
 
+    /// <summary>
+    /// DB検索処理（DataReader版）
+    /// </summary>
+    /// <param name="sql">SQL文</param>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>DB検索結果</returns>
     protected virtual IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -51,6 +89,14 @@ public abstract class ServiceBase<TRequest, TResponse>(
         => ExecuteQueryAsync(sql, requests, (_, _) => { }, ct);
 
     // マッピング処理を具象クラスで実装できるようにするエントリポイント
+    /// <summary>
+    /// DB検索処理（DataReader版）
+    /// </summary>
+    /// <param name="sql">SQL文</param>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="bindAction">パラメータバインド用アクション</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>DB検索結果</returns>
     protected virtual async IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -63,7 +109,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
             await this.Connection.OpenAsync(ct);
         }
 
-        // コマンド作成：ループの外で作成することでSQL解析(Parse)コストを抑える
+        // コマンド作成：ループの外で作成することによりSQL解析(Parse)コストを抑える
         /*
          * foreachループの外側でOracleCommandをusing生成することにより
          * 同じSQL文であればOracle側でのカーソル再利用が促され
@@ -129,8 +175,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
                 yield return reader;
             }
         }
-        // 1つのリクエストが終わるたびに reader.Dispose() が走り、
-        // 全てのリクエストが終わると cmd.Dispose() が走る
+        // 1つのリクエストが終わるたびにreader.Dispose()が走り、
+        // 全てのリクエストが終わるとcmd.Dispose()が走る
     }
 
     /// <summary>

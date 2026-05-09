@@ -7,9 +7,19 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.C1;
 
+/// <summary>
+/// サービスクラス（C1）
+/// </summary>
+/// <param name="connectionString">DB接続文字列</param>
 public class C1Service(string connectionString)
-    : ServiceBase<C1Request, C1Response>(connectionString) /* , IC1Service */
+    : ServiceBase<C1Request, C1Response>(connectionString)
 {
+    /// <summary>
+    /// サービスエントリポイント
+    /// </summary>
+    /// <param name="requests">リクエスト配列</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
     public override async IAsyncEnumerable<C1Response> ExecuteAsync(
         IEnumerable<C1Request> requests,
         [EnumeratorCancellation] CancellationToken ct = default)

@@ -3,8 +3,12 @@ using ServiceApi.Responses.C1;
 
 namespace ServiceApi.Services.C1;
 
-public class C1Service_Test(string connectionString)
-    : TestServiceBase<C1Request, C1Response>(connectionString) /* , IC1Service */
+/// <summary>
+/// テスト用サービスクラス（C1）
+/// </summary>
+/// <param name="dummy">dummy</param>
+public class C1Service_Test(string dummy)
+    : TestServiceBase<C1Request, C1Response>(dummy)
 {
     // テストサービスクラスのExecuteAsyncはベースクラスで実装
 }
