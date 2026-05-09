@@ -11,6 +11,7 @@ using ServiceApi.Services;
 using ServiceApi.Services.B1;
 using ServiceApi.Services.C1;
 using ServiceApi.Tests.Common;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Tests;
@@ -60,6 +61,63 @@ public class TEST_ApiExecutor
     private readonly string _connectionString =
         TEST_ConfigurationManager.GetValue<string>(ConfigId.ConnectionString);
 
+#if true
+    // --- テスト用のスタブクラス ---
+    // Activator.CreateInstance で生成されるため、(string connectionString) のコンストラクタが必要
+    public class DisposableStub : IApiService<MockRequest, MockResponse>, IAsyncDisposable
+    {
+        public static bool IsDisposed { get; set; }
+
+        public DisposableStub(string conn) { }
+
+        public async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            yield return new MockResponse { Id = 1 };
+            yield return new MockResponse { Id = 2 };
+            await Task.Yield();
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_正常系_終了時サービス破棄確認_01()
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+
+        // 2. 接続文字列（テストではダミーでOK）
+        string dummyConn = "User Id=scott;Password=tiger;Data Source=dummy";
+
+        // 3. テスト用のリクエスト
+        var requests = new[] { new MockRequest() };
+
+        // 4. 検証用フラグ（静的変数や外部オブジェクトで管理する必要がある）
+        // ※内部で Activator 生成されるため、スタブクラス側で検知させる
+        DisposableStub.IsDisposed = false;
+
+        // Act
+        int count = 0;
+        // TService には、インターフェースではなく、インスタンス化可能な「スタブクラス」を指定する
+        var stream = executor.RunAsync<DisposableStub, MockRequest, MockResponse>(dummyConn, requests);
+
+        await foreach (var item in stream)
+        {
+            count++;
+        }
+
+        // Assert
+        Assert.Equal(2, count);
+        // サービスが破棄されているか検証
+        Assert.True(DisposableStub.IsDisposed, "処理完了後にサービスが破棄されていません。");
+    }
+#else
     [Fact]
     public async Task RunAsync_正常系_終了時サービス破棄確認_01()
     {
@@ -87,42 +145,88 @@ public class TEST_ApiExecutor
             await Task.Yield();
         }
 
-#if true
         mockService.Setup(s => s.ExecuteAsync(
                 It.IsAny<IEnumerable<MockRequest>>(), // 単一の MockRequest から変更
                 It.IsAny<CancellationToken>()))       // 第2引数のキャンセル判定も追加
            .Returns(FakeStream());
-#else
-        mockService.Setup(s => s.ExecuteAsync(It.IsAny<MockRequest>()))
-                   .Returns(FakeStream());
-#endif
 
         // mock.Object を渡せば、本物の IB1Service として振る舞う
         services.AddTransient(_ => mockService.Object);
         var provider = services.BuildServiceProvider();
-        var executor = new ApiExecutor(provider);
+        var executor = new ApiExecutor();
 
         // Act
         int count = 0;
-#if true
         var requests = new[] { new MockRequest() }; // IEnumerable として渡す
-        await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(requests))
+        await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(_connectionString, requests))
         {
             count++;
         }
-#else
-        await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(new MockRequest()))
-        {
-            count++;
-        }
-#endif
 
         // Assert
         Assert.Equal(2, count);
         // ApiExecutor の scope が抜けたことで、service の Dispose() が呼ばれたか検証
         Assert.True(isDisposed, "処理完了後にサービスが破棄されていません。");
     }
+#endif
 
+#if true
+    // --- テスト用スタブクラス ---
+    public class B1Service_CountStub : IB1Service, IAsyncDisposable
+    {
+        public static bool IsDisposed { get; set; }
+        public static int YieldCount { get; set; }
+
+        // Activator 用のコンストラクタ
+        public B1Service_CountStub(string connStr) { }
+
+        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+            IEnumerable<B1Request> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            for (int i = 0; i < YieldCount; i++)
+            {
+                yield return new B1Response { EMPNO = i };
+            }
+            await Task.Yield();
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]      // 0件（データなし）
+    [InlineData(1)]      // 最小件数
+    [InlineData(100)]    // 中規模
+    [InlineData(1000)]   // 大量データ想定
+    public async Task RunAsync_正常系_終了時サービス破棄確認_02(int testCount)
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        // 静的プロパティを初期化
+        B1Service_CountStub.IsDisposed = false;
+        B1Service_CountStub.YieldCount = testCount;
+
+        // Act
+        int actualCount = 0;
+        // TService には IB1Service ではなく、スタブクラスを指定する
+        await foreach (var item in executor.RunAsync<B1Service_CountStub, B1Request, B1Response>(_connectionString, requests))
+        {
+            actualCount++;
+        }
+
+        // Assert
+        Assert.Equal(testCount, actualCount);
+        Assert.True(B1Service_CountStub.IsDisposed, $"件数 {testCount} において、サービスが正しく破棄されていません。");
+    }
+
+#else
     [Theory]
     [InlineData(0)]      // 0件（データなし）
     [InlineData(1)]      // 最小件数
@@ -168,26 +272,21 @@ public class TEST_ApiExecutor
         }
 
         // ExecuteAsyncが呼ばれたら指定件数のストリームを返す
-#if true
         mockService.Setup(s => s.ExecuteAsync(
                         It.IsAny<IEnumerable<B1Request>>(),
                         It.IsAny<CancellationToken>()))
                    .Returns(FakeStream(testCount));
-#else
-        mockService.Setup(s => s.ExecuteAsync(It.IsAny<B1Request>()))
-                   .Returns(FakeStream(testCount));
-#endif
 
         // ApiExecutorが内部でCreateScope()するため、Scopedで登録
         services.AddScoped(_ => mockService.Object);
 
         var provider = services.BuildServiceProvider();
-        var executor = new ApiExecutor(provider);
+        var executor = new ApiExecutor();
         var requests = new[] { new B1Request { DEPTNO = 10 } };
 
         // Act
         int actualCount = 0;
-        await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(requests))
+        await foreach (var item in executor.RunAsync<IB1Service, B1Request, B1Response>(_connectionString, requests))
         {
             actualCount++;
         }
@@ -202,8 +301,56 @@ public class TEST_ApiExecutor
          * （↓次のメソッド参照）
          */
     }
+#endif
 
 #if true
+    // --- テスト用のスタブクラス ---
+    public class AsyncDisposableStub : IApiService<MockRequest, MockResponse>, IAsyncDisposable
+    {
+        // テスト結果を保持するための静的フラグ
+        public static bool IsAsyncDisposed { get; set; }
+
+        // Activator が呼ぶためのコンストラクタ（string引数が必要）
+        public AsyncDisposableStub(string connectionString) { }
+
+        public async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            yield return new MockResponse { Id = 1 };
+            await Task.Yield();
+        }
+
+        // 非同期破棄の検証用メソッド
+        public async ValueTask DisposeAsync()
+        {
+            await Task.Delay(1); // 非同期っぽさを出すための気休め
+            IsAsyncDisposed = true;
+        }
+    }
+    [Fact]
+    public async Task RunAsync_正常系_非同期破棄の検証_01()
+    {
+        // Arrange
+        // 1. DIコンテナ関連のコードはすべて削除
+        var executor = new ApiExecutor();
+        var requests = new[] { new MockRequest() };
+
+        // 2. スタブの状態をリセット
+        AsyncDisposableStub.IsAsyncDisposed = false;
+
+        // Act
+        // TService には「具象クラス」を指定する
+        await foreach (var _ in executor.RunAsync<AsyncDisposableStub, MockRequest, MockResponse>(_connectionString, requests))
+        {
+            // ストリームを消費
+        }
+
+        // Assert
+        // 3. 実行後に非同期破棄が呼ばれたかチェック
+        Assert.True(AsyncDisposableStub.IsAsyncDisposed, "処理完了後に DisposeAsync が呼び出されていません。");
+    }
+#else
     /* DisposeAsyncテストコード追加 */
     /*
      * 1. ValueTask への対応:
@@ -256,11 +403,11 @@ public class TEST_ApiExecutor
 
         services.AddTransient(_ => mockService.Object);
         var provider = services.BuildServiceProvider();
-        var executor = new ApiExecutor(provider);
+        var executor = new ApiExecutor();
 
         // Act
         var requests = new[] { new MockRequest() };
-        await foreach (var _ in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(requests))
+        await foreach (var _ in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(_connectionString, requests))
         {
             // ストリームを消費
         }
@@ -271,6 +418,62 @@ public class TEST_ApiExecutor
     }
 #endif
 
+#if true
+    // --- テスト用の異常系スタブクラス ---
+    public class ExceptionStub : IApiService<MockRequest, MockResponse>, IAsyncDisposable
+    {
+        public static bool IsDisposed { get; set; }
+
+        public ExceptionStub(string conn) { }
+
+        public async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            // 1件目は正常に返す
+            yield return new MockResponse { Id = 1 };
+
+            await Task.Yield();
+
+            // 2件目の列挙で例外を発生させる
+            throw new InvalidOperationException("DB接続エラー");
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_異常系_呼出し元に例外伝播_01()
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new MockRequest() };
+
+        // 静的フラグで例外発生後の破棄を確認
+        ExceptionStub.IsDisposed = false;
+
+        // Act & Assert
+        // 1. 指定した例外が正しく外側まで飛んでくることを検証
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            // TService には例外を投げる具象クラスを指定
+            await foreach (var item in executor.RunAsync<ExceptionStub, MockRequest, MockResponse>(_connectionString, requests))
+            {
+                // 1件目は正常に処理され、その後の列挙で例外が発生する
+            }
+        });
+
+        // メッセージの検証（必要であれば）
+        Assert.Equal("DB接続エラー", exception.Message);
+
+        // 2. 重要：例外発生時でも service.DisposeAsync() が呼ばれていることを検証
+        Assert.True(ExceptionStub.IsDisposed, "例外発生時にサービスが破棄されていません。");
+    }
+#else
     [Fact]
     public async Task RunAsync_異常系_呼出し元に例外伝播_01()
     {
@@ -284,31 +487,75 @@ public class TEST_ApiExecutor
             throw new InvalidOperationException("DB接続エラー");
         }
 
-#if true
         mockService.Setup(s => s.ExecuteAsync(
                         It.IsAny<IEnumerable<MockRequest>>(),
                         It.IsAny<CancellationToken>()))
                    .Returns(ErrorStream());
-#else
-        mockService.Setup(s => s.ExecuteAsync(It.IsAny<MockRequest>()))
-                   .Returns(ErrorStream());
-#endif
 
         services.AddTransient(_ => mockService.Object);
         var provider = services.BuildServiceProvider();
-        var executor = new ApiExecutor(provider);
+        var executor = new ApiExecutor();
 
         // Act & Assert
         // 例外が外側まで伝播することを確認
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(new[] { new MockRequest() }))
+            await foreach (var item in executor.RunAsync<IApiService<MockRequest, MockResponse>, MockRequest, MockResponse>(_connectionString, new[] { new MockRequest() }))
             {
                 // 1件目は取れるが、2件目の取得で例外が飛ぶ
             }
         });
     }
+#endif
 
+#if true
+    // テスト用スタブ
+    public class B1Service_TestStub : IB1Service, IAsyncDisposable
+    {
+        public static bool IsDisposed { get; set; }
+        public B1Service_TestStub(string conn) { }
+
+        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+            IEnumerable<B1Request> req,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ThrowException();
+            yield break;
+            // ローカル関数として定義
+            void ThrowException() => throw new InvalidOperationException("予期せぬエラー");
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+    /* コンセプト変更：リソース解放を確認する */
+    [Fact]
+    public async Task RunAsync_異常系_例外発生時サービスインスタンス破棄確認_01()
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        // 静的フラグで破棄を追跡
+        B1Service_TestStub.IsDisposed = false;
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            // 内部で例外を投げるように設定したスタブを使用
+            await foreach (var _ in executor.RunAsync<B1Service_TestStub, B1Request, B1Response>(_connectionString, requests))
+            {
+            }
+        });
+
+        // Verify: DIスコープの代わりに、インスタンス自身の DisposeAsync が呼ばれたかを確認
+        Assert.True(B1Service_TestStub.IsDisposed, "例外発生時でもサービスインスタンスは破棄されるべきです。");
+    }
+
+#else
     [Fact]
     public async Task RunAsync_異常系_例外発生時DIスコープ破棄_01()
     {
@@ -520,16 +767,10 @@ public class TEST_ApiExecutor
          *       // 例外が起きても、ここを通って scope.Dispose() が呼ばれるかを確認します。
          *   }
          */
-#if true
         serviceMock.Setup(x => x.ExecuteAsync(
                         It.IsAny<IEnumerable<B1Request>>(),
                         It.IsAny<CancellationToken>()))
                    .Throws(new InvalidOperationException("予期せぬエラー"));
-#else
-        serviceMock
-            .Setup(x => x.ExecuteAsync(It.IsAny<B1Request>()))
-            .Throws(new InvalidOperationException("予期せぬエラー"));
-#endif
 
         // テスト対象のインスタンス化 (ServiceProviderを渡す)
         /*
@@ -554,7 +795,7 @@ public class TEST_ApiExecutor
          *   これによって、ApiExecutor が内部で serviceProvider.CreateScope() を呼んだ瞬間に、
          *   あらかじめ設定しておいたモックの連鎖がスタートする仕掛けになっています。
          */
-        var executor = new ApiExecutor(serviceProviderMock.Object);
+        var executor = new ApiExecutor();
 
         // 3. Execution & Assertion: 例外が外まで伝播することを確認
         // 第1引数にダミーのRequestオブジェクトを渡します
@@ -585,7 +826,7 @@ public class TEST_ApiExecutor
          */
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var _ in executor.RunAsync<B1Service_Test, B1Request, B1Response>(requests))
+            await foreach (var _ in executor.RunAsync<B1Service_Test, B1Request, B1Response>(_connectionString, requests))
             {
                 // ここには到達しないはず
             }
@@ -640,7 +881,29 @@ public class TEST_ApiExecutor
          */
         scopeMock.Verify(x => x.Dispose(), Times.Once, "例外発生時でも Scope は破棄されるべきです。");
     }
+#endif
 
+#if true
+    private async Task<List<TResponse>> InvokeTestExecutor<TService, TRequest, TResponse>(
+        string connectionString,
+        Func<IEnumerable<TRequest>> createRequest)
+        where TService : class, IApiService<TRequest, TResponse>
+        where TRequest : RequestBase
+        where TResponse : ResponseBase
+    {
+        var executor = new ApiExecutor();
+
+        List<TResponse> results = [];
+
+        // executor.RunAsync の第1引数に受け取った connectionString を渡す
+        await foreach (var response in executor.RunAsync<TService, TRequest, TResponse>(connectionString, createRequest()))
+        {
+            results.Add(response);
+        }
+
+        return results;
+    }
+#else
     // DIコンテナ構築・Executor実行（共通処理）
     private async Task<List<TResponse>> InvokeTestExecutor<TService, TRequest, TResponse>(
         Func<IEnumerable<TRequest>> createRequest)
@@ -671,7 +934,22 @@ public class TEST_ApiExecutor
         }
         return results;
     }
+#endif
 
+#if true
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
+    {
+        List<B1Response> results =
+            await InvokeTestExecutor<B1Service, B1Request, B1Response>(
+                _connectionString,
+                () => new[] { new B1Request { DEPTNO = deptNo } }
+            );
+
+        Assert.NotEmpty(results);
+    }
+#else
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
@@ -682,7 +960,22 @@ public class TEST_ApiExecutor
             );
         // 例外が発生しなければOK
     }
+#endif
 
+#if true
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
+    {
+        List<B1Response> results =
+            await InvokeTestExecutor<B1Service_Test, B1Request, B1Response>(
+                _connectionString,
+                () => new[] { new B1Request { DEPTNO = deptNo } }
+            );
+
+        Assert.NotEmpty(results);
+    }
+#else
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
@@ -693,8 +986,22 @@ public class TEST_ApiExecutor
             );
         // 例外が発生しなければOK
     }
+#endif
 
+#if true
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_C1Service実行_01(decimal deptNo)
+    {
+        List<C1Response> results =
+            await InvokeTestExecutor<C1Service, C1Request, C1Response>(
+                _connectionString,
+                () => new[] { new C1Request { DEPTNO = deptNo } }
+            );
 
+        Assert.NotEmpty(results);
+    }
+#else
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_C1Service実行_01(decimal deptNo)
@@ -705,7 +1012,23 @@ public class TEST_ApiExecutor
             );
         // 例外が発生しなければOK
     }
+#endif
 
+#if true
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_C1Service_Test実行_01(decimal deptNo)
+    {
+        List<C1Response> results =
+            await InvokeTestExecutor<C1Service_Test, C1Request, C1Response>(
+                _connectionString,
+                () => new[] { new C1Request { DEPTNO = deptNo } }
+            );
+
+        Assert.NotEmpty(results);
+    }
+
+#else
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_C1Service_Test実行_01(decimal deptNo)
@@ -716,7 +1039,76 @@ public class TEST_ApiExecutor
             );
         // 例外が発生しなければOK
     }
+#endif
 
+#if true
+    // --- テスト用のキャンセル検証スタブ ---
+    public class B1Service_CancelStub : IB1Service
+    {
+        // Activator 用のコンストラクタ
+        public B1Service_CancelStub(string conn) { }
+
+        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+            IEnumerable<B1Request> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            // 渡された CancellationToken をチェック
+            ct.ThrowIfCancellationRequested();
+
+            yield return new B1Response { EMPNO = 999 };
+            await Task.Yield();
+        }
+    }
+
+    /*
+     * 1. キャンセルの伝播:
+     *    上位（呼び出し元）からキャンセルが指示されたとき、ApiExecutor が
+     *    それを無視して処理を続行せず、即座に反応できること。
+     * 2. リソースの即時解放:
+     *    ApiExecutor 内の using var scope は、例外（キャンセル例外含む）が発生して
+     *    メソッドを抜ける瞬間に実行されます。これにより、キャンセルされた瞬間に
+     *    DB セッションやメモリが解放されることが保証されます。
+     */
+    /*
+     * なぜキャンセルが検証できるのか
+     * トークンの伝播: ApiExecutor.RunAsync の第3引数に渡した cts.Token は
+     * 内部で TService.ExecuteAsync の引数として渡されます。
+     * 
+     * スタブの挙動: B1Service_CancelStub は、メソッドの冒頭で
+     * ct.ThrowIfCancellationRequested() を呼び出します。
+     * 
+     * 検証の成立: cts.Cancel() が呼ばれているため、RunAsync から呼び出されたスタブが
+     * 即座に OperationCanceledException を投げ、
+     * それを Assert.ThrowsAnyAsync がキャッチすることで、
+     * 「トークンがサービス層まで途切れずに渡っていること」が証明されます。
+     */
+    [Fact]
+    public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認_01()
+    {
+        // 1. 準備 (Arrange)
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // 実行前にキャンセル状態にする
+
+        // 2. 実行 & 3. 検証 (Act & Assert)
+        // CancellationToken が正しく伝播していれば、OperationCanceledException がスローされる
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            // 具象クラスのスタブを指定し、接続文字列を渡す
+            var stream = executor.RunAsync<B1Service_CancelStub, B1Request, B1Response>(
+                _connectionString,
+                requests,
+                cts.Token);
+
+            await foreach (var item in stream.WithCancellation(cts.Token))
+            {
+                // ここには到達しないはず
+            }
+        });
+    }
+#else
     /*
      * 1. キャンセルの伝播:
      *    上位（呼び出し元）からキャンセルが指示されたとき、ApiExecutor が
@@ -749,16 +1141,10 @@ public class TEST_ApiExecutor
             ct.ThrowIfCancellationRequested();
             yield break;
         }
-#if true
         mockService.Setup(s => s.ExecuteAsync(
                        It.IsAny<IEnumerable<B1Request>>(), 
                        It.IsAny<CancellationToken>()))
                    .Returns((IEnumerable<B1Request> reqs, CancellationToken ct) => CancelledStream(reqs, ct));
-#else
-        mockService
-            .Setup(s => s.ExecuteAsync(It.IsAny<B1Request>(), It.IsAny<CancellationToken>()))
-            .Returns((B1Request req, CancellationToken ct) => CancelledStream(req, ct));
-#endif
 
         services.AddScoped(_ => mockService.Object);
         var provider = services.BuildServiceProvider();
@@ -796,6 +1182,90 @@ public class TEST_ApiExecutor
             }
         });
     }
+#endif
+
+#if true
+    /*
+     * このテストコードにおける最大の課題は
+     * 「OracleException は具象クラスであり、かつコンストラクタが非公開（internal）であるため
+     *   通常の new や Moq では生成できない」という点です。
+     * 
+     * 以前の ApiExecutor では DI を通じて Mock<IB1Service> を利用していましたが、
+     * 新しい設計では Activator.CreateInstance で具象クラスを生成するため、
+     * テスト用の「スタブクラス」を自作して、その中でリフレクションを使って 
+     * OracleException を生成するアプローチが最も現実的です。
+     * 
+     */
+
+    // --- OracleExceptionを生成するためのスタブクラス ---
+    public class OracleErrorStub : IB1Service, IAsyncDisposable
+    {
+        public static bool IsDisposed { get; set; }
+
+        public OracleErrorStub(string conn) { }
+
+        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+            IEnumerable<B1Request> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            yield return new B1Response { EMPNO = 1 }; // 1件目は成功
+
+            await Task.Yield();
+
+            // リフレクションで OracleException (ORA-12154) を生成してスロー
+            throw CreateOracleException(12154, "TNS:could not resolve the connect identifier");
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+
+        /// <summary>
+        /// OracleExceptionはpublicなコンストラクタがないため、リフレクションで生成する
+        /// </summary>
+        private OracleException CreateOracleException(int errorCode, string message)
+        {
+            var type = typeof(OracleException);
+            var ctors = type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance);
+            var ctor = ctors.FirstOrDefault();
+
+            // null の場合は InvalidOperationException 等を投げるようにする
+            if (ctor == null)
+            {
+                throw new InvalidOperationException("OracleException の内部コンストラクタが見つかりませんでした。");
+            }
+
+            return (OracleException)ctor.Invoke(new object[] { message, errorCode });
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_異常系_OracleExceptionハンドリング確認_01()
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        // 静的フラグなどで破棄確認が必要なら追加（前述のスタブと同様）
+        OracleErrorStub.IsDisposed = false;
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            // TServiceにスタブを指定。第1引数に接続文字列を渡す。
+            var stream = executor.RunAsync<OracleErrorStub, B1Request, B1Response>(_connectionString, requests);
+
+            await foreach (var item in stream)
+            {
+                // 1件目は成功するが、次の MoveNextAsync で OracleException が飛ぶ
+            }
+        });
+
+        Assert.True(OracleErrorStub.IsDisposed, "例外発生後もサービスが破棄されていません。");
+    }
+#else
 
     // OracleExceptionをテストで生成するためのヘルパーメソッド
     // (OracleExceptionはコンストラクタがinternalなのでリフレクション等で工夫が必要な場合があります)
@@ -853,7 +1323,46 @@ public class TEST_ApiExecutor
             }
         });
     }
+#endif
 
+
+#if true
+    //[Fact]
+    [Fact(Skip = "DB停止状態の確認用（手動実行専用）")]
+    public async Task RunAsync_異常系_OracleExceptionハンドリング確認_02_Oracleサービス停止時()
+    {
+        // 1. Arrange
+        // DIコンテナを通さず、直接インスタンス化
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        // 2. Act & 3. Assert
+        try
+        {
+            // 型引数には「B1Service」具象クラスを指定し、第1引数に接続文字列を渡す
+            var stream = executor.RunAsync<B1Service, B1Request, B1Response>(_connectionString, requests);
+
+            await foreach (var item in stream)
+            {
+                // データが取れたら「停止状態」ではないため失敗
+            }
+
+            // 例外が発生しなかった場合
+            Assert.Fail("Oracleサービスに正常に接続できてしまいました。サービスを停止してからテストを実行してください。");
+        }
+        catch (OracleException ox)
+        {
+            // 狙い通り OracleException が発生
+            Assert.True(ox.Number > 0, $"Oracleエラーが発生しました。Code: {ox.Number}");
+            // ログ出力などは必要に応じて追加
+        }
+        catch (Exception ex)
+        {
+            // 想定外の型（null参照など）で落ちた場合
+            Assert.Fail($"OracleExceptionを期待していましたが、別の例外が発生しました: {ex.GetType().Name} - {ex.Message}");
+        }
+    }
+#else
     //[Fact]
     [Fact(Skip = "DB停止状態の確認用")]
     public async Task RunAsync_異常系_OracleExceptionハンドリング確認_02_Oracleサービス停止時()
@@ -912,7 +1421,72 @@ public class TEST_ApiExecutor
         //var output = sw.ToString();
         //Assert.Contains("[Database Error]", output);
     }
+#endif
 
+
+#if true
+
+    // --- 一般的な例外をシミュレートするスタブクラス ---
+    public class SystemErrorStub : IB1Service, IAsyncDisposable
+    {
+        public static string Message { get; set; } = string.Empty;
+        public static bool IsDisposed { get; set; }
+
+        public SystemErrorStub(string conn) { }
+
+        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+            IEnumerable<B1Request> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            yield return new B1Response { EMPNO = 1 }; // 1件目は成功
+
+            await Task.Yield();
+
+            // 2件目の列挙で一般的な例外をスロー
+            throw new Exception(Message);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+    [Fact]
+    public async Task RunAsync_異常系_Exceptionハンドリング確認_01()
+    {
+        // Arrange
+        string expectMessage = "予期せぬシステムエラー";
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        // スタブクラスに期待するメッセージをセット
+        SystemErrorStub.Message = expectMessage;
+        SystemErrorStub.IsDisposed = false;
+
+        // Act & Assert
+        // 実行時に指定したメッセージを含む Exception が再スローされることを検証
+        var ex = await Assert.ThrowsAsync<Exception>(async () =>
+        {
+            // 型引数に具象スタブクラスを指定
+            var stream = executor.RunAsync<SystemErrorStub, B1Request, B1Response>(
+                _connectionString,
+                requests);
+
+            await foreach (var item in stream)
+            {
+                // 1件目は処理されるが、2件目の取得（MoveNextAsync）で例外が発生する
+            }
+        });
+
+        // Assert
+        Assert.Equal(expectMessage, ex.Message);
+        // 例外発生時でもリソースが破棄されていることを確認
+        Assert.True(SystemErrorStub.IsDisposed, "例外発生時にサービスが破棄されていません。");
+    }
+
+
+#else
     [Fact]
     public async Task RunAsync_異常系_Exceptionハンドリング確認_01()
     {
@@ -957,4 +1531,5 @@ public class TEST_ApiExecutor
         //var output = sw.ToString();
         //Assert.Contains("[System Error]", output);
     }
+#endif
 }
