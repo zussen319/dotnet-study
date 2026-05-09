@@ -25,6 +25,13 @@ IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("A1Test.json", optional: false, reloadOnChange: true)
     .Build();
 
+#if true
+bool testMode = args.Contains("-t");
+string connStr = testMode
+    ? "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger"
+    : config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
+var executor = new ApiExecutor();
+#else
 // ビルダを生成
 // 以下のパッケージが必要
 // - Microsoft.Extensions.Hosting
@@ -57,6 +64,7 @@ using IHost host = builder.Build();
 
 // -- 実行フェーズ --
 var executor = host.Services.GetRequiredService<IApiExecutor>();
+#endif
 
 try
 {
@@ -64,12 +72,20 @@ try
     var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
+#if true
+    IEnumerable<A1Request> requests = 
+        new[] { new A1Request { A1Value = paramSection.GetValue<decimal>("A1Value") } };
+    var responseStream = testMode
+        ? executor.RunAsync<A1Service_Test, A1Request, A1Response>(connStr, requests)
+        : executor.RunAsync<A1Service, A1Request, A1Response>(connStr, requests);
+#else
     // A1Service（本物）か A1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IA1Service, A1Request, A1Response>(
         [new A1Request
         {
             A1Value = paramSection.GetValue<decimal>("A1Value")
         }]);
+#endif
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))

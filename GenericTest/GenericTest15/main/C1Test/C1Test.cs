@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
+#if false
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+#endif
 using ServiceApi;
 using ServiceApi.Requests.C1;
 using ServiceApi.Responses.C1;
@@ -25,6 +27,13 @@ IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("C1Test.json", optional: false, reloadOnChange: true)
     .Build();
 
+#if true
+bool testMode = args.Contains("-t");
+string connStr = testMode
+    ? "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger"
+    : config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
+var executor = new ApiExecutor();
+#else
 // ビルダを生成
 // 以下のパッケージが必要
 // - Microsoft.Extensions.Hosting
@@ -58,7 +67,7 @@ using IHost appHost = appBuilder.Build();
 
 // -- 実行フェーズ --
 var executor = appHost.Services.GetRequiredService<IApiExecutor>();
-
+#endif
 CancellationToken ct = default;
 
 try
@@ -67,15 +76,25 @@ try
     var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
+
+#if true
+    IEnumerable<C1Request> requests =
+        new[] { new C1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") } };
+    var responseStream = testMode
+        ? executor.RunAsync<C1Service_Test, C1Request, C1Response>(connStr, requests, ct)
+        : executor.RunAsync<C1Service, C1Request, C1Response>(connStr, requests, ct);
+
+#else
     // C1Service（本物）か C1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IC1Service, C1Request, C1Response>(
         [new C1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") }], ct);
+#endif
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream.WithCancellation(ct).ConfigureAwait(false))
+        await foreach (var response in responseStream.WithCancellation(ct)/*.ConfigureAwait(false)*/)
         {
             // 取得データをCSV形式で書き出し
             string line1 = string.Join(",", new object?[]
@@ -83,12 +102,12 @@ try
                 response.DEPTNO,
                 response.DNAME
             });
-            await writer.WriteLineAsync(line1).ConfigureAwait(false);
+            await writer.WriteLineAsync(line1)/*.ConfigureAwait(false)*/;
             Console.WriteLine(line1);
             foreach (var emp in response.Employees)
             {
                 string line2 = $"  {emp.EMPNO},{emp.ENAME}";
-                await writer.WriteLineAsync(line2).ConfigureAwait(false);
+                await writer.WriteLineAsync(line2)/*.ConfigureAwait(false)*/;
                 Console.WriteLine(line2);
             }
 

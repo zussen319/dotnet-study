@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+#if false
+//using Microsoft.Extensions.DependencyInjection;
+//using Microsoft.Extensions.Hosting;
+#endif
 using ServiceApi;
 using ServiceApi.Requests.B1;
 using ServiceApi.Responses.B1;
@@ -25,6 +27,14 @@ IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("B1Test.json", optional: false, reloadOnChange: true)
     .Build();
 
+#if true
+bool testMode = args.Contains("-t");
+string connStr = testMode
+    ? "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger"
+    : config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
+var executor = new ApiExecutor();
+
+#else
 // アプリケーション構成の組み立て (Application Builder)
 // 以下のパッケージが必要
 // - Microsoft.Extensions.Hosting
@@ -58,7 +68,7 @@ using IHost appHost = appBuilder.Build();
 
 // -- 実行フェーズ --
 var executor = appHost.Services.GetRequiredService<IApiExecutor>();
-
+#endif
 CancellationToken ct = default;
 
 try
@@ -67,15 +77,23 @@ try
     var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
+#if true
+    IEnumerable<B1Request> requests =
+        new[] { new B1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") } };
+    var responseStream = testMode
+        ? executor.RunAsync<B1Service_Test, B1Request, B1Response>(connStr, requests, ct)
+        : executor.RunAsync<B1Service, B1Request, B1Response>(connStr, requests, ct);
+#else
     // B1Service（本物）か B1Service_Test（ダミー）かはDIが自動判断
     var responseStream = executor.RunAsync<IB1Service, B1Request, B1Response>(
+        connStr,
         [new B1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") }], ct);
-
+#endif
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream.WithCancellation(ct).ConfigureAwait(false))
+        await foreach (var response in responseStream.WithCancellation(ct))
         {
             // 取得データをCSV形式で書き出し
             string line = string.Join(",", new object?[]
@@ -89,7 +107,7 @@ try
                 response.COMM,
                 response.DEPTNO
             });
-            await writer.WriteLineAsync(line).ConfigureAwait(false);
+            await writer.WriteLineAsync(line);
             Console.WriteLine(line);
 
             count++;
