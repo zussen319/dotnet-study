@@ -30,7 +30,7 @@ try
 
     var paramSection = config.GetSection("param");
 
-    // （処理実行）検索結果を受け取る
+    // （API処理実行）検索結果を受け取る
     var executor = new ApiExecutor();
     IEnumerable<C2Request> requests =
         new[] { new C2Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") } };

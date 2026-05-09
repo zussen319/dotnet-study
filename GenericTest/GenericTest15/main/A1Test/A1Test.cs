@@ -30,7 +30,7 @@ try
 
     var paramSection = config.GetSection("param");
 
-    // （処理実行）検索結果を受け取る
+    // （API処理実行）検索結果を受け取る
     var executor = new ApiExecutor();
     IEnumerable<A1Request> requests =
         new[] { new A1Request { A1Value = paramSection.GetValue<decimal>("A1Value") } };
@@ -54,7 +54,7 @@ try
         int count = 0;
         await foreach (var response in responseStream)
         {
-            // DBから届いたデータを即座にCSV形式で書き出し
+            // 取得データをCSV形式で書き出し
             string line = string.Join(",", new object?[] { response.Id, response.DataName });
             await writer.WriteLineAsync(line);
             Console.WriteLine(line);
