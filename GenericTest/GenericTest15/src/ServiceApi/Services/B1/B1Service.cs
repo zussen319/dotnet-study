@@ -23,13 +23,13 @@ public class B1Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_B1_001);
           
-        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
+        // パラメータ設定用の式を定義
         Action<OracleParameterCollection, B1Request> bindAction = (p, req) => 
         {
             p.Add(new OracleParameter("DEPTNO", req.DEPTNO));
         };
 
-        // マッピング用の式を定義 (引数：DbDataReader, 戻り値：B1Response)
+        // マッピング用の式を定義
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
         {
             EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL

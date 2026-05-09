@@ -27,7 +27,7 @@ public class C2Service(string connectionString)
          */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_C2_001);
 
-        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, C2Request, 戻り値：なし)
+        // パラメータ設定用の式を定義
         Action<OracleParameterCollection, C2Request> bindAction = (p, req) =>
         {
             p.Add(new OracleParameter("DEPTNO", req.DEPTNO));

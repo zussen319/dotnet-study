@@ -8,39 +8,46 @@ using ServiceApi.Services.C2;
 // ・ターゲットプラットフォーム： .NET 10.0
 // ・ターゲットOS： Windows
 // プロジェクト依存関係に「ServiceApi」を指定する
-
-// -- 登録フェーズ --
-
-// 設定ファイルのビルド
-// ConfigurationBuilderを使ってJSONを読み込む
-// 以下のパッケージが必要
-// - Microsoft.Extensions.Configuration.Binder
-// - Microsoft.Extensions.Configuration.Json
-// またJsonファイルのプロパティ「出力ディレクトリにコピー」は
-// 「常にコピーする」「新しい場合はコピーする」を指定する
-IConfiguration config = new ConfigurationBuilder()
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("C2Test.json", optional: false, reloadOnChange: true)
-    .Build();
-
-bool testMode = args.Contains("-t");
-string connStr = testMode
-    ? "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger"
-    : config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
-var executor = new ApiExecutor();
-CancellationToken ct = default;
-
 try
 {
+    // 実行モード（テスト用・本番用）
+    bool testMode = args.Contains("-t");
+
+    // ファイル出力先（確認用）
     string outputPath = @"C:\temp\C2Test.csv";
+
+    // 設定ファイルのビルド
+    // ConfigurationBuilderを使ってJSONを読み込む
+    // 以下のパッケージが必要
+    // - Microsoft.Extensions.Configuration.Binder
+    // - Microsoft.Extensions.Configuration.Json
+    // またJsonファイルのプロパティ「出力ディレクトリにコピー」は
+    // 「常にコピーする」「新しい場合はコピーする」を指定する
+    IConfiguration config = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("C2Test.json", optional: false, reloadOnChange: true)
+        .Build();
+
     var paramSection = config.GetSection("param");
 
     // （処理実行）検索結果を受け取る
-    IEnumerable<C2Request> requests = 
+    var executor = new ApiExecutor();
+    IEnumerable<C2Request> requests =
         new[] { new C2Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") } };
-    var responseStream = testMode
-        ? executor.RunAsync<C2Service_Test, C2Request, C2Response>(connStr, requests, ct)
-        : executor.RunAsync<C2Service, C2Request, C2Response>(connStr, requests, ct);
+    CancellationToken ct = default;
+    IAsyncEnumerable<C2Response> responseStream;
+    if (testMode)
+    {
+        // テスト用（DB接続文字列は任意）
+        string connStr =
+            "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger";
+        responseStream = executor.RunAsync<C2Service_Test, C2Request, C2Response>(connStr, requests, ct);
+    } else
+    {
+        // 本番用
+        string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
+        responseStream = executor.RunAsync<C2Service, C2Request, C2Response>(connStr, requests, ct);
+    }
 
     // （結果取得）検索結果をファイルに書き出す
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))

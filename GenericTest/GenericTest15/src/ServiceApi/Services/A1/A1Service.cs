@@ -15,19 +15,17 @@ public class A1Service(string connectionString)
     {
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_A1_001);
           
-        // パラメータ設定用の式を定義 (引数：OracleParameterCollection, 戻り値：なし)
+        // パラメータ設定用の式を定義
         Action<OracleParameterCollection, A1Request> bindAction = (p, req) => 
         {
             p.Add(new OracleParameter("VAL", req.A1Value));
         };
 
-        // マッピング用の式を定義 (引数：DbDataReader, 戻り値：A1Response)
+        // マッピング用の式を定義
         Func<DbDataReader, A1Response> mapFunc = r => new A1Response 
         {
-            Id = r.GetDecimal(r.GetOrdinal("ID")),
-            DataName = r.IsDBNull(r.GetOrdinal("DATANAME"))
-                ? string.Empty
-                : r.GetString(r.GetOrdinal("DATANAME")),
+            Id = Convert.ToDecimal(r["ID"]),
+            DataName = Convert.ToString(r["DATANAME"]) ?? string.Empty,
         };
 
         /*
