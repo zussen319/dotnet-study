@@ -53,7 +53,7 @@ try
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream.WithCancellation(ct)/*.ConfigureAwait(false)*/)
+        await foreach (var response in responseStream.WithCancellation(ct))
         {
             // 取得データをCSV形式で書き出し
             string line1 = string.Join(",", new object?[]
@@ -61,27 +61,27 @@ try
                 response.DEPTNO,
                 response.DNAME
             });
-            await writer.WriteLineAsync(line1)/*.ConfigureAwait(false)*/;
+            await writer.WriteLineAsync(line1);
             Console.WriteLine(line1);
             foreach (var member in response.Members)
             {
                 string line2 = $"  {member.MEMBER_EMPNO},{member.MEMBER_ENAME}";
-                await writer.WriteLineAsync(line2)/*.ConfigureAwait(false)*/;
+                await writer.WriteLineAsync(line2);
                 Console.WriteLine(line2);
                 foreach (var staff in member.Staffs)
                 {
                     string line3 = $"    {staff.STAFF_EMPNO},{staff.STAFF_ENAME}";
-                    await writer.WriteLineAsync(line3)/*.ConfigureAwait(false)*/;
+                    await writer.WriteLineAsync(line3);
                     Console.WriteLine(line3);
                 }
             }
 
             count++;
-            // コンソールには進捗を表示（大量データの場合は一定数ごとに出すと効率的です）
+            // コンソールに進捗を表示
             //if (count % 100 == 0) Console.WriteLine($"{count} 件処理中...");
         }
 
-        // 最後にバッファを強制的にフラッシュ（usingを抜ける際にも行われますが念のため）
+        // 最後にバッファを強制的にフラッシュ
         await writer.FlushAsync();
     }
 }
