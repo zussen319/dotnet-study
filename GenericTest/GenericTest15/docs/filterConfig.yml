@@ -1,0 +1,7 @@
+apiRules:
+- include:
+    uidRegex: ^.*
+    visibility:
+    - Public
+    - Internal
+    - Protected

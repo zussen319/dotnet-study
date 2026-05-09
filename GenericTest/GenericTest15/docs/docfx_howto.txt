@@ -1,0 +1,5 @@
+
+cd C:\work\repos\dotnet-study\GenericTest\GenericTest15\src\ServiceApi\docs
+
+docfx metadata
+docfx build --serve

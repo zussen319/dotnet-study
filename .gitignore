@@ -427,3 +427,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# DocFX artifacts
+/**/docs/_site/
+/**/docs/api/
+/**/docs/obj/
+/**/docs/_pdf/
+
