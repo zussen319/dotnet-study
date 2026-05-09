@@ -39,13 +39,12 @@ public abstract class TestServiceBase<TRequest, TResponse>
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         /*
-         * JsonSerializer.DeserializeAsyncEnumerable を使うことで、
-         * JSONが巨大であっても読み込んだ分から即座に yield return できるようになり
-         * 本番用サービスの挙動（ストリーム処理）により近いスタブになります。
+         * JsonSerializer.DeserializeAsyncEnumerableを使うことで、
+         * JSONが巨大であっても読み込んだ分から即座にyield returnできるようになる
          */
         var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
 
-        // GetAsyncEnumerator() の戻り値を var で受けることで警告を回避
+        // GetAsyncEnumerator()の戻り値をvarで受けることにより警告を回避
         await using var enumerator = enumerable.GetAsyncEnumerator(ct);
 
         while (true)
@@ -74,7 +73,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
     }
 
     // IAsyncDisposable の実装
-    // テスト用ベースクラスでは特に解放するものがないため、完了したTaskを返す
+    // テスト用ベースクラスでは特に解放するものがないためCompletedTaskを返す
     public virtual ValueTask DisposeAsync()
         => ValueTask.CompletedTask;
 }

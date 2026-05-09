@@ -23,10 +23,10 @@ public class ApiExecutor /* : IApiExecutor */
         // リクエストが0件の場合は即座に終了
         if (requests == null || !requests.Any()) { yield break; }
 
-        // インスタンス化
+        // サービスをインスタンス化
         var service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
 
-        // 正常終了したかどうかを管理するフラグ
+        // 正常終了を管理するフラグ
         bool isCompleted = false; // 未完了
 
         await using (service)
