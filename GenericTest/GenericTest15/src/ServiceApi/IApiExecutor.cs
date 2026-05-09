@@ -1,4 +1,5 @@
-﻿using ServiceApi.Requests;
+﻿#if false
+using ServiceApi.Requests;
 using ServiceApi.Responses;
 using ServiceApi.Services;
 
@@ -14,3 +15,4 @@ public interface IApiExecutor
         where TRequest : RequestBase
         where TResponse : ResponseBase;
 }
+#endif

@@ -42,7 +42,7 @@ public class TEST_ApiExecutor
     * を返しているため、1000件程度であれば一瞬で終わります。
     */
 
-    public class B1Service_CountStub : TestServiceBase<B1Request, B1Response>, IB1Service
+    public class B1Service_CountStub : TestServiceBase<B1Request, B1Response> /*, IB1Service */
     {
         public static bool IsDisposed { get; set; }
         public static int YieldCount { get; set; }
@@ -102,6 +102,43 @@ public class TEST_ApiExecutor
 #if true
     /* 正常系：リソース破棄（Dispose）の検証（同期・非同期問わず）*/
 
+#if true
+    // --- 統合版スタブクラス ---// --- 統合版スタブクラス（正常系・異常系共用） ---
+    public class DisposableStub : TestServiceBase<MockRequest, MockResponse>
+    {
+        // 追加：インスタンス化されたかどうかを追跡するフラグ
+        public static bool IsInstantiated { get; set; }
+        public static bool IsDisposed { get; set; }
+
+        private readonly string _connectionString;
+
+        public DisposableStub(string conn) : base(conn)
+        {
+            _connectionString = conn;
+            // コンストラクタが呼ばれたら true にする
+            IsInstantiated = true;
+        }
+
+        public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            if (_connectionString.Contains("ERROR_TRIGGER=THROW"))
+            {
+                await Task.Yield();
+                throw new InvalidOperationException("Stub Error");
+            }
+
+            yield return new MockResponse();
+        }
+
+        public override ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return base.DisposeAsync();
+        }
+    }
+#else
     // --- 統合版スタブクラス ---// --- 統合版スタブクラス（正常系・異常系共用） ---
     public class DisposableStub : IApiService<MockRequest, MockResponse>, IDisposable, IAsyncDisposable
     {
@@ -125,6 +162,7 @@ public class TEST_ApiExecutor
         public void Dispose() => IsDisposed = true;
         public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
     }
+#endif
 
     [Fact]
     public async Task RunAsync_正常系_リソース破棄の検証_01()
@@ -339,7 +377,7 @@ public class TEST_ApiExecutor
 
 #if true
     // --- テスト用のキャンセル検証スタブ ---
-    public class B1Service_CancelStub : TestServiceBase<B1Request, B1Response>, IB1Service
+    public class B1Service_CancelStub : TestServiceBase<B1Request, B1Response> /*, IB1Service */
     {
         // 基底クラスのコンストラクタ(string _)を呼び出す
         public B1Service_CancelStub(string conn) : base(conn) { }
@@ -428,7 +466,7 @@ public class TEST_ApiExecutor
      * タイムアウト時に即座に例外が発生すれば、await using によるリソース破棄も
      * 即座に実行されます。これを検証することで、システム全体の安定性を確認できます。
      */
-    public class B1Service_TimeoutStub : TestServiceBase<B1Request, B1Response>, IB1Service
+    public class B1Service_TimeoutStub : TestServiceBase<B1Request, B1Response> /*, IB1Service */
     {
         // 基底クラスのコンストラクタを呼び出す
         public B1Service_TimeoutStub(string _) : base(_) { }
@@ -503,7 +541,7 @@ public class TEST_ApiExecutor
 
     // --- OracleExceptionを生成するためのスタブクラス ---
     // TestServiceBase を継承し、IB1Service を実装
-    public class OracleErrorStub : TestServiceBase<B1Request, B1Response>, IB1Service
+    public class OracleErrorStub : TestServiceBase<B1Request, B1Response> /*, IB1Service */
     {
         public static bool IsDisposed { get; set; }
 
@@ -631,7 +669,7 @@ public class TEST_ApiExecutor
 #if true
     // --- 一般的な例外をシミュレートするスタブクラス ---
     // TestServiceBase を継承し、IB1Service を実装
-    public class SystemErrorStub : TestServiceBase<B1Request, B1Response>, IB1Service
+    public class SystemErrorStub : TestServiceBase<B1Request, B1Response> /*, IB1Service */
     {
         public static string Message { get; set; } = string.Empty;
         public static bool IsDisposed { get; set; }

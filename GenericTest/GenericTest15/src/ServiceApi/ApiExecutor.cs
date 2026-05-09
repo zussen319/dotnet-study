@@ -10,7 +10,7 @@ namespace ServiceApi;
 //
 // サービスの生成・実行・破棄のライフサイクルを管理します
 //
-public class ApiExecutor : IApiExecutor
+public class ApiExecutor /* : IApiExecutor */
 {
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,

@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 namespace ServiceApi.Services.C1;
 
 public class C1Service(string connectionString)
-    : ServiceBase<C1Request, C1Response>(connectionString), IC1Service
+    : ServiceBase<C1Request, C1Response>(connectionString) /* , IC1Service */
 {
     public override async IAsyncEnumerable<C1Response> ExecuteAsync(
         IEnumerable<C1Request> requests,

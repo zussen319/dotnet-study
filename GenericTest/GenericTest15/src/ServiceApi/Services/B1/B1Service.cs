@@ -7,7 +7,7 @@ using System.Data.Common;
 namespace ServiceApi.Services.B1;
 
 public class B1Service(string connectionString)
-    : ServiceBase<B1Request, B1Response>(connectionString), IB1Service
+    : ServiceBase<B1Request, B1Response>(connectionString) /* , IB1Service */
 {
     public override IAsyncEnumerable<B1Response> ExecuteAsync(
         IEnumerable<B1Request> requests,
