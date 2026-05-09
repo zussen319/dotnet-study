@@ -42,15 +42,15 @@ public class TEST_ApiExecutor
     * を返しているため、1000件程度であれば一瞬で終わります。
     */
 
-    public class B1Service_CountStub : IB1Service, IAsyncDisposable
+    public class B1Service_CountStub : TestServiceBase<B1Request, B1Response>, IB1Service
     {
         public static bool IsDisposed { get; set; }
         public static int YieldCount { get; set; }
 
-        // Activator 用のコンストラクタ
-        public B1Service_CountStub(string connStr) { }
+        // コンストラクタ：基底クラスに connectionString を渡す（内部では無視される）
+        public B1Service_CountStub(string connStr) : base(connStr) { }
 
-        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+        public override async IAsyncEnumerable<B1Response> ExecuteAsync(
             IEnumerable<B1Request> requests,
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -61,10 +61,12 @@ public class TEST_ApiExecutor
             await Task.Yield();
         }
 
-        public ValueTask DisposeAsync()
+        // DisposeAsync を override して、独自の検証用ロジックを追加
+        public override ValueTask DisposeAsync()
         {
             IsDisposed = true;
-            return ValueTask.CompletedTask;
+            // 基底クラスの DisposeAsync を呼ぶ（現在は Task.CompletedTask を返すだけですが、作法として）
+            return base.DisposeAsync();
         }
     }
 
@@ -500,13 +502,15 @@ public class TEST_ApiExecutor
      */
 
     // --- OracleExceptionを生成するためのスタブクラス ---
-    public class OracleErrorStub : IB1Service, IAsyncDisposable
+    // TestServiceBase を継承し、IB1Service を実装
+    public class OracleErrorStub : TestServiceBase<B1Request, B1Response>, IB1Service
     {
         public static bool IsDisposed { get; set; }
 
-        public OracleErrorStub(string conn) { }
+        // 基底クラスのコンストラクタ(string _)に引数を渡す
+        public OracleErrorStub(string conn) : base(conn) { }
 
-        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+        public override async IAsyncEnumerable<B1Response> ExecuteAsync(
             IEnumerable<B1Request> requests,
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -514,14 +518,15 @@ public class TEST_ApiExecutor
 
             await Task.Yield();
 
-            // リフレクションで OracleException (ORA-12154) を生成してスロー
+            // 2件目で OracleException (ORA-12154) をスロー
             throw CreateOracleException(12154, "TNS:could not resolve the connect identifier");
         }
 
-        public ValueTask DisposeAsync()
+        // 破棄されたことを確認するために override
+        public override ValueTask DisposeAsync()
         {
             IsDisposed = true;
-            return ValueTask.CompletedTask;
+            return base.DisposeAsync();
         }
 
         /// <summary>
@@ -530,16 +535,16 @@ public class TEST_ApiExecutor
         private OracleException CreateOracleException(int errorCode, string message)
         {
             var type = typeof(OracleException);
+            // BindingFlags を使うため、using System.Reflection; が必要
             var ctors = type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance);
             var ctor = ctors.FirstOrDefault();
 
-            // null の場合は InvalidOperationException 等を投げるようにする
             if (ctor == null)
             {
                 throw new InvalidOperationException("OracleException の内部コンストラクタが見つかりませんでした。");
             }
 
-            return (OracleException)ctor.Invoke(new object[] { message, errorCode });
+            return (OracleException)ctor.Invoke([message, errorCode]);
         }
     }
 
@@ -625,14 +630,16 @@ public class TEST_ApiExecutor
 
 #if true
     // --- 一般的な例外をシミュレートするスタブクラス ---
-    public class SystemErrorStub : IB1Service, IAsyncDisposable
+    // TestServiceBase を継承し、IB1Service を実装
+    public class SystemErrorStub : TestServiceBase<B1Request, B1Response>, IB1Service
     {
         public static string Message { get; set; } = string.Empty;
         public static bool IsDisposed { get; set; }
 
-        public SystemErrorStub(string conn) { }
+        // 基底クラスのコンストラクタに引数を渡す（内部で無視される）
+        public SystemErrorStub(string conn) : base(conn) { }
 
-        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+        public override async IAsyncEnumerable<B1Response> ExecuteAsync(
             IEnumerable<B1Request> requests,
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -644,10 +651,11 @@ public class TEST_ApiExecutor
             throw new Exception(Message);
         }
 
-        public ValueTask DisposeAsync()
+        // 破棄の検証が必要なため override
+        public override ValueTask DisposeAsync()
         {
             IsDisposed = true;
-            return ValueTask.CompletedTask;
+            return base.DisposeAsync();
         }
     }
 
