@@ -6,9 +6,14 @@ using System.Data.Common;
 
 namespace ServiceApi.Services.A1;
 
+/// <summary>
+/// 
+/// </summary>
+/// <param name="connectionString"></param>
 public class A1Service(string connectionString)
     : ServiceBase<A1Request, A1Response>(connectionString)
 {
+    /// <summary></summary>
     public override IAsyncEnumerable<A1Response> ExecuteAsync(
         IEnumerable<A1Request> requests,
         CancellationToken ct = default)

@@ -13,7 +13,7 @@ namespace ServiceApi.Services;
 /// <typeparam name="TRequest">リクエストクラス</typeparam>
 /// <typeparam name="TResponse">レスポンスクラス</typeparam>
 /// <param name="connectionString">DB接続文字列</param>
-/// <param name="fetchRows">フェッチ行数指定</param>
+/// <param name="fetchRows">読み込み行数指定</param>
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
@@ -32,7 +32,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// </summary>
     /// <param name="requests">リクエスト配列</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns></returns>
+    /// <returns>レスポンス配列</returns>
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> requests,
         CancellationToken ct = default);
@@ -44,7 +44,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// <param name="requests">リクエスト配列</param>
     /// <param name="mapFunc">マッピング用デリゲート</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns>DB検索結果</returns>
+    /// <returns>レスポンス配列</returns>
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -60,7 +60,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// <param name="bindAction">パラメータバインド用アクション</param>
     /// <param name="mapFunc">マッピング用デリゲート</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns>DB検索結果</returns>
+    /// <returns>レスポンス配列</returns>
     protected virtual async IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -115,9 +115,9 @@ public abstract class ServiceBase<TRequest, TResponse>(
          * 同じSQL文であればOracle側でのカーソル再利用が促され
          * バインドパラメータだけを入れ替えて実行することができる
          */
-        using var cmd = new OracleCommand(sql, Connection) { BindByName = true };
+        using var command = new OracleCommand(sql, Connection) { BindByName = true };
 
-        foreach (TRequest req in requests)
+        foreach (TRequest request in requests)
         {
             // キャンセル要求があれば例外を投げてループを抜ける
             /*
@@ -128,8 +128,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
             ct.ThrowIfCancellationRequested();
 
             // パラメータのクリアと再バインド
-            cmd.Parameters.Clear();
-            bindAction(cmd.Parameters, req);
+            command.Parameters.Clear();
+            bindAction(command.Parameters, request);
 
             // SQL実行
             /*
@@ -137,7 +137,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
              * （ExecuteReaderAsync）に移る前に現在のreaderがクローズされる
              * これはOracleの「最大オープン・カーソル数」制限を回避するために不可欠
              */
-            using var reader = await cmd.ExecuteReaderAsync(ct);
+            using var reader = await command.ExecuteReaderAsync(ct);
 
             // FetchSizeの最適化
             // 確定した RowSize を使ってFetchSizeを最適化する
@@ -160,7 +160,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
 
             while (await reader.ReadAsync(ct))
             {
-                // 1行読み込むごとに呼び出し元へ yield return する
+                // 1行読み込むごとに呼び出し元にyield returnする
                 /*
                  * 従来の"List<TResponse>"を返す方式と"IAsyncEnumerable<TResponse>"
                  * を返す方式の最大の違いは、メモリ上でのデータの持ち方です。
@@ -175,7 +175,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
                 yield return reader;
             }
         }
-        // 1つのリクエストが終わるたびにreader.Dispose()が走り、
+        // 1つのリクエストが終わるたびにreader.Dispose()が走り
         // 全てのリクエストが終わるとcmd.Dispose()が走る
     }
 
@@ -184,8 +184,10 @@ public abstract class ServiceBase<TRequest, TResponse>(
     /// </summary>
     public void Dispose()
     {
-        // Connection.Close()を明示的に呼んでからDisposeすると
-        // Oracleのセッションが即座に解放されやすくなりDB側の負担を軽減できる
+        /*
+         * Connection.Close()を明示的に呼んでからDisposeすると
+         * Oracleのセッションが即座に解放されやすくなりDB側の負担を軽減できる
+         */
         if (this.Connection is { State: ConnectionState.Open }) { this.Connection.Close(); }
         this.Connection?.Dispose();
         GC.SuppressFinalize(this);

@@ -19,7 +19,7 @@ public class C1Service(string connectionString)
     /// </summary>
     /// <param name="requests">リクエスト配列</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns></returns>
+    /// <returns>レスポンス配列</returns>
     public override async IAsyncEnumerable<C1Response> ExecuteAsync(
         IEnumerable<C1Request> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -48,14 +48,13 @@ public class C1Service(string connectionString)
             ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty
         };
 
-        // リクエスト1件ごとに処理を完結させる
-        foreach (var req in requests)
+        foreach (var request in requests)
         {
             C1Response? response = null;
 
             // 1つのリクエスト（1つのSQL実行結果）を処理
-            // この ExecuteQueryAsync は「単一のリクエスト」を配列化して渡す
-            await foreach (var reader in ExecuteQueryAsync(sql, [req], bindAction, ct))
+            // このExecuteQueryAsyncは単一のリクエストを配列化して渡す
+            await foreach (var reader in ExecuteQueryAsync(sql, [request], bindAction, ct))
             {
                 decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
 
@@ -78,7 +77,7 @@ public class C1Service(string connectionString)
                 }
                 else
                 {
-                    // DEPTNOが同一の場合は、MapEmp を使ってリストに追加
+                    // DEPTNOが同一の場合はMapEmpを使ってリストに追加
                     response.Employees.Add(empMapFunc(reader));
                 }
             }

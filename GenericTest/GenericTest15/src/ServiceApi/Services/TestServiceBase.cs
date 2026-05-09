@@ -16,6 +16,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
+    /// <summary></summary>
     protected TestServiceBase(string _) { }
 
     /// <summary>
@@ -23,11 +24,11 @@ public abstract class TestServiceBase<TRequest, TResponse>
     /// </summary>
     /// <param name="_">dummy</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns></returns>
+    /// <returns>レスポンス配列</returns>
     /// <exception cref="FileNotFoundException"></exception>
     /// <exception cref="InvalidOperationException"></exception>
     public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
-        IEnumerable<TRequest> _,  // リクエストは参照しない
+        IEnumerable<TRequest> _,  // テストサービスではリクエストは参照しない
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         // レスポンスデータ準備（Jsonファイルから読み込み）
@@ -72,7 +73,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
             catch (OperationCanceledException) { throw; }  // キャンセルはそのまま投げる
             catch (JsonException jex)
             {
-                // Json構文エラー（カンマ忘れ、型違い等）をスタブ専用のメッセージで包む
+                // Json構文エラー（カンマ記述もれ、型違い等）をスタブ専用のメッセージで包む
                 string filename = Path.GetFileName(filePath);
                 string message = MessageResourceProvider.GetMessage(MessageId.MSG991, filename, jex.Message);
                 throw new InvalidOperationException(message, jex);
@@ -91,5 +92,5 @@ public abstract class TestServiceBase<TRequest, TResponse>
     /// <returns></returns>
     public virtual ValueTask DisposeAsync()
         => ValueTask.CompletedTask;
-        // テスト用ベースクラスでは特に解放するものがないためCompletedTaskを返す
+        // テスト用ベースクラスでは特に解放するものはないためCompletedTaskを返す
 }

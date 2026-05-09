@@ -19,7 +19,7 @@ public class C2Service(string connectionString)
     /// </summary>
     /// <param name="requests">リクエスト配列</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns></returns>
+    /// <returns>レスポンス配列</returns>
     public override async IAsyncEnumerable<C2Response> ExecuteAsync(
         IEnumerable<C2Request> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -59,14 +59,14 @@ public class C2Service(string connectionString)
         };
 
         /*
-         * DEPTNOが同一のレコードをグループ化して返却する
+         * DEPTNOが同一のレコードをグループ化して返却
          */
-        foreach (var req in requests)
+        foreach (var request in requests)
         {
             C2Response? dept = null;
             C2Response.Member? member = null;
 
-            await foreach (var reader in ExecuteQueryAsync(sql, [req], bindAction, ct))
+            await foreach (var reader in ExecuteQueryAsync(sql, [request], bindAction, ct))
             {
                 decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]); // decimal - NOT NULL
                 decimal memberEmpNo = Convert.ToDecimal(reader["MEMBER_EMPNO"]); // decimal - NOT NULL

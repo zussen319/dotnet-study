@@ -18,7 +18,7 @@ public class B1Service(string connectionString)
     /// </summary>
     /// <param name="requests">リクエスト配列</param>
     /// <param name="ct">CancellationToken</param>
-    /// <returns></returns>
+    /// <returns>レスポンス配列</returns>
     public override IAsyncEnumerable<B1Response> ExecuteAsync(
         IEnumerable<B1Request> requests,
         CancellationToken ct = default)

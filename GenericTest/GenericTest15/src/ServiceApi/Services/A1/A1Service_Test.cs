@@ -4,9 +4,14 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.A1;
 
+/// <summary>
+/// 
+/// </summary>
+/// <param name="dummy"></param>
 public class A1Service_Test(string dummy)
     : TestServiceBase<A1Request, A1Response>(dummy)
 {
+    /// <summary></summary>
     public override async IAsyncEnumerable<A1Response> ExecuteAsync(
         IEnumerable<A1Request> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
