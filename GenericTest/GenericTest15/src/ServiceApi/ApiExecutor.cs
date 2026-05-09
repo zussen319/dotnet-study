@@ -20,7 +20,10 @@ public class ApiExecutor : IApiExecutor
             where TRequest : RequestBase
             where TResponse : ResponseBase
     {
-        // 1. インスタンス化 (リフレクション)
+        // リクエストが0件の場合は即座に終了
+        if (requests == null || !requests.Any()) { yield break; }
+
+        // インスタンス化 (リフレクション)
         var service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
 
         // 正常終了したかどうかを管理するフラグ

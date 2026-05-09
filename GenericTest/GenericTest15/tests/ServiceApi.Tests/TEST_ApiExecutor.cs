@@ -104,30 +104,20 @@ public class TEST_ApiExecutor
     public class DisposableStub : IApiService<MockRequest, MockResponse>, IDisposable, IAsyncDisposable
     {
         public static bool IsDisposed { get; set; }
-        // static bool ShouldThrow は削除
+        public static bool IsInstantiated { get; set; } // 追加：インスタンス化フラグ
 
-        private readonly string _connectionString;
-
+        // コンストラクタが呼ばれたらフラグを立てる
         public DisposableStub(string connectionString)
         {
-            _connectionString = connectionString;
+            IsInstantiated = true;
         }
 
         public async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,
             [EnumeratorCancellation] CancellationToken ct = default)
         {
-            // 接続文字列に "THROW" が含まれていたら例外を投げる
-            if (_connectionString.Contains("THROW"))
-            {
-                ThrowException();
-                yield break;
-            }
-
             yield return new MockResponse { Id = 1 };
             await Task.Yield();
-
-            void ThrowException() => throw new InvalidOperationException("予期せぬエラー");
         }
 
         public void Dispose() => IsDisposed = true;
@@ -167,6 +157,36 @@ public class TEST_ApiExecutor
         });
 
         Assert.True(DisposableStub.IsDisposed);
+    }
+
+    [Fact]
+    public async Task RunAsync_正常系_リクエスト件数0件の検証_01()
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        // 空のリクエスト
+        var requests = Enumerable.Empty<MockRequest>();
+
+        // フラグをリセット
+        DisposableStub.IsInstantiated = false;
+        DisposableStub.IsDisposed = false;
+
+        // Act
+        int count = 0;
+        await foreach (var _ in executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests))
+        {
+            count++;
+        }
+
+        // Assert
+        // 1. ループが一度も回っていないこと
+        Assert.Equal(0, count);
+
+        // 2. サービスが一度もインスタンス化されていないこと（＝無駄な接続が行われていない）
+        Assert.False(DisposableStub.IsInstantiated, "リクエストが空の場合、サービスをインスタンス化すべきではありません。");
+
+        // 3. インスタンスがないので、Disposeも当然呼ばれていないこと
+        Assert.False(DisposableStub.IsDisposed, "インスタンス化されていないため、Disposeも呼ばれないはずです。");
     }
 #endif
 
@@ -386,6 +406,67 @@ public class TEST_ApiExecutor
             await foreach (var item in stream.WithCancellation(cts.Token))
             {
                 // ここには到達しないはず
+            }
+        });
+    }
+#endif
+
+#if true
+
+    /*
+     * 処理の途中でタイムアウトが発生した場合のテスト
+     */
+    /*
+     * 非同期メソッドへの伝播確認:
+     * スタブ内の await Task.Delay(..., ct) にトークンを渡しています。
+     * これにより、ApiExecutor からサービス層へ正しくトークンが渡り、
+     * 「重い非同期処理（DBクエリなど）」が途中でキャンセル可能であることを証明できます。
+     * 
+     * リソースの早期解放:
+     * タイムアウト時に即座に例外が発生すれば、await using によるリソース破棄も
+     * 即座に実行されます。これを検証することで、システム全体の安定性を確認できます。
+     */
+    public class B1Service_TimeoutStub : IB1Service
+    {
+        public B1Service_TimeoutStub(string _) { }
+
+        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+            IEnumerable<B1Request> req,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            // 1件目はすぐに返す
+            yield return new B1Response { EMPNO = 1 };
+
+            // 2件目を出す前に、非常に長い時間がかかる処理をシミュレート
+            // 引数の ct を渡すことで、待機中にキャンセルが来たら即座に例外が飛ぶ
+            await Task.Delay(10000, ct);
+
+            yield return new B1Response { EMPNO = 2 };
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_異常系_ApiExecutor実行中のタイムアウトキャンセル確認_01()
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new B1Request { DEPTNO = 10 } };
+
+        // 100ミリ秒後に自動的にキャンセル（タイムアウト）される設定
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(100);
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            var stream = executor.RunAsync<B1Service_TimeoutStub, B1Request, B1Response>(
+                _connectionString,
+                requests,
+                cts.Token);
+
+            await foreach (var item in stream.WithCancellation(cts.Token))
+            {
+                // 1件目は受け取れるかもしれないが、2件目の Delay で例外が発生する
             }
         });
     }
