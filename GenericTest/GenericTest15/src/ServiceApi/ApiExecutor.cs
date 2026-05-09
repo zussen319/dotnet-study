@@ -30,16 +30,19 @@ public class ApiExecutor : IApiExecutor
         bool isCompleted = false; // 未完了
 
 #if true
-        // 3. リソース解放を保証するための await using
-        await using (service as IAsyncDisposable)
+        // リソース解放を保証するための await using
+        await using (service /*as IAsyncDisposable */)
         {
             // 処理開始ログ (service.GetType().Name で B1Service 等が取れる)
             Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
 
-            IAsyncEnumerator<TResponse>? enumerator = null;
+            // WithCancellationでトークンを紐付けた列挙子の取得
+            //IAsyncEnumerator<TResponse>? enumerator = null;
+            var enumerator = service.ExecuteAsync(requests, ct).WithCancellation(ct).GetAsyncEnumerator();
+
             try
             {
-                enumerator = service.ExecuteAsync(requests, ct).GetAsyncEnumerator(ct);
+                //enumerator = service.ExecuteAsync(requests, ct).GetAsyncEnumerator(ct);
 
                 while (true)
                 {
@@ -47,8 +50,7 @@ public class ApiExecutor : IApiExecutor
                     try
                     {
                         // NomveNextAsync (次の行の取得) の失敗を catch する
-                        // ctはGetAsyncEnumeratorで渡されているためMoveNextAsyncでは不要
-                        if (!await enumerator.MoveNextAsync()) break;
+                        if (!await enumerator.MoveNextAsync()) { break; }
                         response = enumerator.Current;
                     }
                     catch (OperationCanceledException)
@@ -83,7 +85,8 @@ public class ApiExecutor : IApiExecutor
             }
             finally
             {
-                if (enumerator != null) await enumerator.DisposeAsync();
+                //if (enumerator != null)
+                await enumerator.DisposeAsync();
 
                 // 処理終了ログ出力
                 string message = (isCompleted

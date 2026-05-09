@@ -8,9 +8,10 @@ namespace ServiceApi.Services;
  * where TService : IApiService<TRequest, TResponse>
  * で使用しているため、必須です
  */
-public interface IApiService<TRequest, TResponse>
+public interface IApiService<TRequest, TResponse> : IAsyncDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    IAsyncEnumerable<TResponse> ExecuteAsync(IEnumerable<TRequest> requests, CancellationToken ct = default);
+    IAsyncEnumerable<TResponse> ExecuteAsync(
+        IEnumerable<TRequest> requests, CancellationToken ct = default);
 }

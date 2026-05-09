@@ -337,12 +337,12 @@ public class TEST_ApiExecutor
 
 #if true
     // --- テスト用のキャンセル検証スタブ ---
-    public class B1Service_CancelStub : IB1Service
+    public class B1Service_CancelStub : TestServiceBase<B1Request, B1Response>, IB1Service
     {
-        // Activator 用のコンストラクタ
-        public B1Service_CancelStub(string conn) { }
+        // 基底クラスのコンストラクタ(string _)を呼び出す
+        public B1Service_CancelStub(string conn) : base(conn) { }
 
-        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+        public override async IAsyncEnumerable<B1Response> ExecuteAsync(
             IEnumerable<B1Request> requests,
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -426,11 +426,13 @@ public class TEST_ApiExecutor
      * タイムアウト時に即座に例外が発生すれば、await using によるリソース破棄も
      * 即座に実行されます。これを検証することで、システム全体の安定性を確認できます。
      */
-    public class B1Service_TimeoutStub : IB1Service
+    public class B1Service_TimeoutStub : TestServiceBase<B1Request, B1Response>, IB1Service
     {
-        public B1Service_TimeoutStub(string _) { }
+        // 基底クラスのコンストラクタを呼び出す
+        public B1Service_TimeoutStub(string _) : base(_) { }
 
-        public async IAsyncEnumerable<B1Response> ExecuteAsync(
+        // override を追加
+        public override async IAsyncEnumerable<B1Response> ExecuteAsync(
             IEnumerable<B1Request> req,
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -438,7 +440,6 @@ public class TEST_ApiExecutor
             yield return new B1Response { EMPNO = 1 };
 
             // 2件目を出す前に、非常に長い時間がかかる処理をシミュレート
-            // 引数の ct を渡すことで、待機中にキャンセルが来たら即座に例外が飛ぶ
             await Task.Delay(10000, ct);
 
             yield return new B1Response { EMPNO = 2 };

@@ -11,6 +11,8 @@ public abstract class TestServiceBase<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
+    protected TestServiceBase(string _) { }
+
     public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> _,  // リクエストは参照していない
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -75,4 +77,9 @@ public abstract class TestServiceBase<TRequest, TResponse>
             yield return response;
         }
     }
+
+    // IAsyncDisposable の実装
+    // テスト用ベースクラスでは特に解放するものがないため、完了したTaskを返すだけでOK
+    public virtual ValueTask DisposeAsync()
+        => ValueTask.CompletedTask;
 }
