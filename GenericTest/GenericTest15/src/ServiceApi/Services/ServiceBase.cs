@@ -1,4 +1,5 @@
 ﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
 using ServiceApi.Requests;
 using ServiceApi.Responses;
 using System.Data;
@@ -12,7 +13,7 @@ namespace ServiceApi.Services;
  */
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
-    int fetchRows = 100)
+    int fetchRows = ApiConstants.DefaultFetchRows)
     : IApiService<TRequest, TResponse>, IDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase

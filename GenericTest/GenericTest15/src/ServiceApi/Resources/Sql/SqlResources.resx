@@ -124,7 +124,7 @@ SELECT :VAL + 2 ID, '&lt;A1Service&gt; TESTDATA2' DATANAME FROM DUAL </value>
   </data>
   <data name="SQL_B1_001" xml:space="preserve">
     <value>SELECT EMPNO, ENAME, JOB, MGR, 
-TO_CHAR(HIREDATE, 'yyyy/mm/dd') HIREDATE, 
+TO_CHAR(HIREDATE, :SQL_DATE_FORMAT) HIREDATE, 
 SAL, COMM, DEPTNO 
 FROM EMP 
 WHERE DEPTNO = :DEPTNO 

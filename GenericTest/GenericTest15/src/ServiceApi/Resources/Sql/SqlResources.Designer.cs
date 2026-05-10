@@ -73,7 +73,7 @@ namespace ServiceApi.Resources.Sql {
         
         /// <summary>
         ///   Looks up a localized string similar to SELECT EMPNO, ENAME, JOB, MGR, 
-        ///TO_CHAR(HIREDATE, &apos;yyyy/mm/dd&apos;) HIREDATE, 
+        ///TO_CHAR(HIREDATE, :SQL_DATE_FORMAT) HIREDATE, 
         ///SAL, COMM, DEPTNO 
         ///FROM EMP 
         ///WHERE DEPTNO = :DEPTNO 

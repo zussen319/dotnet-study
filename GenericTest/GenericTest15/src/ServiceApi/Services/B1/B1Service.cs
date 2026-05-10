@@ -1,4 +1,5 @@
 ﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
 using ServiceApi.Requests.B1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.B1;
@@ -18,7 +19,7 @@ public class B1Service(string connectionString)
     {
         /*
          * SQL_B1_001:
-         *   SELECT EMPNO, ENAME, JOB, MGR, TO_CHAR(HIREDATE, 'yyyy/mm/dd') HIREDATE, 
+         *   SELECT EMPNO, ENAME, JOB, MGR, TO_CHAR(HIREDATE, :SQL_DATE_FORMAT) HIREDATE, 
          *          SAL, COMM, DEPTNO 
          *   FROM EMP 
          *   WHERE DEPTNO = :DEPTNO 
@@ -30,6 +31,7 @@ public class B1Service(string connectionString)
         Action<OracleParameterCollection, B1Request> bindAction = (p, req) => 
         {
             p.Add(new OracleParameter("DEPTNO", req.DEPTNO));
+            p.Add(new OracleParameter("SQL_DATE_FORMAT", ApiConstants.SqlDateFormat));
         };
 
         // マッピング用の式を定義
