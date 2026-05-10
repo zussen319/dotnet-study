@@ -21,14 +21,9 @@ using System.Runtime.CompilerServices;
 namespace ServiceApi.Tests;
 
 // テスト用のスタブ
-#if true
 public record MockResponse : ResponseBase { public int Id { get; set; } }
 public record MockRequest : RequestBase { }
 
-#else
-public class MockResponse : ResponseBase { public int Id { get; set; } }
-public class MockRequest : RequestBase { }
-#endif
 
 public class TEST_ApiExecutor
 {
@@ -317,12 +312,12 @@ public class TEST_ApiExecutor
 
 #if true
     [Theory]
-    [InlineData(10)]
-    public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
+    [InlineData(new int[] { 30, 20, 10 })]
+    public async Task RunAsync_正常系_B1Service実行_01(int[] deptNos)
     {
         // Arrange
         var executor = new ApiExecutor();
-        var requests = new[] { new B1Request { DEPTNO = deptNo } };
+        var requests = deptNos.Select(d => new B1Request { DEPTNO = (decimal)d }).ToList();
         var results = new List<B1Response>();
 
         // Act
@@ -359,12 +354,12 @@ public class TEST_ApiExecutor
 
 #if true
     [Theory]
-    [InlineData(10)]
-    public async Task RunAsync_正常系_C1Service実行_01(decimal deptNo)
+    [InlineData(new int[] { 30, 20, 10 })]
+    public async Task RunAsync_正常系_C1Service実行_01(int[] deptNos)
     {
         // Arrange
         var executor = new ApiExecutor();
-        var requests = new[] { new C1Request { DEPTNO = deptNo } };
+        var requests = deptNos.Select(d => new C1Request { DEPTNO = (decimal)d }).ToList();
         var results = new List<C1Response>();
 
         // Act
@@ -401,12 +396,12 @@ public class TEST_ApiExecutor
 
 #if true
     [Theory]
-    [InlineData(10)]
-    public async Task RunAsync_正常系_C2Service実行_01(decimal deptNo)
+    [InlineData(new int[] { 30, 20, 10 })]
+    public async Task RunAsync_正常系_C2Service実行_01(int[] deptNos)
     {
         // Arrange
         var executor = new ApiExecutor();
-        var requests = new[] { new C2Request { DEPTNO = deptNo } };
+        var requests = deptNos.Select(d => new C2Request { DEPTNO = (decimal)d }).ToList();
         var results = new List<C2Response>();
 
         // Act
