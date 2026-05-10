@@ -10,6 +10,10 @@ namespace ServiceApi;
 // サービスの生成・実行・破棄のライフサイクルを管理する
 public class ApiExecutor
 {
+    /*
+     * APIのエントリポイント
+     * 呼び出し元からはこのメソッドが呼び出され実行される
+     */
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,
             IEnumerable<TRequest> requests,
@@ -28,7 +32,7 @@ public class ApiExecutor
         // サービスをインスタンス化
         var service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
 
-        // 正常終了を管理するフラグ
+        // 正常終了を判断するためのフラグ
         bool isCompleted = false; // 未完了
 
         await using (service)

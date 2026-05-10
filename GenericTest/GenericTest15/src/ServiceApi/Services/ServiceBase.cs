@@ -7,10 +7,13 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services;
 
+/*
+ * サービスクラス（基底）
+ */
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
-    int fetchRows = 100
-) : IApiService<TRequest, TResponse>, IDisposable
+    int fetchRows = 100)
+    : IApiService<TRequest, TResponse>, IDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {

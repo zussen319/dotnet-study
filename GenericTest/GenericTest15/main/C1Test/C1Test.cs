@@ -4,6 +4,9 @@ using ServiceApi.Requests.C1;
 using ServiceApi.Responses.C1;
 using ServiceApi.Services.C1;
 
+/*
+ * API「C1」のテスト用メインプログラム
+ */
 // プロジェクトのプロパティ
 // ・ターゲットプラットフォーム： .NET 10.0
 // ・ターゲットOS： Windows
@@ -11,10 +14,11 @@ using ServiceApi.Services.C1;
 try
 {
     // 実行モード（テスト用・本番用）
+    // 起動時引数に"-t"が指定されたらテストモードで実行
     bool testMode = args.Contains("-t");
 
     // 設定ファイルのビルド
-    // ConfigurationBuilderを使ってJSONを読み込む
+    // ConfigurationBuilderを使ってJsonファイルを読み込む
     // 以下のパッケージが必要
     // - Microsoft.Extensions.Configuration.Binder
     // - Microsoft.Extensions.Configuration.Json
@@ -25,8 +29,11 @@ try
         .AddJsonFile("C1Test.json", optional: false, reloadOnChange: true)
         .Build();
 
-    // （API処理実行）検索結果を受け取る
+    /*
+     * （API処理実行）検索結果を受け取る
+     */
     var executor = new ApiExecutor();
+    // リクエストデータをconfigから取得
     IEnumerable<C1Request> requests = config.GetSection("param").Get<List<C1Request>>() ?? [];
     CancellationToken ct = default;
     IAsyncEnumerable<C1Response> responseStream;
@@ -37,11 +44,15 @@ try
     } else
     {
         // 本番用
+        // DB接続文字列をconfigから取得
         string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
         responseStream = executor.RunAsync<C1Service, C1Request, C1Response>(connStr, requests, ct);
     }
 
-    // （結果取得）検索結果をファイルに書き出す
+    /*
+     * （結果取得）検索結果をファイルに書き出す
+     */
+    // 出力先ファイルパスをconfigから取得
     string outputPath = config.GetSection("config:OutputPath").Get<string>() ?? string.Empty;
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {

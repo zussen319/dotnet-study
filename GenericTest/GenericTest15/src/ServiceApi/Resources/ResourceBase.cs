@@ -2,6 +2,9 @@
 
 namespace ServiceApi.Resources;
 
+/*
+ * リソース管理クラス（基底）
+ */
 internal abstract class ResourceBase
 {
     private readonly ResourceManager _resourceManager;

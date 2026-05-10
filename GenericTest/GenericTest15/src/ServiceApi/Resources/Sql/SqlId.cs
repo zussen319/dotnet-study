@@ -1,5 +1,8 @@
 ﻿namespace ServiceApi.Resources.Sql;
 
+/*
+ * SQLID定義
+ */
 internal static class SqlId
 {
     public const string SQL_A1_001 = "SQL_A1_001";

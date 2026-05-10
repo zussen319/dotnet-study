@@ -7,6 +7,9 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.C2;
 
+/*
+ * API「C2」のサービスクラス
+ */
 public class C2Service(string connectionString)
     : ServiceBase<C2Request, C2Response>(connectionString)
 {

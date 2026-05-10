@@ -6,6 +6,9 @@ using System.Data.Common;
 
 namespace ServiceApi.Services.A1;
 
+/*
+ * API「A1」のサービスクラス
+ */
 public class A1Service(string connectionString)
     : ServiceBase<A1Request, A1Response>(connectionString)
 {
@@ -13,6 +16,12 @@ public class A1Service(string connectionString)
         IEnumerable<A1Request> requests,
         CancellationToken ct = default)
     {
+        /*
+         * SQL_A1_001:
+         *   SELECT :VAL + 1 ID, '<A1Service> TESTDATA1' DATANAME FROM DUAL 
+         *   UNION 
+         *   SELECT :VAL + 2 ID, '<A1Service> TESTDATA2' DATANAME FROM DUAL 
+         */
         string sql = SqlResourceProvider.GetSql(SqlId.SQL_A1_001);
           
         // パラメータ設定用の式を定義
@@ -29,7 +38,7 @@ public class A1Service(string connectionString)
         };
 
         /*
-         * async/awaitキーワードは不要
+         * ここにはasync/awaitキーワードは不要
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返してくれるので
          * 具象クラス（A1Service）は単なる「パス（中継役）」として振る舞えばよい
          */

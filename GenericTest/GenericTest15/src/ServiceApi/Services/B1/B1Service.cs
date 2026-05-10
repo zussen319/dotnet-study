@@ -6,6 +6,9 @@ using System.Data.Common;
 
 namespace ServiceApi.Services.B1;
 
+/*
+ * API「B1」のサービスクラス
+ */
 public class B1Service(string connectionString)
     : ServiceBase<B1Request, B1Response>(connectionString)
 {
@@ -43,7 +46,7 @@ public class B1Service(string connectionString)
         };
 
         /*
-         * async/awaitキーワードは不要
+         * ここにはasync/awaitキーワードは不要
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返却するため
          * 具象クラスは単なる「パス（中継役）」として振る舞えばよい
          */

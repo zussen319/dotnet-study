@@ -4,6 +4,9 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services.A1;
 
+/*
+ * API「A1」のサービスクラス（テスト用）
+ */
 public class A1Service_Test(string dummy)
     : TestServiceBase<A1Request, A1Response>(dummy)
 {

@@ -1,5 +1,8 @@
 ﻿namespace ServiceApi.Resources.Messages;
 
+/*
+ * メッセージID定義
+ */
 internal static class MessageId
 {
     /// <summary>Service started. ({0})</summary>

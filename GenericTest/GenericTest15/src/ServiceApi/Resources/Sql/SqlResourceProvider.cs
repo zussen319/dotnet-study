@@ -1,13 +1,15 @@
 ﻿namespace ServiceApi.Resources.Sql;
 
 /*
+ * SQL管理クラス
+ */
+/*
  * リソースファイル.resxのプロパティ値が以下のようになっていること：
  * ・ビルドアクション：埋め込みリソース
  * ・カスタムツール：ResXFileCodeGenerator
  * ・カスタムツール名前空間：（正しく設定されていること）
  * ・リソースファイル.resxのアクセス修飾子 (Access Modifier)」がinternalになっていること
  */
-
 internal class SqlResourceProvider : ResourceBase
 {
     private static readonly SqlResourceProvider _instance = new(typeof(SqlResources));

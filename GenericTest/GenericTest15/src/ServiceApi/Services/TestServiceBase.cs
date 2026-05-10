@@ -6,6 +6,9 @@ using System.Text.Json;
 
 namespace ServiceApi.Services;
 
+/*
+ * サービスクラス（テスト用・基底）
+ */
 public abstract class TestServiceBase<TRequest, TResponse>
     : IApiService<TRequest, TResponse>
     where TRequest : RequestBase

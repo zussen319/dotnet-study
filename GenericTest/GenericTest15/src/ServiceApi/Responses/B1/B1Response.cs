@@ -1,5 +1,8 @@
 ﻿namespace ServiceApi.Responses.B1;
 
+/*
+ * API「B1」のレスポンスオブジェクト
+ */
 public record B1Response : ResponseBase
 {
     public required decimal EMPNO { get; init; }

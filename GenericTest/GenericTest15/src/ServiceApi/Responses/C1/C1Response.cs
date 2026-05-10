@@ -1,6 +1,8 @@
 ﻿namespace ServiceApi.Responses.C1;
 
-#if true
+/*
+ * API「C1」のレスポンスオブジェクト
+ */
 public record C1Response : ResponseBase
 {
     public required decimal DEPTNO { get; init; }
@@ -27,18 +29,3 @@ public record C1Response : ResponseBase
      *     Assert.Equal(expected.Employees.ToImmutableArray(), actual.Employees.ToImmutableArray());
      */
 }
-#else
-public class C1Response : ResponseBase
-{
-    public required decimal DEPTNO { get; init; }
-    public string DNAME { get; init; } = string.Empty;
-
-    public List<Emp> Employees { get; init; } = [];
-
-    public class Emp
-    {
-        public required decimal EMPNO { get; init; }
-        public string ENAME { get; init; } = string.Empty;
-    }
-}
-#endif
