@@ -155,6 +155,11 @@ public abstract class ServiceBase<TRequest, TResponse>(
     // 非同期的リソース解放
     public async ValueTask DisposeAsync()
     {
+        /*
+         * ApiExecutor.RunAsync()内部の"await using (service)"は、対象のサービスインスタンスが
+         * IAsyncDisposableインターフェースを実装していれば非同期的リソース解放（DisposeAsync）を、
+         * そうでなければ同期的リソース解放（Dispose）を呼び出す
+         */
         if (this.Connection is { State: ConnectionState.Open }) { await this.Connection.CloseAsync(); }
         if (this.Connection is not null) { await this.Connection.DisposeAsync(); }
         GC.SuppressFinalize(this);
