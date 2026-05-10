@@ -31,6 +31,8 @@ public class B1Service(string connectionString)
         Action<OracleParameterCollection, B1Request> bindAction = (p, req) => 
         {
             p.Add(new OracleParameter("DEPTNO", req.DEPTNO));
+            // DATE型データはAPI内ではstringとして保持する
+            // TO_CHAR()実行時に文字列フォーマットとして"SqlDateFormat"を指定する
             p.Add(new OracleParameter("SQL_DATE_FORMAT", ApiConstants.SqlDateFormat));
         };
 

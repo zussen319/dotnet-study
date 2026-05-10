@@ -62,7 +62,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
             catch (OperationCanceledException) { throw; }  // キャンセルはそのまま投げる
             catch (JsonException jex)
             {
-                // Json構文エラー（カンマ記述もれ、型違い等）をスタブ専用のメッセージで包む
+                // Json構文エラー（カンマ記述もれ、型違い等）をスタブ専用のメッセージでラップする
                 string filename = Path.GetFileName(filePath);
                 string message = MessageResourceProvider.GetMessage(MessageId.MSG991, filename, jex.Message);
                 throw new InvalidOperationException(message, jex);

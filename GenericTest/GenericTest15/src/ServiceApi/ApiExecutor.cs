@@ -50,7 +50,7 @@ public class ApiExecutor
                     TResponse response;
                     try
                     {
-                        // 次の行データを取得
+                        // 行データを取得
                         if (!await enumerator.MoveNextAsync()) { break; }
                         response = enumerator.Current;
                     }
