@@ -1,13 +1,19 @@
 ﻿using Oracle.ManagedDataAccess.Client;
 using ServiceApi.Requests;
+using ServiceApi.Requests.A1;
 using ServiceApi.Requests.B1;
 using ServiceApi.Requests.C1;
+using ServiceApi.Requests.C2;
 using ServiceApi.Responses;
+using ServiceApi.Responses.A1;
 using ServiceApi.Responses.B1;
 using ServiceApi.Responses.C1;
+using ServiceApi.Responses.C2;
 using ServiceApi.Services;
+using ServiceApi.Services.A1;
 using ServiceApi.Services.B1;
 using ServiceApi.Services.C1;
+using ServiceApi.Services.C2;
 using ServiceApi.Tests.Common;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -264,6 +270,48 @@ public class TEST_ApiExecutor
 #if true
     [Theory]
     [InlineData(10)]
+    public async Task RunAsync_正常系_A1Service実行_01(decimal value)
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new A1Request { A1Value = value } };
+        var results = new List<A1Response>();
+
+        // Act
+        await foreach (var response in executor.RunAsync<A1Service, A1Request, A1Response>(
+            _connectionString, requests))
+        {
+            results.Add(response);
+        }
+
+        // Assert
+        Assert.NotEmpty(results);
+    }
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_A1Service_Test実行_01(decimal value)
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new A1Request { A1Value = value } };
+        var results = new List<A1Response>();
+
+        // Act
+        await foreach (var response in executor.RunAsync<A1Service_Test, A1Request, A1Response>(
+            _connectionString, requests))
+        {
+            results.Add(response);
+        }
+
+        // Assert
+        Assert.NotEmpty(results);
+    }
+#endif
+
+#if true
+    [Theory]
+    [InlineData(10)]
     public async Task RunAsync_正常系_B1Service実行_01(decimal deptNo)
     {
         // Arrange
@@ -281,9 +329,7 @@ public class TEST_ApiExecutor
         // Assert
         Assert.NotEmpty(results);
     }
-#endif
 
-#if true
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
@@ -325,9 +371,7 @@ public class TEST_ApiExecutor
         // Assert
         Assert.NotEmpty(results);
     }
-#endif
 
-#if true
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_C1Service_Test実行_01(decimal deptNo)
@@ -339,6 +383,48 @@ public class TEST_ApiExecutor
 
         // Act
         await foreach (var response in executor.RunAsync<C1Service_Test, C1Request, C1Response>(
+            _connectionString, requests))
+        {
+            results.Add(response);
+        }
+
+        // Assert
+        Assert.NotEmpty(results);
+    }
+#endif
+
+#if true
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_C2Service実行_01(decimal deptNo)
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new C2Request { DEPTNO = deptNo } };
+        var results = new List<C2Response>();
+
+        // Act
+        await foreach (var response in executor.RunAsync<C2Service, C2Request, C2Response>(
+            _connectionString, requests))
+        {
+            results.Add(response);
+        }
+
+        // Assert
+        Assert.NotEmpty(results);
+    }
+
+    [Theory]
+    [InlineData(10)]
+    public async Task RunAsync_正常系_C2Service_Test実行_01(decimal deptNo)
+    {
+        // Arrange
+        var executor = new ApiExecutor();
+        var requests = new[] { new C2Request { DEPTNO = deptNo } };
+        var results = new List<C2Response>();
+
+        // Act
+        await foreach (var response in executor.RunAsync<C2Service_Test, C2Request, C2Response>(
             _connectionString, requests))
         {
             results.Add(response);

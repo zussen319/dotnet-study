@@ -33,6 +33,9 @@
     <None Update="C1Service_Test.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="C2Service_Test.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="ServiceApi.Test.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
