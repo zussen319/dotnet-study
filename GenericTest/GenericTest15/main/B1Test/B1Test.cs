@@ -32,8 +32,7 @@ try
 
     // （API処理実行）検索結果を受け取る
     var executor = new ApiExecutor();
-    IEnumerable<B1Request> requests =
-        new[] { new B1Request { DEPTNO = paramSection.GetValue<decimal>("DEPTNO") } };
+    IEnumerable<B1Request> requests = paramSection.Get<List<B1Request>>() ?? [];
     CancellationToken ct = default;
     IAsyncEnumerable<B1Response> responseStream;
     if (testMode)
