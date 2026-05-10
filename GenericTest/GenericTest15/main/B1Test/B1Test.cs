@@ -56,6 +56,9 @@ try
         await foreach (var response in responseStream.WithCancellation(ct))
         {
             // 取得データをCSV形式で書き出し
+#if true
+            string line = response.ToString();
+#else
             string line = string.Join(",", new object?[]
             {
                 response.EMPNO,
@@ -67,6 +70,7 @@ try
                 response.COMM,
                 response.DEPTNO
             });
+#endif
             await writer.WriteLineAsync(line);
             Console.WriteLine(line);
 

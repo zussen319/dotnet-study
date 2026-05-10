@@ -10,4 +10,7 @@ public record B1Response : ResponseBase
     public decimal? SAL { get; init; }
     public decimal? COMM { get; init; }
     public decimal? DEPTNO { get; init; }
+    /*
+     * recordはToString()利用可（オーバーライド可）
+     */
 }

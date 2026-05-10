@@ -25,6 +25,9 @@ public record C2Response : ResponseBase
         public string STAFF_ENAME { get; init; } = string.Empty;
     }
     /*
+     * recordはToString()利用可（オーバーライド可）
+     */
+    /*
      * 【補足】recordの比較（Equals）についての注意
      * List<T> を含んでいる場合、record 同士の"=="比較は
      * 「リストの中身」までは見ず、「同じリストのインスタンスか」をチェックする

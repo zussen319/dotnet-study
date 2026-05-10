@@ -55,7 +55,11 @@ try
         await foreach (var response in responseStream)
         {
             // 取得データをCSV形式で書き出し
+#if true
+            string line = response.ToString();
+#else
             string line = string.Join(",", new object?[] { response.Id, response.DataName });
+#endif
             await writer.WriteLineAsync(line);
             Console.WriteLine(line);
 
