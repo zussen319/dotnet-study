@@ -28,18 +28,16 @@ try
         .AddJsonFile("A1Test.json", optional: false, reloadOnChange: true)
         .Build();
 
-    var paramSection = config.GetSection("param");
-
     // （API処理実行）検索結果を受け取る
     var executor = new ApiExecutor();
     IEnumerable<A1Request> requests =
-        new[] { new A1Request { A1Value = paramSection.GetValue<decimal>("A1Value") } };
+        new[] { new A1Request { A1Value = config.GetSection("param").GetValue<decimal>("A1Value") }};
     IAsyncEnumerable<A1Response> responseStream;
     if (testMode)
     {
-        // テスト用（DB接続文字列は任意）
-        string connStr =
-            "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger";
+        // テスト用
+        string connStr = 
+            "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
         responseStream = executor.RunAsync<A1Service_Test, A1Request, A1Response>(connStr, requests);
     } else
     {
@@ -55,11 +53,7 @@ try
         await foreach (var response in responseStream)
         {
             // 取得データをCSV形式で書き出し
-#if true
             string line = response.ToString();
-#else
-            string line = string.Join(",", new object?[] { response.Id, response.DataName });
-#endif
             await writer.WriteLineAsync(line);
             Console.WriteLine(line);
 

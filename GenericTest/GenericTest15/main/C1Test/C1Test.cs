@@ -28,23 +28,20 @@ try
         .AddJsonFile("C1Test.json", optional: false, reloadOnChange: true)
         .Build();
 
-    var paramSection = config.GetSection("param");
-
     // （API処理実行）検索結果を受け取る
     var executor = new ApiExecutor();
-    IEnumerable<C1Request> requests = paramSection.Get<List<C1Request>>() ?? [];
     CancellationToken ct = default;
     IAsyncEnumerable<C1Response> responseStream;
     if (testMode)
     {
-        // テスト用（DB接続文字列は任意）
-        string connStr =
-            "Data Source=localhost:1521/XE;Persist Security Inf=True;User ID=scott;Password=tiger";
-        responseStream = executor.RunAsync<C1Service_Test, C1Request, C1Response>(connStr, requests, ct);
+        // テスト用（DB接続文字列・リクエストオブジェクトは参照されない）
+        responseStream = executor.RunAsync<C1Service_Test, C1Request, C1Response>(
+            string.Empty, Enumerable.Empty<C1Request>(), ct);
     } else
     {
         // 本番用
         string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
+        IEnumerable<C1Request> requests = config.GetSection("param").Get<List<C1Request>>() ?? [];
         responseStream = executor.RunAsync<C1Service, C1Request, C1Response>(connStr, requests, ct);
     }
 
