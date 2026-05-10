@@ -10,14 +10,14 @@ namespace ServiceApi.Services;
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
-) : IApiService<TRequest, TResponse>, IDisposable , IAsyncDisposable
+) : IApiService<TRequest, TResponse>, IDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
     // Oracleコネクション
     protected OracleConnection Connection { get; } = new(connectionString);
 
-    // 具象クラスに実装を強制するエントリポイント
+    // 具象クラスに実装を強制する
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> requests,
         CancellationToken ct = default);
@@ -49,7 +49,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
         CancellationToken ct = default)
         => ExecuteQueryAsync(sql, requests, (_, _) => { }, ct);
 
-    // マッピング処理を具象クラスで実装できるようにするエントリポイント
+    // マッピング処理を具象クラスで実装できるようにする
     protected virtual async IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -68,7 +68,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
          * 同じSQL文であればOracle側でのカーソル再利用が促され
          * バインドパラメータだけを入れ替えて実行することができる
          */
-        using var command = new OracleCommand(sql, Connection) { BindByName = true };
+        using var command = new OracleCommand(sql, this.Connection) { BindByName = true };
 
         foreach (TRequest request in requests)
         {
