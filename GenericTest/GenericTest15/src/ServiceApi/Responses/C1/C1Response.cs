@@ -21,7 +21,7 @@ public record C1Response : ResponseBase
      *     actual.Should().BeEquivalentTo(expected) を使うのが最も簡単
      * (2) テスト時のみ ImmutableArray に変換して比較する:
      *     // テストコード内での比較イメージ
-     *     Assert.Equal(expected.Members.ToImmutableArray(), actual.Members.ToImmutableArray());
+     *     Assert.Equal(expected.Employees.ToImmutableArray(), actual.Employees.ToImmutableArray());
      */
 }
 #else
