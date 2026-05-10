@@ -13,9 +13,6 @@ try
     // 実行モード（テスト用・本番用）
     bool testMode = args.Contains("-t");
 
-    // ファイル出力先（確認用）
-    string outputPath = @"C:\temp\C2Test.csv";
-
     // 設定ファイルのビルド
     // ConfigurationBuilderを使ってJSONを読み込む
     // 以下のパッケージが必要
@@ -45,6 +42,7 @@ try
     }
 
     // （結果取得）検索結果をファイルに書き出す
+    string outputPath = config.GetSection("config:OutputPath").Get<string>() ?? string.Empty;
     using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
