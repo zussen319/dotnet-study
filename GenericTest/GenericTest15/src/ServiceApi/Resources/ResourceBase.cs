@@ -12,9 +12,7 @@ internal abstract class ResourceBase
         _resourceManager = new ResourceManager(resourceType);
     }
 
-    /// <summary>
-    /// キーを指定して文字列リソースを取得します。
-    /// </summary>
+    // キーを指定して文字列リソースを取得
     protected string GetString(string key)
     {
         var value = _resourceManager.GetString(key);

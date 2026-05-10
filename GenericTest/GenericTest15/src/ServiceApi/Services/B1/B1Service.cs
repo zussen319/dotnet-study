@@ -6,19 +6,9 @@ using System.Data.Common;
 
 namespace ServiceApi.Services.B1;
 
-/// <summary>
-/// サービスクラス（B1）
-/// </summary>
-/// <param name="connectionString">DB接続文字列</param>
 public class B1Service(string connectionString)
     : ServiceBase<B1Request, B1Response>(connectionString)
 {
-    /// <summary>
-    /// サービスエントリポイント
-    /// </summary>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns>レスポンス配列</returns>
     public override IAsyncEnumerable<B1Response> ExecuteAsync(
         IEnumerable<B1Request> requests,
         CancellationToken ct = default)

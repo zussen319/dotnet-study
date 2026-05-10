@@ -7,13 +7,6 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi.Services;
 
-/// <summary>
-/// サービスクラス（基底）
-/// </summary>
-/// <typeparam name="TRequest">リクエストクラス</typeparam>
-/// <typeparam name="TResponse">レスポンスクラス</typeparam>
-/// <param name="connectionString">DB接続文字列</param>
-/// <param name="fetchRows">読み込み行数指定</param>
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
@@ -21,30 +14,14 @@ public abstract class ServiceBase<TRequest, TResponse>(
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    /// <summary>
-    /// Oracleコネクション
-    /// </summary>
+    // Oracleコネクション
     protected OracleConnection Connection { get; } = new(connectionString);
 
     // 具象クラスに実装を強制するエントリポイント
-    /// <summary>
-    /// サービスエントリポイント
-    /// </summary>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns>レスポンス配列</returns>
     public abstract IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> requests,
         CancellationToken ct = default);
 
-    /// <summary>
-    /// DB検索処理（ストリーム版）
-    /// </summary>
-    /// <param name="sql">SQL文</param>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="mapFunc">マッピング用デリゲート</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns>レスポンス配列</returns>
     protected virtual IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -52,15 +29,6 @@ public abstract class ServiceBase<TRequest, TResponse>(
         CancellationToken ct = default)
         => ExecuteQueryAsync(sql, requests, (_, _) => { }, mapFunc, ct);
 
-    /// <summary>
-    /// DB検索処理（ストリーム版）
-    /// </summary>
-    /// <param name="sql">SQL文</param>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="bindAction">パラメータバインド用アクション</param>
-    /// <param name="mapFunc">マッピング用デリゲート</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns>レスポンス配列</returns>
     protected virtual async IAsyncEnumerable<TResponse> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -75,13 +43,6 @@ public abstract class ServiceBase<TRequest, TResponse>(
         }
     }
 
-    /// <summary>
-    /// DB検索処理（DataReader版）
-    /// </summary>
-    /// <param name="sql">SQL文</param>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns>DB検索結果</returns>
     protected virtual IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -89,14 +50,6 @@ public abstract class ServiceBase<TRequest, TResponse>(
         => ExecuteQueryAsync(sql, requests, (_, _) => { }, ct);
 
     // マッピング処理を具象クラスで実装できるようにするエントリポイント
-    /// <summary>
-    /// DB検索処理（DataReader版）
-    /// </summary>
-    /// <param name="sql">SQL文</param>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="bindAction">パラメータバインド用アクション</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns>DB検索結果</returns>
     protected virtual async IAsyncEnumerable<DbDataReader> ExecuteQueryAsync(
         string sql,
         IEnumerable<TRequest> requests,
@@ -179,9 +132,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
         // 全てのリクエストが終わるとcmd.Dispose()が走る
     }
 
-    /// <summary>
-    /// 同期的リソース解放
-    /// </summary>
+    // 同期的リソース解放
     public void Dispose()
     {
         /*
@@ -193,9 +144,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// 非同期的リソース解放
-    /// </summary>
+    // 非同期的リソース解放
     public async ValueTask DisposeAsync()
     {
         if (this.Connection is { State: ConnectionState.Open }) { await this.Connection.CloseAsync(); }

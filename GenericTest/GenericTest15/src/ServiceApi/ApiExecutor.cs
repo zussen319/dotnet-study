@@ -7,23 +7,9 @@ using System.Runtime.CompilerServices;
 
 namespace ServiceApi;
 
-// サービスの生成・実行・破棄のライフサイクルを管理します
-
-/// <summary>
-/// サービスの生成・実行・破棄のライフサイクルを管理する
-/// </summary>
+// サービスの生成・実行・破棄のライフサイクルを管理する
 public class ApiExecutor /* : IApiExecutor */
 {
-    /// <summary>
-    /// サービス実行
-    /// </summary>
-    /// <typeparam name="TService">サービスクラス</typeparam>
-    /// <typeparam name="TRequest">リクエストクラス</typeparam>
-    /// <typeparam name="TResponse">レスポンスクラス</typeparam>
-    /// <param name="connectionString">DB接続文字列</param>
-    /// <param name="requests">リクエスト配列</param>
-    /// <param name="ct">CancellationToken</param>
-    /// <returns></returns>
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,
             IEnumerable<TRequest> requests,
@@ -43,7 +29,7 @@ public class ApiExecutor /* : IApiExecutor */
 
         await using (service)
         {
-            // 処理開始ログ
+            // 処理開始ログ出力
             Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
 
             // WithCancellationでトークンを紐付けた列挙子の取得
