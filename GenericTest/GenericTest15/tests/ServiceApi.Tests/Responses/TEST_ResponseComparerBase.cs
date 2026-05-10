@@ -1,4 +1,5 @@
-﻿using ServiceApi.Responses;
+﻿#if false
+using ServiceApi.Responses;
 
 namespace ServiceApi.Tests.Responses;
 
@@ -28,3 +29,4 @@ public abstract class TEST_ResponseComparerBase<TResponse> : IEqualityComparer<T
     protected abstract bool EqualsCore(TResponse obj1, TResponse obj2);
     protected abstract int GetHashCodeCore(TResponse obj);
 }
+#endif

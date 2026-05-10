@@ -111,7 +111,8 @@ public class TEST_B1Service
         bool isMatch = true;
         foreach (B1Response result in resultList)
         {
-            isMatch = expectList.Contains(result, TEST_B1ResponseComparer.Default);
+            //isMatch = expectList.Contains(result, TEST_B1ResponseComparer.Default);
+            isMatch = expectList.Contains(result);
             if (isMatch == false) { break; }
         }
         Assert.True(isMatch);

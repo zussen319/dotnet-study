@@ -1,3 +1,3 @@
 ﻿namespace ServiceApi.Requests;
 
-public abstract class RequestBase { }
+public abstract record RequestBase;

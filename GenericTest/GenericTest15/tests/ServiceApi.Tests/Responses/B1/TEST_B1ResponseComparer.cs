@@ -1,4 +1,5 @@
-﻿using ServiceApi.Responses.B1;
+﻿#if false
+using ServiceApi.Responses.B1;
 
 namespace ServiceApi.Tests.Responses.B1;
 
@@ -192,3 +193,4 @@ public class TEST_B1ResponseComparer_Test
     }
 }
 #endregion
+#endif

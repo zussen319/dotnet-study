@@ -1,6 +1,6 @@
 ﻿namespace ServiceApi.Responses.B1;
 
-public class B1Response : ResponseBase
+public record B1Response : ResponseBase
 {
     public required decimal EMPNO { get; init; }
     public string ENAME { get; init; } = string.Empty;

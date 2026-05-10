@@ -21,8 +21,14 @@ using System.Runtime.CompilerServices;
 namespace ServiceApi.Tests;
 
 // テスト用のスタブ
+#if true
+public record MockResponse : ResponseBase { public int Id { get; set; } }
+public record MockRequest : RequestBase { }
+
+#else
 public class MockResponse : ResponseBase { public int Id { get; set; } }
 public class MockRequest : RequestBase { }
+#endif
 
 public class TEST_ApiExecutor
 {
