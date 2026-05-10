@@ -8,7 +8,7 @@ internal abstract class ResourceBase
 
     protected ResourceBase(Type resourceType)
     {
-        // 自動生成されたリソースクラス（SqlResourcesなど）の型からマネージャーを生成
+        // リソースクラス(.resx)の型からマネージャーを生成
         _resourceManager = new ResourceManager(resourceType);
     }
 
@@ -18,7 +18,7 @@ internal abstract class ResourceBase
         var value = _resourceManager.GetString(key);
         if (value == null)
         {
-            throw new KeyNotFoundException($"リソースキー '{key}' が {this.GetType().Name} に見つかりません");
+            throw new KeyNotFoundException($"リソースキー'{key}'が'{this.GetType().Name}'に見つかりません");
         }
         return value;
     }

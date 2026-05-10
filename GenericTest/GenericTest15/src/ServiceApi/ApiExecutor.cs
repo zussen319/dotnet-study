@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 namespace ServiceApi;
 
 // サービスの生成・実行・破棄のライフサイクルを管理する
-public class ApiExecutor /* : IApiExecutor */
+public class ApiExecutor
 {
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,
@@ -65,11 +65,10 @@ public class ApiExecutor /* : IApiExecutor */
                         throw;
                     }
 
-                    // yield return は try-catch の外で行う
+                    // yield returnはtry-catchの外で行う
                     /*
-                     * C#ではtry-catchブロックの内部でyield returnを直接記述することができません。
-                     * （try-finally であれば可能ですが、catchがあるとコンパイルエラーになります）
-                     * これは例外が発生した際に反復子の状態を安全に復元するのが難しいためです。
+                     * C#ではtry-catchブロックの内部でyield returnを直接記述することができない
+                     * （catch句があるとコンパイルエラーとなる）
                      */
                     yield return response;
                 }

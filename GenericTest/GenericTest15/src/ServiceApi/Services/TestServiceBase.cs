@@ -39,8 +39,8 @@ public abstract class TestServiceBase<TRequest, TResponse>
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         /*
-         * JsonSerializer.DeserializeAsyncEnumerableを使うことで、
-         * JSONが巨大であっても読み込んだ分から即座にyield returnできるようになる
+         * JsonSerializer.DeserializeAsyncEnumerableを使うことで
+         * Jsonファイルが巨大であっても読み込んだ分から即座にyield returnする
          */
         var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
 

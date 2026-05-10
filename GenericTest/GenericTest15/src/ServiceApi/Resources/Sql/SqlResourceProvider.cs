@@ -10,11 +10,9 @@
 
 internal class SqlResourceProvider : ResourceBase
 {
-    // 唯一のインスタンス
     private static readonly SqlResourceProvider _instance = new(typeof(SqlResources));
 
     private SqlResourceProvider(Type resourceType) : base(resourceType) { }
 
-    // Service側からはこの static メソッドを呼ぶ
     public static string GetSql(string sqlId) => _instance.GetString(sqlId);
 }

@@ -10,7 +10,7 @@ namespace ServiceApi.Services;
 public abstract class ServiceBase<TRequest, TResponse>(
     string connectionString,
     int fetchRows = 100
-) : IApiService<TRequest, TResponse>, IDisposable, IAsyncDisposable
+) : IApiService<TRequest, TResponse>, IDisposable , IAsyncDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
@@ -72,7 +72,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
 
         foreach (TRequest request in requests)
         {
-            // キャンセル要求があれば例外を投げてループを抜ける
+            // キャンセル要求を受け取ったら例外を投げてループを抜ける
             /*
              * ループの開始直後（ct.ThrowIfCancellationRequested()）と
              * フェッチ処理（reader.ReadAsync(ct)）の両方にCancellationTokenを適用する
@@ -88,7 +88,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
             /*
              * ループの中でusing var readerと記述することで、次のTRequestの処理
              * （ExecuteReaderAsync）に移る前に現在のreaderがクローズされる
-             * これはOracleの「最大オープン・カーソル数」制限を回避するために不可欠
+             * Oracleの「最大オープン・カーソル数」制限を回避するために不可欠
              */
             using var reader = await command.ExecuteReaderAsync(ct);
 
@@ -107,7 +107,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
              * RowSizeが大きい (例：10,000 bytes) 場合: FetchRows = 100 くらいが適切。
              * 特別な制約がない限り、初期設定としては100程度が推奨。
              * これだけでデフォルト状態 (FetchSize = 65536 バイトなど) に比べて
-             * ネットワーク通信回数が大幅に削減され十分な高速化の恩恵を受けられる。
+             * ネットワーク通信回数が大幅に削減され高速化が期待できる。
              */
             reader.FetchSize = reader.RowSize * fetchRows;
 
@@ -116,14 +116,13 @@ public abstract class ServiceBase<TRequest, TResponse>(
                 // 1行読み込むごとに呼び出し元にyield returnする
                 /*
                  * 従来の"List<TResponse>"を返す方式と"IAsyncEnumerable<TResponse>"
-                 * を返す方式の最大の違いは、メモリ上でのデータの持ち方です。
+                 * を返す方式の最大の違いは、メモリ上でのデータの持ち方。
                  * ・List方式: DBから100万件の結果がある場合、100万件すべてをメモリ (List) に
-                 *   格納し終わるまでメインプログラムにデータは一切渡されません。
+                 *   格納し終わるまでメインプログラムにデータは一切渡されまない。
                  * ・ストリーム方式: DBから1行読み込むごとに、そのデータが即座に呼び出し元へ
-                 *  「配送」されます。
-                 *   この「配送」を実現しているのが"yield return"です。
-                 * このキーワードは、メソッドを終了させずに「一旦この値を呼び出し元に渡し、
-                 * 次の要求があったら続きから再開する」という特殊な動きを可能にしています。
+                 *  「配送」される。"yield return"によりこの「配送」を実現する。
+                 * このキーワードはメソッドを終了させずに「一旦この値を呼び出し元に渡し、
+                 * 次の要求があったら続きから再開する」という動作をする。
                  */
                 yield return reader;
             }
@@ -136,8 +135,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
     public void Dispose()
     {
         /*
-         * Connection.Close()を明示的に呼んでからDisposeすると
-         * Oracleのセッションが即座に解放されやすくなりDB側の負担を軽減できる
+         * Connection.Close()を明示的に呼んでからDisposeすることにより
+         * Oracleのセッションが即座に解放されやすくなりDB側の負担を軽減する
          */
         if (this.Connection is { State: ConnectionState.Open }) { this.Connection.Close(); }
         this.Connection?.Dispose();

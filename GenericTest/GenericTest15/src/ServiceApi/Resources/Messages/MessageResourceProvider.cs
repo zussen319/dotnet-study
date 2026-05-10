@@ -10,7 +10,6 @@
 
 internal class MessageResourceProvider : ResourceBase
 {
-    // 唯一のインスタンス
     private static readonly MessageResourceProvider _instance = new(typeof(MessageResources));
 
     private MessageResourceProvider(Type resourceType) : base(resourceType) { }
