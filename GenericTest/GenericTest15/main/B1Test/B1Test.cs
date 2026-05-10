@@ -30,18 +30,17 @@ try
 
     // （API処理実行）検索結果を受け取る
     var executor = new ApiExecutor();
+    IEnumerable<B1Request> requests = config.GetSection("param").Get<List<B1Request>>() ?? [];
     CancellationToken ct = default;
     IAsyncEnumerable<B1Response> responseStream;
     if (testMode)
     {
-        // テスト用
-        responseStream = executor.RunAsync<B1Service_Test, B1Request, B1Response>(
-            string.Empty, Enumerable.Empty<B1Request>(), ct);
+        // テスト用（DB接続文字列は参照されない）
+        responseStream = executor.RunAsync<B1Service_Test, B1Request, B1Response>(string.Empty, requests, ct);
     } else
     {
         // 本番用
         string connStr = config.GetSection("config:ConnectionString").Get<string>() ?? string.Empty;
-        IEnumerable<B1Request> requests = config.GetSection("param").Get<List<B1Request>>() ?? [];
         responseStream = executor.RunAsync<B1Service, B1Request, B1Response>(connStr, requests, ct);
     }
 

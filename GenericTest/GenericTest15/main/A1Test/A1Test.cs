@@ -35,10 +35,8 @@ try
     IAsyncEnumerable<A1Response> responseStream;
     if (testMode)
     {
-        // テスト用
-        string connStr = 
-            "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger";
-        responseStream = executor.RunAsync<A1Service_Test, A1Request, A1Response>(connStr, requests);
+        // テスト用（DB接続文字列は参照されない）
+        responseStream = executor.RunAsync<A1Service_Test, A1Request, A1Response>(string.Empty, requests);
     } else
     {
         // 本番用
