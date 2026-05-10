@@ -18,11 +18,12 @@ public class ApiExecutor
             where TRequest : RequestBase
             where TResponse : ResponseBase
     {
-        // 処理開始ログ出力
-        Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
-
         // リクエストが0件の場合は即座に終了
-        if (requests == null || !requests.Any()) { yield break; }
+        if (requests == null || !requests.Any()) { 
+            // 処理が呼び出されたことを確認できるようにするため
+            // ここでは何らかのメッセージを出力すべき
+            yield break;
+        }
 
         // サービスをインスタンス化
         var service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
@@ -32,6 +33,9 @@ public class ApiExecutor
 
         await using (service)
         {
+            // 処理開始ログ出力
+            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
+
             // WithCancellationでトークンを紐付けた列挙子の取得
             var enumerator = service.ExecuteAsync(requests, ct).WithCancellation(ct).GetAsyncEnumerator();
 
