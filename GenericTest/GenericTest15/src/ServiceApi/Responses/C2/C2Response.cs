@@ -24,6 +24,17 @@ public record C2Response : ResponseBase
         public required decimal STAFF_EMPNO { get; init; }
         public string STAFF_ENAME { get; init; } = string.Empty;
     }
+    /*
+     * 【補足】recordの比較（Equals）についての注意
+     * List<T> を含んでいる場合、record 同士の"=="比較は
+     * 「リストの中身」までは見ず、「同じリストのインスタンスか」をチェックする
+     * ユニットテストで「中身が同じか」を厳密にチェックする場合は、以下の対応を検討する
+     * (1) FluentAssertions などのライブラリを使う:
+     *     actual.Should().BeEquivalentTo(expected) を使うのが最も簡単
+     * (2) テスト時のみ ImmutableArray に変換して比較する:
+     *     // テストコード内での比較イメージ
+     *     Assert.Equal(expected.Members.ToImmutableArray(), actual.Members.ToImmutableArray());
+     */
 }
 #else
 public class C2Response : ResponseBase
