@@ -59,7 +59,7 @@ try
         int count = 0;
         await foreach (var response in responseStream.WithCancellation(ct))
         {
-            // 取得データをCSV形式で書き出し
+            // 取得データを書き出し
             string line1 = string.Join(",", new object?[]
             {
                 response.DEPTNO,

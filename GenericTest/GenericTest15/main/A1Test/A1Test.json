@@ -1,6 +1,6 @@
 ﻿{
   "config": {
-    "ConnectionString": "Data Source=localhost:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger",
+    "ConnectionString": "Data Source=id10748:1521/XE;Persist Security Info=True;User ID=scott;Password=tiger",
     "OutputPath": "C:\\temp\\A1Test.csv"
   },
     "param": {

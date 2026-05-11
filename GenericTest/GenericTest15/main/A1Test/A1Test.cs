@@ -59,7 +59,7 @@ try
         int count = 0;
         await foreach (var response in responseStream)
         {
-            // 取得データをCSV形式で書き出し
+            // 取得データを書き出し
             string line = response.ToString();
             await writer.WriteLineAsync(line);
             Console.WriteLine(line);
