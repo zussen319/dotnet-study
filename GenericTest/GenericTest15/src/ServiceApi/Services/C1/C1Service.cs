@@ -70,7 +70,7 @@ public class C1Service(string connectionString)
                 }
                 else
                 {
-                    // DEPTNOが同一の場合はMapEmpを使ってリストに追加
+                    // DEPTNOが同一の場合はempMapFuncを使ってリストに追加
                     response.Employees.Add(empMapFunc(reader));
                 }
             }
