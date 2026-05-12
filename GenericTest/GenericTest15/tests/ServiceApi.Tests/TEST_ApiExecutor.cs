@@ -53,7 +53,7 @@ public class TEST_ApiExecutor
         public static bool IsDisposed { get; set; }
         public static int YieldCount { get; set; }
 
-        // コンストラクタ：基底クラスに connectionString を渡す（内部では無視される）
+        // コンストラクタ：基底クラスにconnectionStringを渡す（内部では無視される）
         public ServiceCountStub(string connStr) : base(connStr) { }
 
         public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
@@ -67,11 +67,11 @@ public class TEST_ApiExecutor
             await Task.Yield();
         }
 
-        // DisposeAsync を override して、独自の検証用ロジックを追加
+        // DisposeAsyncをオーバーライドして独自の検証用ロジックを追加
         public override ValueTask DisposeAsync()
         {
             IsDisposed = true;
-            // 基底クラスの DisposeAsync を呼ぶ（現在は Task.CompletedTask を返すだけですが、作法として）
+            // 基底クラスのDisposeAsyncを呼ぶ
             return base.DisposeAsync();
         }
     }
@@ -95,10 +95,7 @@ public class TEST_ApiExecutor
         int actualCount = 0;
         IAsyncEnumerable<MockResponse> responseStream =
             executor.RunAsync<ServiceCountStub, MockRequest, MockResponse>(_connectionString, requests);
-        await foreach (var response in responseStream)
-        {
-            actualCount++;
-        }
+        await foreach (var response in responseStream) { actualCount++; }
 
         // Assert
         Assert.Equal(testCount, actualCount);
@@ -198,7 +195,7 @@ public class TEST_ApiExecutor
         public DisposableStub(string connStr) : base(connStr)
         {
             _connectionString = connStr;
-            // コンストラクタが呼ばれたら true にする
+            // コンストラクタが呼ばれたらtrueにする
             IsInstantiated = true;
         }
 
@@ -216,6 +213,7 @@ public class TEST_ApiExecutor
 
         public override ValueTask DisposeAsync()
         {
+            // リソース破棄を確認
             IsDisposed = true;
             return base.DisposeAsync();
         }
@@ -232,9 +230,9 @@ public class TEST_ApiExecutor
         DisposableStub.IsDisposed = false;
 
         // 普通の接続文字列を渡す
-        await foreach (var _ in executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests))
-        {
-        }
+        IAsyncEnumerable<MockResponse> responseStream =
+            executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests);
+        await foreach (var _ in responseStream) { }
 
         Assert.True(DisposableStub.IsDisposed);
     }
@@ -252,12 +250,11 @@ public class TEST_ApiExecutor
         // 接続文字列に "THROW" を含めることで、スタブに例外を投げさせる
         string errorConn = _connectionString + ";ERROR_TRIGGER=THROW";
 
+        IAsyncEnumerable<MockResponse> responseStream =
+            executor.RunAsync<DisposableStub, MockRequest, MockResponse>(errorConn, requests);
+
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            await foreach (var _ in executor.RunAsync<DisposableStub, MockRequest, MockResponse>(errorConn, requests))
-            {
-            }
-        });
+            { await foreach (var _ in responseStream) { } });
 
         Assert.True(DisposableStub.IsDisposed);
     }
@@ -275,11 +272,10 @@ public class TEST_ApiExecutor
         DisposableStub.IsDisposed = false;
 
         // Act
+        IAsyncEnumerable<MockResponse> responseStream =
+            executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests);
         int count = 0;
-        await foreach (var _ in executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests))
-        {
-            count++;
-        }
+        await foreach (var _ in responseStream) { count++; }
 
         // Assert
         // 1. ループが一度も回っていないこと
@@ -299,7 +295,7 @@ public class TEST_ApiExecutor
     {
         public static bool IsDisposed { get; set; }
 
-        public ExceptionStub(string conn) { }
+        public ExceptionStub(string connStr) { }
 
         public async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,
@@ -332,11 +328,14 @@ public class TEST_ApiExecutor
         ExceptionStub.IsDisposed = false;
 
         // Act & Assert
+        IAsyncEnumerable<MockResponse> responseStream =
+            executor.RunAsync<ExceptionStub, MockRequest, MockResponse>(_connectionString, requests);
+
         // 1. 指定した例外が正しく外側まで飛んでくることを検証
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             // TService には例外を投げる具象クラスを指定
-            await foreach (var item in executor.RunAsync<ExceptionStub, MockRequest, MockResponse>(_connectionString, requests))
+            await foreach (var response in responseStream)
             {
                 // 1件目は正常に処理され、その後の列挙で例外が発生する
             }
@@ -361,8 +360,10 @@ public class TEST_ApiExecutor
         var results = new List<A1Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<A1Service, A1Request, A1Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<A1Response> responseStream =
+            executor.RunAsync<A1Service, A1Request, A1Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -381,8 +382,10 @@ public class TEST_ApiExecutor
         var results = new List<A1Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<A1Service_Test, A1Request, A1Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<A1Response> responseStream =
+            executor.RunAsync<A1Service_Test, A1Request, A1Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -403,8 +406,10 @@ public class TEST_ApiExecutor
         var results = new List<B1Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<B1Service, B1Request, B1Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<B1Response> responseStream =
+            executor.RunAsync<B1Service, B1Request, B1Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -423,8 +428,10 @@ public class TEST_ApiExecutor
         var results = new List<B1Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<B1Service_Test, B1Request, B1Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<B1Response> responseStream =
+            executor.RunAsync<B1Service_Test, B1Request, B1Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -445,8 +452,10 @@ public class TEST_ApiExecutor
         var results = new List<C1Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<C1Service, C1Request, C1Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<C1Response> responseStream =
+            executor.RunAsync<C1Service, C1Request, C1Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -465,8 +474,10 @@ public class TEST_ApiExecutor
         var results = new List<C1Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<C1Service_Test, C1Request, C1Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<C1Response> responseStream =
+            executor.RunAsync<C1Service_Test, C1Request, C1Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -487,8 +498,10 @@ public class TEST_ApiExecutor
         var results = new List<C2Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<C2Service, C2Request, C2Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<C2Response> responseStream =
+            executor.RunAsync<C2Service, C2Request, C2Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -507,8 +520,10 @@ public class TEST_ApiExecutor
         var results = new List<C2Response>();
 
         // Act
-        await foreach (var response in executor.RunAsync<C2Service_Test, C2Request, C2Response>(
-            _connectionString, requests))
+        IAsyncEnumerable<C2Response> responseStream =
+            executor.RunAsync<C2Service_Test, C2Request, C2Response>(_connectionString, requests);
+
+        await foreach (var response in responseStream)
         {
             results.Add(response);
         }
@@ -577,14 +592,13 @@ public class TEST_ApiExecutor
         cts.Cancel(); // 実行前にキャンセル状態にする
 
         // 2. 実行 & 3. 検証 (Act & Assert)
+
         // CancellationToken が正しく伝播していれば、OperationCanceledException がスローされる
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             // 具象クラスのスタブを指定し、接続文字列を渡す
             var stream = executor.RunAsync<ServiceCancelStub, MockRequest, MockResponse>(
-                _connectionString,
-                requests,
-                cts.Token);
+                    _connectionString, requests, cts.Token);
 
             await foreach (var item in stream.WithCancellation(cts.Token))
             {
@@ -1039,7 +1053,6 @@ public class TEST_ApiExecutor
         }
     }
 #endif
-
 
 #if true
     // --- 一般的な例外をシミュレートするスタブクラス ---
