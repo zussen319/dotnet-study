@@ -96,7 +96,7 @@ public class TEST_B1Service
         B1Service service = new(_connectionString);
         IEnumerable<B1Request> requests = [new() { DEPTNO = deptNo }];
         List<B1Response> resultList = [];
-        await foreach (var item in service.ExecuteAsync(requests))
+        await foreach (B1Response item in service.ExecuteAsync(requests))
         {
             resultList.Add(item);
         }
@@ -133,7 +133,7 @@ public class TEST_B1Service
         IEnumerable<B1Request> requests = [new() { DEPTNO = 20 }];
 
         // 即座にキャンセルされるトークンを作成
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         cts.Cancel(); // 実行前にキャンセル状態にする
 
         // 2. 実行 & 3. 検証 (Act & Assert)
@@ -141,7 +141,7 @@ public class TEST_B1Service
         // 実際に列挙を始めた（MoveNextAsyncが呼ばれた）タイミングで例外が発生することを検証
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await foreach (var item in service.ExecuteAsync(requests, cts.Token))
+            await foreach (B1Response item in service.ExecuteAsync(requests, cts.Token))
             {
                 // ここには到達しないはず
             }

@@ -1,0 +1,42 @@
+# 最上位の EditorConfig ファイルであることを指定
+root = true
+
+# すべてのファイルに対する共通設定
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# C# ファイルに対する標準的なコードスタイル
+[*.cs]
+# ifやforeachなどのブロックの{}を「1ステップでも必ず強制」する
+# （ただし、1行で {} を書くスタイルは許容する設定を追加）
+csharp_prefer_braces = true:warning
+csharp_preserve_single_line_blocks = true:none
+
+# varの原則禁止（List<object> objList = new(); を推奨する設定）
+# 組み込み型（int, stringなど）でvarを使わない
+csharp_style_var_for_built_in_types = false:warning
+# 右辺から型が明らかな場合（new()など）でもvarを使わない
+csharp_style_var_when_type_is_apparent = false:warning
+# その他の場所でもvarを使わない
+csharp_style_var_elsewhere = false:warning
+#### var の推奨（型が明らかな場合は var、それ以外は明示的な型）
+###csharp_style_var_for_built_in_types = true:suggestion
+###csharp_style_var_when_type_is_apparent = true:suggestion
+###csharp_style_var_elsewhere = false:suggestion
+
+# 命名規則の基本（パスカルケースなど）
+dotnet_naming_rule.methods_and_properties_must_be_pascal_case.severity = suggestion
+dotnet_naming_rule.methods_and_properties_must_be_pascal_case.symbols = methods_and_properties
+dotnet_naming_rule.methods_and_properties_must_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.methods_and_properties.applicable_kinds = method, property
+dotnet_naming_symbols.methods_and_properties.applicable_accessibilities = *
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+# C# 9以降の「ターゲット型指定の new」（new()構文）を優先的に推奨する
+csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
+

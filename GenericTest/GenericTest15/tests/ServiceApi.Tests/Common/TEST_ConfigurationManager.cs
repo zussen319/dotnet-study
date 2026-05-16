@@ -23,7 +23,7 @@ internal class TEST_ConfigurationManager
     public static T GetValue<T>(string configId)
     {
         // GetSectionを使うことで、キーの存在確認をより厳密に行う
-        var section = _instance._config.GetSection(configId);
+        IConfigurationSection section = _instance._config.GetSection(configId);
 
         if (!section.Exists())
         {
@@ -31,7 +31,7 @@ internal class TEST_ConfigurationManager
         }
 
         // Get<T>を使用。値が型変換できない場合などはnullが返る可能性がある
-        var value = section.Get<T>();
+        T? value = section.Get<T>();
         if (value is null)
         {
             throw new InvalidOperationException($"設定キー'{configId}'の値を型'{typeof(T).Name}'に変換できません。");

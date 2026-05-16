@@ -41,13 +41,13 @@ public class C1Service(string connectionString)
             ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty
         };
 
-        foreach (var request in requests)
+        foreach (C1Request request in requests)
         {
             C1Response? response = null;
 
             // 1つのリクエスト（1つのSQL実行結果）を処理
             // このExecuteQueryAsyncは単一のリクエストを配列化して渡す
-            await foreach (var reader in ExecuteQueryAsync(sql, [request], bindAction, ct))
+            await foreach (DbDataReader reader in ExecuteQueryAsync(sql, [request], bindAction, ct))
             {
                 decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]);
 

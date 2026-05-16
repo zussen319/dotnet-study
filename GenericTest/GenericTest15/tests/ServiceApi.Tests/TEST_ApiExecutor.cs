@@ -84,7 +84,7 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_終了時サービス破棄確認_01(int testCount)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
 
         // 静的プロパティを初期化
@@ -95,7 +95,7 @@ public class TEST_ApiExecutor
         int actualCount = 0;
         IAsyncEnumerable<MockResponse> responseStream =
             executor.RunAsync<ServiceCountStub, MockRequest, MockResponse>(_connectionString, requests);
-        await foreach (var response in responseStream) { actualCount++; }
+        await foreach (MockResponse response in responseStream) { actualCount++; }
 
         // Assert
         Assert.Equal(testCount, actualCount);
@@ -225,14 +225,14 @@ public class TEST_ApiExecutor
         /*
          * 正常終了時、サービスのリソースが破棄されていること
          */
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
         DisposableStub.IsDisposed = false;
 
         // 普通の接続文字列を渡す
         IAsyncEnumerable<MockResponse> responseStream =
             executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests);
-        await foreach (var _ in responseStream) { }
+        await foreach (MockResponse _ in responseStream) { }
 
         Assert.True(DisposableStub.IsDisposed);
     }
@@ -243,7 +243,7 @@ public class TEST_ApiExecutor
         /*
          * 例外発生時でもサービスのリソースが破棄されていること
          */
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
         DisposableStub.IsDisposed = false;
 
@@ -254,7 +254,7 @@ public class TEST_ApiExecutor
             executor.RunAsync<DisposableStub, MockRequest, MockResponse>(errorConn, requests);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            { await foreach (var _ in responseStream) { } });
+            { await foreach (MockResponse _ in responseStream) { } });
 
         Assert.True(DisposableStub.IsDisposed);
     }
@@ -263,9 +263,9 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_リクエスト件数0件の検証_01()
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         // 空のリクエスト
-        var requests = Enumerable.Empty<MockRequest>();
+        IEnumerable<MockRequest> requests = Enumerable.Empty<MockRequest>();
 
         // フラグをリセット
         DisposableStub.IsInstantiated = false;
@@ -275,7 +275,7 @@ public class TEST_ApiExecutor
         IAsyncEnumerable<MockResponse> responseStream =
             executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests);
         int count = 0;
-        await foreach (var _ in responseStream) { count++; }
+        await foreach (MockResponse _ in responseStream) { count++; }
 
         // Assert
         // 1. ループが一度も回っていないこと
@@ -321,7 +321,7 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_呼出し元に例外伝播_01()
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
 
         // 静的フラグで例外発生後の破棄を確認
@@ -332,14 +332,15 @@ public class TEST_ApiExecutor
             executor.RunAsync<ExceptionStub, MockRequest, MockResponse>(_connectionString, requests);
 
         // 1. 指定した例外が正しく外側まで飛んでくることを検証
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            // TService には例外を投げる具象クラスを指定
-            await foreach (var response in responseStream)
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
-                // 1件目は正常に処理され、その後の列挙で例外が発生する
-            }
-        });
+                // TService には例外を投げる具象クラスを指定
+                await foreach (MockResponse response in responseStream)
+                {
+                    // 1件目は正常に処理され、その後の列挙で例外が発生する
+                }
+            });
 
         // メッセージの検証（必要であれば）
         Assert.Equal("DB接続エラー", exception.Message);
@@ -355,15 +356,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_A1Service実行_01(decimal value)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new A1Request { A1Value = value } };
-        var results = new List<A1Response>();
+        List<A1Response> results = new();
 
         // Act
         IAsyncEnumerable<A1Response> responseStream =
             executor.RunAsync<A1Service, A1Request, A1Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (A1Response response in responseStream)
         {
             results.Add(response);
         }
@@ -377,15 +378,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_A1Service_Test実行_01(decimal value)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new A1Request { A1Value = value } };
-        var results = new List<A1Response>();
+        List<A1Response> results = new();
 
         // Act
         IAsyncEnumerable<A1Response> responseStream =
             executor.RunAsync<A1Service_Test, A1Request, A1Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (A1Response response in responseStream)
         {
             results.Add(response);
         }
@@ -401,15 +402,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_B1Service実行_01(int[] deptNos)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = deptNos.Select(d => new B1Request { DEPTNO = (decimal)d }).ToList();
-        var results = new List<B1Response>();
+        List<B1Response> results = new();
 
         // Act
         IAsyncEnumerable<B1Response> responseStream =
             executor.RunAsync<B1Service, B1Request, B1Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (B1Response response in responseStream)
         {
             results.Add(response);
         }
@@ -423,15 +424,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_B1Service_Test実行_01(decimal deptNo)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new B1Request { DEPTNO = deptNo } };
-        var results = new List<B1Response>();
+        List<B1Response> results = new();
 
         // Act
         IAsyncEnumerable<B1Response> responseStream =
             executor.RunAsync<B1Service_Test, B1Request, B1Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (B1Response response in responseStream)
         {
             results.Add(response);
         }
@@ -447,15 +448,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_C1Service実行_01(int[] deptNos)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = deptNos.Select(d => new C1Request { DEPTNO = (decimal)d }).ToList();
-        var results = new List<C1Response>();
+        List<C1Response> results = new();
 
         // Act
         IAsyncEnumerable<C1Response> responseStream =
             executor.RunAsync<C1Service, C1Request, C1Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (C1Response response in responseStream)
         {
             results.Add(response);
         }
@@ -469,15 +470,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_C1Service_Test実行_01(decimal deptNo)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new C1Request { DEPTNO = deptNo } };
-        var results = new List<C1Response>();
+        List<C1Response> results = new();
 
         // Act
         IAsyncEnumerable<C1Response> responseStream =
             executor.RunAsync<C1Service_Test, C1Request, C1Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (C1Response response in responseStream)
         {
             results.Add(response);
         }
@@ -493,15 +494,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_C2Service実行_01(int[] deptNos)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = deptNos.Select(d => new C2Request { DEPTNO = (decimal)d }).ToList();
-        var results = new List<C2Response>();
+        List<C2Response> results = new();
 
         // Act
         IAsyncEnumerable<C2Response> responseStream =
             executor.RunAsync<C2Service, C2Request, C2Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (C2Response response in responseStream)
         {
             results.Add(response);
         }
@@ -515,15 +516,15 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_C2Service_Test実行_01(decimal deptNo)
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new C2Request { DEPTNO = deptNo } };
-        var results = new List<C2Response>();
+        List<C2Response> results = new();
 
         // Act
         IAsyncEnumerable<C2Response> responseStream =
             executor.RunAsync<C2Service_Test, C2Request, C2Response>(_connectionString, requests);
 
-        await foreach (var response in responseStream)
+        await foreach (C2Response response in responseStream)
         {
             results.Add(response);
         }
@@ -585,10 +586,10 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認_01()
     {
         // 1. 準備 (Arrange)
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
 
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         cts.Cancel(); // 実行前にキャンセル状態にする
 
         // 2. 実行 & 3. 検証 (Act & Assert)
@@ -600,7 +601,7 @@ public class TEST_ApiExecutor
             var stream = executor.RunAsync<ServiceCancelStub, MockRequest, MockResponse>(
                     _connectionString, requests, cts.Token);
 
-            await foreach (var item in stream.WithCancellation(cts.Token))
+            await foreach (MockResponse item in stream.WithCancellation(cts.Token))
             {
                 // ここには到達しないはず
             }
@@ -722,11 +723,11 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_ApiExecutor実行中のタイムアウトキャンセル確認_01()
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
 
         // 100ミリ秒後に自動的にキャンセル（タイムアウト）される設定
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         cts.CancelAfter(100);
 
         // Act & Assert
@@ -735,7 +736,7 @@ public class TEST_ApiExecutor
             var stream = executor.RunAsync<ServiceTimeoutStub, MockRequest, MockResponse>(
                 _connectionString, requests, cts.Token);
 
-            await foreach (var item in stream.WithCancellation(cts.Token))
+            await foreach (MockResponse item in stream.WithCancellation(cts.Token))
             {
                 // 1件目は受け取れるかもしれないが、2件目の Delay で例外が発生する
             }
@@ -863,8 +864,8 @@ public class TEST_ApiExecutor
         {
             var type = typeof(OracleException);
             // BindingFlags を使うため、using System.Reflection; が必要
-            var ctors = type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance);
-            var ctor = ctors.FirstOrDefault();
+            ConstructorInfo[] ctors = type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance);
+            ConstructorInfo? ctor = ctors.FirstOrDefault();
 
             if (ctor is null)
             {
@@ -879,7 +880,7 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_OracleExceptionハンドリング確認_01()
     {
         // Arrange
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
 
         // 静的フラグなどで破棄確認が必要なら追加（前述のスタブと同様）
@@ -892,7 +893,7 @@ public class TEST_ApiExecutor
             var stream = executor.RunAsync<OracleErrorStub, MockRequest, MockResponse>(
                 _connectionString, requests);
 
-            await foreach (var item in stream)
+            await foreach (MockResponse item in stream)
             {
                 // 1件目は成功するが、次の MoveNextAsync で OracleException が飛ぶ
             }
@@ -1023,7 +1024,7 @@ public class TEST_ApiExecutor
     {
         // 1. Arrange
         // DIコンテナを通さず、直接インスタンス化
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new B1Request { DEPTNO = 10 } };
 
         // 2. Act & 3. Assert
@@ -1032,7 +1033,7 @@ public class TEST_ApiExecutor
             // 型引数には「B1Service」具象クラスを指定し、第1引数に接続文字列を渡す
             var stream = executor.RunAsync<B1Service, B1Request, B1Response>(_connectionString, requests);
 
-            await foreach (var item in stream)
+            await foreach (B1Response item in stream)
             {
                 // データが取れたら「停止状態」ではないため失敗
             }
@@ -1089,7 +1090,7 @@ public class TEST_ApiExecutor
     {
         // Arrange
         string expectMessage = "予期せぬシステムエラー";
-        var executor = new ApiExecutor();
+        ApiExecutor executor = new();
         var requests = new[] { new MockRequest() };
 
         // スタブクラスに期待するメッセージをセット
@@ -1098,13 +1099,13 @@ public class TEST_ApiExecutor
 
         // Act & Assert
         // 実行時に指定したメッセージを含む Exception が再スローされることを検証
-        var ex = await Assert.ThrowsAsync<Exception>(async () =>
+        Exception ex = await Assert.ThrowsAsync<Exception>(async () =>
         {
             // 型引数に具象スタブクラスを指定
             var stream = executor.RunAsync<SystemErrorStub, MockRequest, MockResponse>(
                 _connectionString, requests);
 
-            await foreach (var item in stream)
+            await foreach (MockResponse item in stream)
             {
                 // 1件目は処理されるが、2件目の取得（MoveNextAsync）で例外が発生する
             }

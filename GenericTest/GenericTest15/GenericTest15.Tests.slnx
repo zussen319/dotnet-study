@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/settings/">
+    <File Path=".editorconfig" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ServiceApi/ServiceApi.csproj" />
   </Folder>

@@ -54,12 +54,12 @@ public class C2Service(string connectionString)
         /*
          * DEPTNOが同一のレコードをグループ化して返却
          */
-        foreach (var request in requests)
+        foreach (C2Request request in requests)
         {
             C2Response? dept = null;
             C2Response.Member? member = null;
 
-            await foreach (var reader in ExecuteQueryAsync(sql, [request], bindAction, ct))
+            await foreach (DbDataReader reader in ExecuteQueryAsync(sql, [request], bindAction, ct))
             {
                 decimal deptNo = Convert.ToDecimal(reader["DEPTNO"]); // decimal - NOT NULL
                 decimal memberEmpNo = Convert.ToDecimal(reader["MEMBER_EMPNO"]); // decimal - NOT NULL

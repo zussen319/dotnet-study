@@ -43,7 +43,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         // 戻り値がIAsyncEnumerableであるためawait foreachで繋ぐ
-        await foreach (var reader in ExecuteQueryAsync(sql, requests, bindAction, ct))
+        await foreach (DbDataReader reader in ExecuteQueryAsync(sql, requests, bindAction, ct))
         {
             // 呼び出し元から渡されたmapFuncでレスポンスオブジェクトを生成して返す
             yield return mapFunc(reader);
@@ -76,7 +76,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
          * 同じSQL文であればOracle側でのカーソル再利用が促され
          * バインドパラメータだけを入れ替えて実行することができる
          */
-        using var command = new OracleCommand(sql, this.Connection) { BindByName = true };
+        using OracleCommand command = new(sql, this.Connection) { BindByName = true };
 
         foreach (TRequest request in requests)
         {
@@ -99,7 +99,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
              * （ExecuteReaderAsync）に移る前に現在のreaderがクローズされる
              * Oracleの「最大オープンカーソル数」制限を回避するために不可欠
              */
-            using var reader = await command.ExecuteReaderAsync(ct);
+            using OracleDataReader reader = await command.ExecuteReaderAsync(ct);
 
             // FetchSizeの最適化
             // ExecuteReaderAsync実行により確定したRowSizeを使ってFetchSizeを最適化する

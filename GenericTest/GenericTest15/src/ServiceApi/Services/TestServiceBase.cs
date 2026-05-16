@@ -38,17 +38,17 @@ public abstract class TestServiceBase<TRequest, TResponse>
         // Delayにctを渡すことで、待機中に中断されても即座に終了する
         await Task.Delay(2000, ct);
 
-        using var stream = File.OpenRead(filePath);
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        using FileStream stream = File.OpenRead(filePath);
+        JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
 
         /*
          * JsonSerializer.DeserializeAsyncEnumerableを使うことで
          * Jsonファイルが巨大であっても読み込んだ分から即座にyield returnする
          */
-        var enumerable = JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct);
+        IAsyncEnumerable<TResponse> enumerable =
+            JsonSerializer.DeserializeAsyncEnumerable<TResponse>(stream, options, ct)!;
 
-        // GetAsyncEnumerator()の戻り値をvarで受けることにより警告を回避
-        await using var enumerator = enumerable.GetAsyncEnumerator(ct);
+        await using IAsyncEnumerator<TResponse> enumerator = enumerable.GetAsyncEnumerator(ct);
 
         while (true)
         {

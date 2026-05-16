@@ -41,16 +41,16 @@ public class TEST_B1Service_Test
         // Jsonファイルを読み込み、List<B1Response>オブジェクトを生成する
         string fileName = "B1Service_Test.json";
         //var expectedList = TestDataLoader.LoadJsonData<B1Response>(fileName);
-        var expectedList = TEST_JsonManipulator.LoadJsonData<B1Response>(fileName);
+        List<B1Response> expectedList = TEST_JsonManipulator.LoadJsonData<B1Response>(fileName);
 
         // 1. 準備 (Arrange)
         // サービスをインスタンス化
-        var service = new B1Service_Test("dummy_connection");
+        B1Service_Test service = new("dummy_connection");
         IEnumerable<B1Request> requests = [new B1Request { DEPTNO = 999 }];
 
         // 2. 実行 (Act)
-        var results = new List<B1Response>();
-        await foreach (var item in service.ExecuteAsync(requests))
+        List<B1Response> results = new();
+        await foreach (B1Response item in service.ExecuteAsync(requests))
         {
             // IAsyncEnumerableをListに変換して中身を検証しやすくする
             results.Add(item);
@@ -71,22 +71,23 @@ public class TEST_B1Service_Test
          * 「処理の途中でキャンセルされる」という、より現実的なテストが可能です。
          */
         // 1. 準備 (Arrange)
-        var service = new B1Service_Test("dummy_connection");
+        B1Service_Test service = new("dummy_connection");
         IEnumerable<B1Request> requests = [new B1Request { DEPTNO = 999 }];
 
         // 500ms後にキャンセルを発動させる
         // スタブには 2000ms (初期遅延) + 1000ms (1件ごと) の待機があるため、途中で止まるはず
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         cts.CancelAfter(TimeSpan.FromMilliseconds(500));
 
         // 2. 実行 & 3. 検証 (Act & Assert)
-        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
-            await foreach (var item in service.ExecuteAsync(requests, cts.Token))
+        OperationCanceledException exception =
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
-                // 成功（ここに来る前に止まるはず）
-            }
-        });
+                await foreach (B1Response item in service.ExecuteAsync(requests, cts.Token))
+                {
+                    // 成功（ここに来る前に止まるはず）
+                }
+            });
 
         // トークンが正しく紐付いているかも確認可能
         Assert.Equal(cts.Token, exception.CancellationToken);

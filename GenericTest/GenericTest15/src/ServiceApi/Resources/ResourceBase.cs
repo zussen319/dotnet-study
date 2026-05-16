@@ -18,7 +18,7 @@ internal abstract class ResourceBase
     // キーを指定して文字列リソースを取得
     protected string GetString(string key)
     {
-        var value = _resourceManager.GetString(key);
+        string? value = _resourceManager.GetString(key);
         if (value == null)
         {
             throw new KeyNotFoundException($"リソースキー'{key}'が'{this.GetType().Name}'に見つかりません");

@@ -5,6 +5,9 @@
     <Project Path="main/C1Test/C1Test.csproj" />
     <Project Path="main/C2Test/C2Test.csproj" />
   </Folder>
+  <Folder Name="/settings/">
+    <File Path=".editorconfig" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ServiceApi/ServiceApi.csproj" />
   </Folder>

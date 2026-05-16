@@ -32,7 +32,7 @@ try
     /*
      * （API処理実行）検索結果を受け取る
      */
-    var executor = new ApiExecutor();
+    ApiExecutor executor = new();
     // リクエストデータをconfigから取得
     IEnumerable<A1Request> requests =
         new[] { new A1Request { A1Value = config.GetSection("param").GetValue<decimal>("A1Value") }};
@@ -54,10 +54,10 @@ try
      */
     // 出力先ファイルパスをconfigから取得
     string outputPath = config.GetSection("config:OutputPath").Get<string>() ?? string.Empty;
-    using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
+    using (StreamWriter writer = new(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream)
+        await foreach (A1Response response in responseStream)
         {
             // 取得データを書き出し
             string line = response.ToString();

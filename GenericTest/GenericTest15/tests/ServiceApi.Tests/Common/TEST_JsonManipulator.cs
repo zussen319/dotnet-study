@@ -23,10 +23,9 @@ public class TEST_JsonManipulator
         string jsonString = File.ReadAllText(filePath);
 
         // オプション設定（プロパティ名の大文字小文字を区別しないなど、必要に応じて）
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
+        JsonSerializerOptions options = new() {
+                PropertyNameCaseInsensitive = true
+            };
 
         return JsonSerializer.Deserialize<List<TResponse>>(jsonString, options) ?? new List<TResponse>();
     }

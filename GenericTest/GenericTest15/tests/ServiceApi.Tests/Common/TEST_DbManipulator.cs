@@ -21,13 +21,13 @@ public class TEST_DbManipulator(string connectionString) : IDisposable
             await this.Connection.OpenAsync();
         }
 
-        using var cmd = this.Connection.CreateCommand();
+        using OracleCommand cmd = this.Connection.CreateCommand();
         cmd.CommandText = sql;
 
         cmd.BindByName = true;
         bindAction(cmd.Parameters);
 
-        using var reader = await cmd.ExecuteReaderAsync();
+        using OracleDataReader reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
             yield return mapFunc(reader);
@@ -51,12 +51,12 @@ public class TEST_DbManipulator(string connectionString) : IDisposable
             this.Connection.Open();
         }
 
-        using var cmd = new OracleCommand(sql, this.Connection);
+        using OracleCommand cmd = new(sql, this.Connection);
         cmd.BindByName = true;
         bindAction(cmd.Parameters);
 
         DataTable dt = new();
-        using (var adapter = new OracleDataAdapter(cmd))
+        using (OracleDataAdapter adapter = new(cmd))
         {
             adapter.Fill(dt);
         }

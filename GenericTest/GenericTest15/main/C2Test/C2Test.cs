@@ -32,7 +32,7 @@ try
     /*
      * （API処理実行）検索結果を受け取る
      */
-    var executor = new ApiExecutor();
+    ApiExecutor executor = new();
     // リクエストデータをconfigから取得
     IEnumerable<C2Request> requests = config.GetSection("param").Get<List<C2Request>>() ?? [];
     CancellationToken ct = default;
@@ -54,10 +54,10 @@ try
      */
     // 出力先ファイルパスをconfigから取得
     string outputPath = config.GetSection("config:OutputPath").Get<string>() ?? string.Empty;
-    using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
+    using (StreamWriter writer = new(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream.WithCancellation(ct))
+        await foreach (C2Response response in responseStream.WithCancellation(ct))
         {
             // 取得データを書き出し
             string line1 = string.Join(",", new object?[]
@@ -67,12 +67,12 @@ try
             });
             await writer.WriteLineAsync(line1);
             Console.WriteLine(line1);
-            foreach (var member in response.Members)
+            foreach (C2Response.Member member in response.Members)
             {
                 string line2 = $"  {member.MEMBER_EMPNO},{member.MEMBER_ENAME}";
                 await writer.WriteLineAsync(line2);
                 Console.WriteLine(line2);
-                foreach (var staff in member.Staffs)
+                foreach (C2Response.Staff staff in member.Staffs)
                 {
                     string line3 = $"    {staff.STAFF_EMPNO},{staff.STAFF_ENAME}";
                     await writer.WriteLineAsync(line3);

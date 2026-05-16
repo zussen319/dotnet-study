@@ -30,7 +30,7 @@ public class ApiExecutor
         }
 
         // サービスをインスタンス化
-        var service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
+        TService service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
 
         // 正常終了を判断するためのフラグ
         bool isCompleted = false; // 未完了
@@ -41,7 +41,8 @@ public class ApiExecutor
             Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
 
             // WithCancellationでトークンを紐付けた列挙子の取得
-            var enumerator = service.ExecuteAsync(requests, ct).WithCancellation(ct).GetAsyncEnumerator();
+            ConfiguredCancelableAsyncEnumerable<TResponse>.Enumerator enumerator =
+                service.ExecuteAsync(requests, ct).WithCancellation(ct).GetAsyncEnumerator();
 
             try
             {

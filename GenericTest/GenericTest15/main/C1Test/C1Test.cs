@@ -32,7 +32,7 @@ try
     /*
      * （API処理実行）検索結果を受け取る
      */
-    var executor = new ApiExecutor();
+    ApiExecutor executor = new();
     // リクエストデータをconfigから取得
     IEnumerable<C1Request> requests = config.GetSection("param").Get<List<C1Request>>() ?? [];
     CancellationToken ct = default;
@@ -54,10 +54,10 @@ try
      */
     // 出力先ファイルパスをconfigから取得
     string outputPath = config.GetSection("config:OutputPath").Get<string>() ?? string.Empty;
-    using (var writer = new StreamWriter(outputPath, append: false, System.Text.Encoding.UTF8))
+    using (StreamWriter writer = new(outputPath, append: false, System.Text.Encoding.UTF8))
     {
         int count = 0;
-        await foreach (var response in responseStream.WithCancellation(ct))
+        await foreach (C1Response response in responseStream.WithCancellation(ct))
         {
             // 取得データを書き出し
             string line1 = string.Join(",", new object?[]
@@ -67,7 +67,7 @@ try
             });
             await writer.WriteLineAsync(line1);
             Console.WriteLine(line1);
-            foreach (var emp in response.Employees)
+            foreach (C1Response.Emp emp in response.Employees)
             {
                 string line2 = $"  {emp.EMPNO},{emp.ENAME}";
                 await writer.WriteLineAsync(line2);
