@@ -142,8 +142,8 @@ public abstract class ServiceBase<TRequest, TResponse>(
             /*
              * Oracleデータベース側（V$基準）から観察する方法
              * アプリケーションが期待通りにバッファを確保し、データベースとの通信回数を削減できているかを
-             * 客観的に証明したい場合は、Oracleの動的パフォーマンス・ビュー（V$SESSTAT）を監視します。
-             * 具体的には、対象の検索処理を実行する前と後で、以下のSQLを実行して統計情報の変化（差分）を確認します。
+             * 客観的に証明したい場合は、Oracleの動的パフォーマンス・ビュー（V$SESSTAT）を監視する。
+             * 具体的には、対象の検索処理を実行する前と後で、以下のSQLを実行して統計情報の変化（差分）を確認する。
              * 
              * ■ 確認用SQL
              * SELECT 
@@ -157,13 +157,13 @@ public abstract class ServiceBase<TRequest, TResponse>(
              *     n.name IN ('SQL*Net roundtrips to/from client', 'bytes sent via SQL*Net to client');
              * 
              * ■ 注目すべき項目
-             * * **SQL*Net roundtrips to/from client（通信回数）**
-             * FetchRows（FetchSize）を大きくすると、このラウンドトリップ回数が劇的に減少します。
-             * もし1万件のデータを取得する際、このカウントが「1」や「数回」で収まっていれば、
-             * 狙い通り巨大なバッファにデータを一括で詰め込んで一撃でクライアントに送信できている証拠になります。
-             * * **bytes sent via SQL*Net to client（送信バイト数）**
-             * 実際にネットワークを流れたデータサイズです。これを確認することで、C#側で計算した
-             * バッファサイズに対してどれだけの密度でデータが送られてきたかを比較検証できます。
+             * - SQL*Net roundtrips to/from client（通信回数）
+             *   FetchRows（FetchSize）を大きくすると、このラウンドトリップ回数が劇的に減少する。
+             *   もし1万件のデータを取得する際、このカウントが「1」や「数回」で収まっていれば
+             *   狙い通り巨大なバッファにデータを一括で詰め込んでクライアントに送信できていることが確認できる。
+             * - bytes sent via SQL*Net to client（送信バイト数）
+             *   実際にネットワークを流れたデータサイズ。これを確認することで、計算したバッファサイズに対して
+             *   どれだけの密度でデータが送られてきたかを比較検証できる。
              */
             while (await reader.ReadAsync(ct))
             {
