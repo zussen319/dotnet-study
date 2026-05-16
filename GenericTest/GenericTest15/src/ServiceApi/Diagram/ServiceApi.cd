@@ -10,7 +10,7 @@
   <Class Name="ServiceApi.Services.ServiceBase&lt;TRequest, TResponse&gt;">
     <Position X="3.25" Y="3" Width="3" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAACAAAIEAAAAAAAAAAAAAAAAAAAAAAAAACEA=</HashCode>
+      <HashCode>AAAAAAAAACAAAIEAAAAAAAAAAAAAAEAAAAAAAAAACEA=</HashCode>
       <FileName>Services\ServiceBase.cs</FileName>
     </TypeIdentifier>
     <Lollipop Position="0.2" />
@@ -52,42 +52,42 @@
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Requests.RequestBase">
-    <Position X="1.75" Y="8" Width="1.5" />
+    <Position X="2" Y="8" Width="2.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Requests\RequestBase.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Requests.B1.B1Request">
-    <Position X="0.75" Y="9.5" Width="1.5" />
+    <Position X="0.5" Y="9.5" Width="2.5" />
     <TypeIdentifier>
       <HashCode>IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Requests\B1\B1Request.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Requests.C1.C1Request">
-    <Position X="2.75" Y="9.5" Width="1.5" />
+    <Position X="3.25" Y="9.5" Width="2.5" />
     <TypeIdentifier>
       <HashCode>IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Requests\C1\C1Request.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Responses.ResponseBase">
-    <Position X="6.25" Y="8" Width="1.5" />
+    <Position X="7.5" Y="8" Width="2.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Responses\ResponseBase.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Responses.B1.B1Response">
-    <Position X="5" Y="9.5" Width="1.75" />
+    <Position X="6" Y="9.5" Width="2.75" />
     <TypeIdentifier>
       <HashCode>IABEAAAACCACAAAAAIAAAAAAACAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Responses\B1\B1Response.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ServiceApi.Responses.C1.C1Response">
-    <Position X="7.25" Y="9.5" Width="1.75" />
+    <Position X="9" Y="9.5" Width="2.75" />
     <Compartments>
       <Compartment Name="Nested Types" Collapsed="false" />
     </Compartments>

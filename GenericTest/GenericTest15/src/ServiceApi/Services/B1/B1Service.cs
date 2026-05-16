@@ -39,6 +39,16 @@ public class B1Service(string connectionString, int fetchRows = ApiConstants.Def
         // マッピング用の式を定義
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
         {
+#if true
+            EMPNO = Convert.ToDecimal(r["EMPNO"]),  // decimal - NOT NULL
+            ENAME = r["ENAME"] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
+            JOB = r["JOB"] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
+            MGR = r["MGR"] switch { DBNull => null, var v => Convert.ToDecimal(v) }, // decimal
+            HIREDATE = r["HIREDATE"] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
+            SAL = r["SAL"] switch { DBNull => null, var v => Convert.ToDecimal(v) }, // decimal
+            COMM = r["COMM"] switch { DBNull => null, var v => Convert.ToDecimal(v) }, // decimal
+            DEPTNO = r["DEPTNO"] switch { DBNull => null, var v => Convert.ToDecimal(v) } // decimal
+#else
             EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL
             ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty,  // string
             JOB = Convert.ToString(r["JOB"]) ?? string.Empty,
@@ -47,6 +57,7 @@ public class B1Service(string connectionString, int fetchRows = ApiConstants.Def
             SAL = r["SAL"] is DBNull ? null : Convert.ToDecimal(r["SAL"]),
             COMM = r["COMM"] is DBNull ? null : Convert.ToDecimal(r["COMM"]),
             DEPTNO = r["DEPTNO"] is DBNull ? null : Convert.ToDecimal(r["DEPTNO"])
+#endif
         };
 
         /*
