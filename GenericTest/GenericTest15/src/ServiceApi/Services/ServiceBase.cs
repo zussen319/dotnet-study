@@ -127,6 +127,12 @@ public abstract class ServiceBase<TRequest, TResponse>(
             reader.FetchSize = reader.RowSize * this.FetchRows;
 
             /*
+             * reader.FetchSizeの実際の値は、ExecuteReaderAsyncが実行された直後に
+             * C#のコード上で直接ミリバイト（MB）単位などに計算して出力することができる。
+             * reader.RowSizeは、クエリが選択した1行あたりの推定バイト数（Oracleデータ型から
+             * 算出されるサイズ）を保持しているため、設定後の値をログ等に書き出すのが最もシンプルで確実。
+             */
+            /*
              * ODP.NET（Oracle.ManagedDataAccess）において、FetchSizeプロパティは
              * クライアント側のメモリ上に確保するキャッシュバッファのサイズ（バイト数）を表す
              */
