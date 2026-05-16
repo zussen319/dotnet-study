@@ -40,3 +40,6 @@ dotnet_naming_style.pascal_case.capitalization = pascal_case
 # C# 9以降の「ターゲット型指定の new」（new()構文）を優先的に推奨する
 csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
 
+# ファイル範囲の名前空間（File-scoped namespace）を強制する設定
+# 違反時は警告（warning）を表示します
+csharp_style_namespace_declarations = file_scoped:warning
