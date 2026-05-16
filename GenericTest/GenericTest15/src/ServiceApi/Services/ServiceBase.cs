@@ -19,8 +19,9 @@ public abstract class ServiceBase<TRequest, TResponse>(
     where TResponse : ResponseBase
 {
     // DB取得時のフェッチ行数指定
-    private readonly int _fetchRows = fetchRows <= 0
-        ? throw new ArgumentOutOfRangeException(nameof(fetchRows), "fetchRowsは1以上の整数を指定してください。")
+    protected int FetchRows { get; init; } = fetchRows <= 0
+        ? throw new ArgumentOutOfRangeException(
+            nameof(fetchRows), "fetchRowsは1以上の整数を指定してください。")
         : fetchRows;
 
     // Oracleコネクション
@@ -123,7 +124,7 @@ public abstract class ServiceBase<TRequest, TResponse>(
              * デフォルト状態 (FetchSize = 65536 バイトなど) に比べて
              * ネットワーク通信回数が削減され高速化が期待できる。
              */
-            reader.FetchSize = reader.RowSize * this._fetchRows;
+            reader.FetchSize = reader.RowSize * this.FetchRows;
 
             while (await reader.ReadAsync(ct))
             {
