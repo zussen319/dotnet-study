@@ -46,20 +46,13 @@ public class TEST_DbManipulator(string connectionString) : IDisposable
         string sql,
         Action<OracleParameterCollection> bindAction)
     {
-        if (this.Connection.State != ConnectionState.Open)
-        {
-            this.Connection.Open();
-        }
+        if (this.Connection.State is not ConnectionState.Open) { this.Connection.Open(); }
 
-        using OracleCommand cmd = new(sql, this.Connection);
-        cmd.BindByName = true;
+        using OracleCommand cmd = new(sql, this.Connection) { BindByName = true };
         bindAction(cmd.Parameters);
 
         DataTable dt = new();
-        using (OracleDataAdapter adapter = new(cmd))
-        {
-            adapter.Fill(dt);
-        }
+        using (OracleDataAdapter adapter = new(cmd)) { adapter.Fill(dt); }
         return dt;
     }
 
@@ -68,7 +61,7 @@ public class TEST_DbManipulator(string connectionString) : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (this.Connection?.State == ConnectionState.Open)
+        if (this.Connection?.State is ConnectionState.Open)
         {
             this.Connection.Close();
         }

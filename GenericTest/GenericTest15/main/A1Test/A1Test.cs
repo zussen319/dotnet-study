@@ -39,8 +39,9 @@ try
     IAsyncEnumerable<A1Response> responseStream;
     if (testMode)
     {
-        // テスト用（DB接続文字列は参照されない）
-        responseStream = executor.RunAsync<A1Service_Test, A1Request, A1Response>(string.Empty, requests);
+		// テスト用（DB接続文字列は参照されない）
+		string connStr = "dummy";
+		responseStream = executor.RunAsync<A1Service_Test, A1Request, A1Response>(connStr, requests);
     } else
     {
         // 本番用

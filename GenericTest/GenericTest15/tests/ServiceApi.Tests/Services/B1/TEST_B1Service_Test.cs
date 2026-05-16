@@ -40,8 +40,8 @@ public class TEST_B1Service_Test
          */
         // Jsonファイルを読み込み、List<B1Response>オブジェクトを生成する
         string fileName = "B1Service_Test.json";
-        //var expectedList = TestDataLoader.LoadJsonData<B1Response>(fileName);
-        List<B1Response> expectedList = TEST_JsonManipulator.LoadJsonData<B1Response>(fileName);
+        List<B1Response> expectedList =
+            TEST_JsonManipulator.LoadJsonData<B1Response>(fileName);
 
         // 1. 準備 (Arrange)
         // サービスをインスタンス化

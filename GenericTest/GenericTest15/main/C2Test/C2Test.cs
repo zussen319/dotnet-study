@@ -34,13 +34,14 @@ try
      */
     ApiExecutor executor = new();
     // リクエストデータをconfigから取得
-    IEnumerable<C2Request> requests = config.GetSection("param").Get<List<C2Request>>() ?? [];
+    IEnumerable<C2Request> requests = config.GetSection("param").Get<IEnumerable<C2Request>>() ?? [];
     CancellationToken ct = default;
     IAsyncEnumerable<C2Response> responseStream;
     if (testMode)
     {
-        // テスト用（DB接続文字列は参照されない）
-        responseStream = executor.RunAsync<C2Service_Test, C2Request, C2Response>(string.Empty, requests, ct);
+		// テスト用（DB接続文字列は参照されない）
+		string connStr = "dummy";
+		responseStream = executor.RunAsync<C2Service_Test, C2Request, C2Response>(connStr, requests, ct);
     } else
     {
         // 本番用
