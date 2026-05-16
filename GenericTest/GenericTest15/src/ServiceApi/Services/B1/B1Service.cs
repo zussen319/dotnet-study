@@ -10,8 +10,8 @@ namespace ServiceApi.Services.B1;
 /*
  * API「B1」のサービスクラス
  */
-public class B1Service(string connectionString)
-    : ServiceBase<B1Request, B1Response>(connectionString)
+public class B1Service(string connectionString, int fetchRows = ApiConstants.DefaultFetchRows)
+    : ServiceBase<B1Request, B1Response>(connectionString, fetchRows)
 {
     public override IAsyncEnumerable<B1Response> ExecuteAsync(
         IEnumerable<B1Request> requests,

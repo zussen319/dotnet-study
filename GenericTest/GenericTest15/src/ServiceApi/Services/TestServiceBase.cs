@@ -1,4 +1,5 @@
-﻿using ServiceApi.Requests;
+﻿using ServiceApi.Common;
+using ServiceApi.Requests;
 using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
 using System.Runtime.CompilerServices;
@@ -14,7 +15,7 @@ public abstract class TestServiceBase<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    protected TestServiceBase(string _) { }
+    protected TestServiceBase(string dummyStr, int dummyRows = 0) { }
 
     public virtual async IAsyncEnumerable<TResponse> ExecuteAsync(
         IEnumerable<TRequest> _,  // テストサービスではリクエストは参照しない

@@ -53,7 +53,7 @@ public class TEST_ApiExecutor
         public static int YieldCount { get; set; }
 
         // コンストラクタ：基底クラスにconnectionStringを渡す（内部では無視される）
-        public ServiceCountStub(string connStr) : base(connStr) { }
+        public ServiceCountStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows) { }
 
         public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,
@@ -112,7 +112,7 @@ public class TEST_ApiExecutor
 
         private readonly string _connectionString;
 
-        public DisposableStub(string connStr) : base(connStr)
+        public DisposableStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows)
         {
             _connectionString = connStr;
             // コンストラクタが呼ばれたらtrueにする
@@ -208,7 +208,7 @@ public class TEST_ApiExecutor
     {
         public static bool IsDisposed { get; set; }
 
-        public ExceptionStub(string connStr) { }
+        public ExceptionStub(string connStr, int fetchRows = 0) { }
 
         public async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,
@@ -443,7 +443,7 @@ public class TEST_ApiExecutor
     public class ServiceCancelStub : TestServiceBase<MockRequest, MockResponse>
     {
         // 基底クラスのコンストラクタ(string _)を呼び出す
-        public ServiceCancelStub(string connStr) : base(connStr) { }
+        public ServiceCancelStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows) { }
 
         public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,
@@ -526,7 +526,7 @@ public class TEST_ApiExecutor
     public class ServiceTimeoutStub : TestServiceBase<MockRequest, MockResponse>
     {
         // 基底クラスのコンストラクタを呼び出す
-        public ServiceTimeoutStub(string _) : base(_) { }
+        public ServiceTimeoutStub(string dummyStr, int dummyRows = 0) : base(dummyStr, dummyRows) { }
 
         // override を追加
         public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
@@ -597,7 +597,7 @@ public class TEST_ApiExecutor
         public static bool IsDisposed { get; set; }
 
         // 基底クラスのコンストラクタ(string _)に引数を渡す
-        public OracleErrorStub(string connStr) : base(connStr) { }
+        public OracleErrorStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows) { }
 
         public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,
@@ -719,7 +719,7 @@ public class TEST_ApiExecutor
         public static bool IsDisposed { get; set; }
 
         // 基底クラスのコンストラクタに引数を渡す（内部で無視される）
-        public SystemErrorStub(string conn) : base(conn) { }
+        public SystemErrorStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows) { }
 
         public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
             IEnumerable<MockRequest> requests,

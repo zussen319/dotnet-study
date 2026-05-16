@@ -1,4 +1,5 @@
 ﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
 using ServiceApi.Requests;
 using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
@@ -17,7 +18,8 @@ public class ApiExecutor
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,
             IEnumerable<TRequest> requests,
-            [EnumeratorCancellation] CancellationToken ct = default)
+            [EnumeratorCancellation] CancellationToken ct = default,
+            int fetchRows = ApiConstants.DefaultFetchRows)
             where TService : class, IApiService<TRequest, TResponse>
             where TRequest : RequestBase
             where TResponse : ResponseBase
@@ -30,7 +32,7 @@ public class ApiExecutor
         }
 
         // サービスをインスタンス化
-        TService service = (TService)Activator.CreateInstance(typeof(TService), connectionString)!;
+        TService service = (TService)Activator.CreateInstance(typeof(TService), connectionString, fetchRows)!;
 
         // 正常終了を判断するためのフラグ
         bool isCompleted = false; // 未完了

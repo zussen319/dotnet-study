@@ -1,4 +1,5 @@
 ﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
 using ServiceApi.Requests.A1;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.A1;
@@ -9,8 +10,8 @@ namespace ServiceApi.Services.A1;
 /*
  * API「A1」のサービスクラス
  */
-public class A1Service(string connectionString)
-    : ServiceBase<A1Request, A1Response>(connectionString)
+public class A1Service(string connectionString, int fetchRows = ApiConstants.DefaultFetchRows)
+    : ServiceBase<A1Request, A1Response>(connectionString, fetchRows)
 {
     public override IAsyncEnumerable<A1Response> ExecuteAsync(
         IEnumerable<A1Request> requests,

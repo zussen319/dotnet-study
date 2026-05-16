@@ -1,4 +1,5 @@
 ﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
 using ServiceApi.Requests.C2;
 using ServiceApi.Resources.Sql;
 using ServiceApi.Responses.C2;
@@ -10,8 +11,8 @@ namespace ServiceApi.Services.C2;
 /*
  * API「C2」のサービスクラス
  */
-public class C2Service(string connectionString)
-    : ServiceBase<C2Request, C2Response>(connectionString)
+public class C2Service(string connectionString, int fetchRows = ApiConstants.DefaultFetchRows)
+    : ServiceBase<C2Request, C2Response>(connectionString, fetchRows)
 {
     public override async IAsyncEnumerable<C2Response> ExecuteAsync(
         IEnumerable<C2Request> requests,

@@ -6,8 +6,8 @@ namespace ServiceApi.Services.B1;
 /*
  * API「B1」のサービスクラス（テスト用）
  */
-public class B1Service_Test(string dummy)
-    : TestServiceBase<B1Request, B1Response>(dummy)
+public class B1Service_Test(string dummyStr, int dummyRows = 0)
+    : TestServiceBase<B1Request, B1Response>(dummyStr, dummyRows)
 {
     // テストサービスクラスのExecuteAsyncはベースクラスで実装
 }

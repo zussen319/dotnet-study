@@ -1,4 +1,5 @@
-﻿using ServiceApi.Requests.A1;
+﻿using ServiceApi.Common;
+using ServiceApi.Requests.A1;
 using ServiceApi.Responses.A1;
 using System.Runtime.CompilerServices;
 
@@ -7,8 +8,8 @@ namespace ServiceApi.Services.A1;
 /*
  * API「A1」のサービスクラス（テスト用）
  */
-public class A1Service_Test(string dummy)
-    : TestServiceBase<A1Request, A1Response>(dummy)
+public class A1Service_Test(string dummyStr, int dummyRows = 0)
+    : TestServiceBase<A1Request, A1Response>(dummyStr, dummyRows)
 {
     public override async IAsyncEnumerable<A1Response> ExecuteAsync(
         IEnumerable<A1Request> requests,
