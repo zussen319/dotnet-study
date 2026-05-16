@@ -9,17 +9,15 @@ internal abstract class ResourceBase
 {
     private readonly ResourceManager _resourceManager;
 
-    protected ResourceBase(Type resourceType)
-    {
-        // リソースクラス(.resx)の型からマネージャーを生成
+    // リソースクラス(.resx)の型からマネージャーを生成
+    protected ResourceBase(Type resourceType) =>
         _resourceManager = new ResourceManager(resourceType);
-    }
-
+    
     // キーを指定して文字列リソースを取得
     protected string GetString(string key)
     {
         string? value = _resourceManager.GetString(key);
-        if (value == null)
+        if (value is null)
         {
             throw new KeyNotFoundException($"リソースキー'{key}'が'{this.GetType().Name}'に見つかりません");
         }

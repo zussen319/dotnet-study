@@ -83,9 +83,6 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_終了時サービス破棄確認_01(int testCount)
     {
         // Arrange
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [ new MockRequest() ];
-
         // 静的プロパティを初期化
         ServiceCountStub.IsDisposed = false;
         ServiceCountStub.YieldCount = testCount;
@@ -93,7 +90,8 @@ public class TEST_ApiExecutor
         // Act
         int actualCount = 0;
         IAsyncEnumerable<MockResponse> responseStream =
-            executor.RunAsync<ServiceCountStub, MockRequest, MockResponse>(_connectionString, requests);
+            new ApiExecutor().RunAsync<ServiceCountStub, MockRequest, MockResponse>(
+                _connectionString, [new MockRequest()]);
         await foreach (MockResponse response in responseStream) { actualCount++; }
 
         // Assert
@@ -147,13 +145,12 @@ public class TEST_ApiExecutor
         /*
          * 正常終了時、サービスのリソースが破棄されていること
          */
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [new MockRequest()];
         DisposableStub.IsDisposed = false;
 
         // 普通の接続文字列を渡す
         IAsyncEnumerable<MockResponse> responseStream =
-            executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests);
+            new ApiExecutor().RunAsync<DisposableStub, MockRequest, MockResponse>(
+                _connectionString, [new MockRequest()]);
         await foreach (MockResponse _ in responseStream) { }
 
         Assert.True(DisposableStub.IsDisposed);
@@ -165,15 +162,14 @@ public class TEST_ApiExecutor
         /*
          * 例外発生時でもサービスのリソースが破棄されていること
          */
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [new MockRequest()];
         DisposableStub.IsDisposed = false;
 
         // 接続文字列に "THROW" を含めることで、スタブに例外を投げさせる
         string errorConn = _connectionString + ";ERROR_TRIGGER=THROW";
 
         IAsyncEnumerable<MockResponse> responseStream =
-            executor.RunAsync<DisposableStub, MockRequest, MockResponse>(errorConn, requests);
+            new ApiExecutor().RunAsync<DisposableStub, MockRequest, MockResponse>(
+                errorConn, [new MockRequest()]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             { await foreach (MockResponse _ in responseStream) { } });
@@ -185,17 +181,14 @@ public class TEST_ApiExecutor
     public async Task RunAsync_正常系_リクエスト件数0件の検証_01()
     {
         // Arrange
-        ApiExecutor executor = new();
-        // 空のリクエスト
-        IEnumerable<MockRequest> requests = Enumerable.Empty<MockRequest>();
-
         // フラグをリセット
         DisposableStub.IsInstantiated = false;
         DisposableStub.IsDisposed = false;
 
         // Act
         IAsyncEnumerable<MockResponse> responseStream =
-            executor.RunAsync<DisposableStub, MockRequest, MockResponse>(_connectionString, requests);
+            new ApiExecutor().RunAsync<DisposableStub, MockRequest, MockResponse>(
+                _connectionString, Enumerable.Empty<MockRequest>()); // 空のリクエスト
         int count = 0;
         await foreach (MockResponse _ in responseStream) { count++; }
 
@@ -241,15 +234,13 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_呼出し元に例外伝播_01()
     {
         // Arrange
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [new MockRequest()];
-
         // 静的フラグで例外発生後の破棄を確認
         ExceptionStub.IsDisposed = false;
 
         // Act & Assert
         IAsyncEnumerable<MockResponse> responseStream =
-            executor.RunAsync<ExceptionStub, MockRequest, MockResponse>(_connectionString, requests);
+            new ApiExecutor().RunAsync<ExceptionStub, MockRequest, MockResponse>(
+                _connectionString, [new MockRequest()]);
 
         // 1. 指定した例外が正しく外側まで飛んでくることを検証
         InvalidOperationException exception =
@@ -499,9 +490,6 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認_01()
     {
         // 1. 準備 (Arrange)
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [ new MockRequest() ];
-
         using CancellationTokenSource cts = new();
         cts.Cancel(); // 実行前にキャンセル状態にする
 
@@ -512,8 +500,8 @@ public class TEST_ApiExecutor
         {
             // 具象クラスのスタブを指定し、接続文字列を渡す
             IAsyncEnumerable<MockResponse> stream =
-                executor.RunAsync<ServiceCancelStub, MockRequest, MockResponse>(
-                    _connectionString, requests, cts.Token);
+                new ApiExecutor().RunAsync<ServiceCancelStub, MockRequest, MockResponse>(
+                    _connectionString, [new MockRequest()], cts.Token);
 
             await foreach (MockResponse item in stream.WithCancellation(cts.Token))
             {
@@ -560,9 +548,6 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_ApiExecutor実行中のタイムアウトキャンセル確認_01()
     {
         // Arrange
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [ new MockRequest() ];
-
         // 100ミリ秒後に自動的にキャンセル（タイムアウト）される設定
         using CancellationTokenSource cts = new();
         cts.CancelAfter(100);
@@ -571,8 +556,8 @@ public class TEST_ApiExecutor
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             IAsyncEnumerable<MockResponse> stream =
-                executor.RunAsync<ServiceTimeoutStub, MockRequest, MockResponse>(
-                    _connectionString, requests, cts.Token);
+                new ApiExecutor().RunAsync<ServiceTimeoutStub, MockRequest, MockResponse>(
+                    _connectionString, [new MockRequest()], cts.Token);
 
             await foreach (MockResponse item in stream.WithCancellation(cts.Token))
             {
@@ -656,10 +641,7 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_OracleExceptionハンドリング確認_01()
     {
         // Arrange
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [ new MockRequest() ];
-
-        // 静的フラグなどで破棄確認が必要なら追加（前述のスタブと同様）
+        // 静的フラグなどで破棄確認が必要なら追加
         OracleErrorStub.IsDisposed = false;
 
         // Act & Assert
@@ -667,8 +649,8 @@ public class TEST_ApiExecutor
         {
             // TServiceにスタブを指定。第1引数に接続文字列を渡す。
             IAsyncEnumerable<MockResponse> stream =
-                executor.RunAsync<OracleErrorStub, MockRequest, MockResponse>(
-                    _connectionString, requests);
+                new ApiExecutor().RunAsync<OracleErrorStub, MockRequest, MockResponse>(
+                    _connectionString, [new MockRequest()]);
 
             await foreach (MockResponse item in stream)
             {
@@ -700,16 +682,14 @@ public class TEST_ApiExecutor
     public async Task RunAsync_異常系_OracleExceptionハンドリング確認_02_Oracleサービス停止時()
     {
         // 1. Arrange
-        // DIコンテナを通さず、直接インスタンス化
-        ApiExecutor executor = new();
-        IEnumerable<B1Request> requests = [ new B1Request { DEPTNO = 10 } ];
 
         // 2. Act & 3. Assert
         try
         {
             // 型引数には「B1Service」具象クラスを指定し、第1引数に接続文字列を渡す
             IAsyncEnumerable<B1Response> stream =
-                executor.RunAsync<B1Service, B1Request, B1Response>(_connectionString, requests);
+                new ApiExecutor().RunAsync<B1Service, B1Request, B1Response>(
+                    _connectionString, [new B1Request { DEPTNO = 10 }]);
 
             await foreach (B1Response item in stream)
             {
@@ -731,7 +711,6 @@ public class TEST_ApiExecutor
             Assert.Fail($"OracleExceptionを期待していましたが、別の例外が発生しました: {ex.GetType().Name} - {ex.Message}");
         }
     }
-
 
     // --- 一般的な例外をシミュレートするスタブクラス ---
     public class SystemErrorStub : TestServiceBase<MockRequest, MockResponse>
@@ -767,8 +746,6 @@ public class TEST_ApiExecutor
     {
         // Arrange
         string expectMessage = "予期せぬシステムエラー";
-        ApiExecutor executor = new();
-        IEnumerable<MockRequest> requests = [ new MockRequest() ];
 
         // スタブクラスに期待するメッセージをセット
         SystemErrorStub.Message = expectMessage;
@@ -780,8 +757,8 @@ public class TEST_ApiExecutor
         {
             // 型引数に具象スタブクラスを指定
             IAsyncEnumerable<MockResponse> stream =
-                executor.RunAsync<SystemErrorStub, MockRequest, MockResponse>(
-                    _connectionString, requests);
+                new ApiExecutor().RunAsync<SystemErrorStub, MockRequest, MockResponse>(
+                    _connectionString, [new MockRequest()]);
 
             await foreach (MockResponse item in stream)
             {
