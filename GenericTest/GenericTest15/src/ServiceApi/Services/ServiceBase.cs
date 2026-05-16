@@ -126,6 +126,45 @@ public abstract class ServiceBase<TRequest, TResponse>(
              */
             reader.FetchSize = reader.RowSize * this.FetchRows;
 
+            /*
+             * ODP.NET（Oracle.ManagedDataAccess）において、FetchSizeプロパティは
+             * クライアント側のメモリ上に確保するキャッシュバッファのサイズ（バイト数）を表す
+             */
+            // 実際に設定されたバッファサイズ（バイト数）を取得・計算
+            //long actualBufferBytes = reader.FetchSize;
+            //double actualBufferMegaBytes = (double)actualBufferBytes / (1024 * 1024);
+
+            // コンソールやログに出力して確認
+            //Console.WriteLine($"[Debug] 1行あたりのサイズ (RowSize): {reader.RowSize} バイト");
+            //Console.WriteLine($"[Debug] 設定したフェッチ行数 (FetchRows): {this.FetchRows} 件");
+            //Console.WriteLine($"[Debug] 確保されたメモリバッファサイズ: {actualBufferBytes} バイト ({actualBufferMegaBytes:F2} MB)");
+
+            /*
+             * Oracleデータベース側（V$基準）から観察する方法
+             * アプリケーションが期待通りにバッファを確保し、データベースとの通信回数を削減できているかを
+             * 客観的に証明したい場合は、Oracleの動的パフォーマンス・ビュー（V$SESSTAT）を監視します。
+             * 具体的には、対象の検索処理を実行する前と後で、以下のSQLを実行して統計情報の変化（差分）を確認します。
+             * 
+             * ■ 確認用SQL
+             * SELECT 
+             *     n.name AS statistic_name, 
+             *     s.value AS statistic_value
+             * FROM 
+             *     v$mystat s
+             * JOIN 
+             *     v$statname n ON s.statistic# = n.statistic#
+             * WHERE 
+             *     n.name IN ('SQL*Net roundtrips to/from client', 'bytes sent via SQL*Net to client');
+             * 
+             * ■ 注目すべき項目
+             * * **SQL*Net roundtrips to/from client（通信回数）**
+             * FetchRows（FetchSize）を大きくすると、このラウンドトリップ回数が劇的に減少します。
+             * もし1万件のデータを取得する際、このカウントが「1」や「数回」で収まっていれば、
+             * 狙い通り巨大なバッファにデータを一括で詰め込んで一撃でクライアントに送信できている証拠になります。
+             * * **bytes sent via SQL*Net to client（送信バイト数）**
+             * 実際にネットワークを流れたデータサイズです。これを確認することで、C#側で計算した
+             * バッファサイズに対してどれだけの密度でデータが送られてきたかを比較検証できます。
+             */
             while (await reader.ReadAsync(ct))
             {
                 // 1行読み込むごとに呼び出し元にyield returnする
