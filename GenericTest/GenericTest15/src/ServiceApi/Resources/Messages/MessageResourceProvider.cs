@@ -16,6 +16,6 @@ internal class MessageResourceProvider() : ResourceBase(typeof(MessageResources)
 
     public static string GetMessage(string messageId) => GetMessage(messageId, []);
 
-    public static string GetMessage(string messageId, params object[] args) =>
-        $"[{messageId}] {string.Format(_instance.GetString(messageId), args)}";
+    public static string GetMessage(string messageId, params object[] args)
+        => $"[{messageId}] {string.Format(_instance.GetString(messageId), args)}";
 }
