@@ -24,12 +24,14 @@ public abstract class ServiceBase<TRequest, TResponse> : IApiService<TRequest, T
     // コンストラクタ
     protected ServiceBase(string connectionString, int fetchRows = ApiConstants.DefaultFetchRows)
     {
-        FetchRows = fetchRows <= 0
+        // DBフェッチ行数：1以上の値を設定
+        this.FetchRows = fetchRows <= 0
             ? throw new ArgumentOutOfRangeException(
                 nameof(fetchRows), "fetchRowsは1以上の整数を指定してください。")
             : fetchRows;
 
-        Connection = new OracleConnection(connectionString);
+        // DB接続
+        this.Connection = new OracleConnection(connectionString);
     }
 
     // サービス実行メソッド（Execute）
