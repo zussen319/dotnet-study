@@ -4,6 +4,7 @@ using ServiceApi.Requests;
 using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
 using ServiceApi.Services;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace ServiceApi;
@@ -15,6 +16,7 @@ public class ApiExecutor
      * APIのエントリポイント
      * 呼び出し元からはこのメソッドが呼び出され実行される
      */
+    [SuppressMessage("Style","IDE0008")]
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
             string connectionString,
             IEnumerable<TRequest> requests,
@@ -25,14 +27,15 @@ public class ApiExecutor
             where TResponse : ResponseBase
     {
         // リクエストが0件の場合は即座に終了
-        if (requests == null || !requests.Any()) { 
+        if (requests is null || !requests.Any()) { 
             // 処理が呼び出されたことを確認できるようにするため
             // ここでは何らかのメッセージを出力すべき
             yield break;
         }
 
         // サービスをインスタンス化
-        TService service = (TService)Activator.CreateInstance(typeof(TService), connectionString, fetchRows)!;
+        TService service =
+            (TService)Activator.CreateInstance(typeof(TService), connectionString, fetchRows)!;
 
         // 正常終了を判断するためのフラグ
         bool isCompleted = false; // 未完了
@@ -40,14 +43,14 @@ public class ApiExecutor
         await using (service)
         {
             // 処理開始ログ出力
-            Console.WriteLine(MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
+            Console.WriteLine(
+                MessageResourceProvider.GetMessage(MessageId.MSG001, typeof(TService).Name));
 
             // WithCancellationでトークンを紐付けた列挙子の取得
-            ConfiguredCancelableAsyncEnumerable<TResponse>.Enumerator enumerator =
+            var enumerator =
                 service.ExecuteAsync(requests, ct).WithCancellation(ct).GetAsyncEnumerator();
 
-            try
-            {
+            try {
                 while (true)
                 {
                     TResponse response;

@@ -40,14 +40,56 @@ public class B1Service(string connectionString, int fetchRows = ApiConstants.Def
         Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
         {
 #if true
+            // この記述スタイルの方が効率がよい
             EMPNO = Convert.ToDecimal(r["EMPNO"]),  // decimal - NOT NULL
-            ENAME = r["ENAME"] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
-            JOB = r["JOB"] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
-            MGR = r["MGR"] switch { DBNull => null, var v => Convert.ToDecimal(v) }, // decimal
-            HIREDATE = r["HIREDATE"] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
-            SAL = r["SAL"] switch { DBNull => null, var v => Convert.ToDecimal(v) }, // decimal
-            COMM = r["COMM"] switch { DBNull => null, var v => Convert.ToDecimal(v) }, // decimal
-            DEPTNO = r["DEPTNO"] switch { DBNull => null, var v => Convert.ToDecimal(v) } // decimal
+            ENAME = r["ENAME"] switch
+                { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
+            JOB = r["JOB"] switch
+                { DBNull or null => string.Empty,var v => Convert.ToString(v)! }, // string
+            MGR = r["MGR"] switch
+                { DBNull or null => null, var v => Convert.ToDecimal(v) }, // decimal
+            HIREDATE = r["HIREDATE"] switch
+                { DBNull or null => string.Empty, var v => Convert.ToString(v)! }, // string
+            SAL = r["SAL"] switch
+                { DBNull or null => null, var v => Convert.ToDecimal(v) }, // decimal
+            COMM = r["COMM"] switch
+                { DBNull or null => null, var v => Convert.ToDecimal(v) }, // decimal
+            DEPTNO = r["DEPTNO"] switch
+                { DBNull or null => null, var v => Convert.ToDecimal(v) }  // decimal
+                /*
+                 * あるいは以下のような「拡張メソッド」を定義し、
+                 * 
+                 * public static class DbDataReaderExtensions
+                 * {
+                 *     public static string GetStringOrEmpty(this DbDataReader r, string columnName)
+                 *         => r[columnName] switch { DBNull or null => string.Empty, var v => Convert.ToString(v)! };
+                 *     public static decimal? GetDecimalOrNull(this DbDataReader r, string columnName)
+                 *         => r[columnName] switch { DBNull or null => null, var v => Convert.ToDecimal(v) };
+                 * }
+                 * 
+                 * これを以下のように呼び出すのも可
+                 * 
+                 * Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
+                 * {
+                 *     EMPNO = Convert.ToDecimal(r["EMPNO"]), 
+                 *     ENAME    = r.GetStringOrEmpty("ENAME"),
+                 *     JOB      = r.GetStringOrEmpty("JOB"),
+                 *     HIREDATE = r.GetStringOrEmpty("HIREDATE"),
+                 *     MGR      = r.GetDecimalOrNull("MGR"),
+                 *     SAL      = r.GetDecimalOrNull("SAL"),
+                 *     COMM     = r.GetDecimalOrNull("COMM"),
+                 *     DEPTNO   = r.GetDecimalOrNull("DEPTNO")
+                 * };
+                 * 
+                 * 拡張メソッドを使用するためのルール:
+                 * C#で拡張メソッドを使用するには、以下の条件を満たす必要がある
+                 *   1. クラスがstaticであること
+                 *   2. メソッドがstaticであること
+                 *   3. 第1引数にthisを付けること
+                 * この条件が揃うことで、コンパイラは
+                 * 「DbDataReader型のオブジェクトであれば、このメソッドをドット(.)で呼び出してよい」
+                 * という許可を与える
+                 */
 #else
             EMPNO = Convert.ToDecimal(r["EMPNO"]), // decimal - NOT NULL
             ENAME = Convert.ToString(r["ENAME"]) ?? string.Empty,  // string
