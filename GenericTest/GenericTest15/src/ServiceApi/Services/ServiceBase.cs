@@ -11,21 +11,26 @@ namespace ServiceApi.Services;
 /*
  * サービスクラス（基底）
  */
-public abstract class ServiceBase<TRequest, TResponse>(
-    string connectionString,
-    int fetchRows = ApiConstants.DefaultFetchRows)
-    : IApiService<TRequest, TResponse>, IDisposable
+public abstract class ServiceBase<TRequest, TResponse> : IApiService<TRequest, TResponse>, IDisposable
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
-    // DB取得時のフェッチ行数指定
-    protected int FetchRows { get; init; } = fetchRows <= 0
-        ? throw new ArgumentOutOfRangeException(
-            nameof(fetchRows), "fetchRowsは1以上の整数を指定してください。")
-        : fetchRows;
-
     // Oracleコネクション
-    protected OracleConnection Connection { get; } = new(connectionString);
+    protected OracleConnection Connection { get; }
+
+    // DB取得時のフェッチ行数指定
+    protected int FetchRows { get; }
+
+    // コンストラクタ
+    protected ServiceBase(string connectionString, int fetchRows = ApiConstants.DefaultFetchRows)
+    {
+        FetchRows = fetchRows <= 0
+            ? throw new ArgumentOutOfRangeException(
+                nameof(fetchRows), "fetchRowsは1以上の整数を指定してください。")
+            : fetchRows;
+
+        Connection = new OracleConnection(connectionString);
+    }
 
     // サービス実行メソッド（Execute）
     // 具象クラスに実装を強制する

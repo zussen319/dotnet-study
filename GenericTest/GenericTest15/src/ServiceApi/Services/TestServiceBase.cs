@@ -1,5 +1,4 @@
-﻿using ServiceApi.Common;
-using ServiceApi.Requests;
+﻿using ServiceApi.Requests;
 using ServiceApi.Resources.Messages;
 using ServiceApi.Responses;
 using System.Runtime.CompilerServices;
@@ -10,8 +9,7 @@ namespace ServiceApi.Services;
 /*
  * サービスクラス（テスト用・基底）
  */
-public abstract class TestServiceBase<TRequest, TResponse>
-    : IApiService<TRequest, TResponse>
+public abstract class TestServiceBase<TRequest, TResponse> : IApiService<TRequest, TResponse>
     where TRequest : RequestBase
     where TResponse : ResponseBase
 {
