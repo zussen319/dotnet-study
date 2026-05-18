@@ -15,13 +15,13 @@ using log4net.Config;
  * ＞ プログラム開始時に一度 XmlConfigurator.Configure(new FileInfo("log4net.config")); を実行してください。
  * ＞ log4net.config を実行環境に含めるよう設定をお願いします。
  * 
- * [2] 相関ID（CorrelationId）の生成と引数渡し
- * API側のログとメイン側の動きを紐付けるための鍵となる情報を約束します。
- * 生成ルール: API呼び出しごとに一意な文字列（Guid.NewGuid().ToString() など）を生成してもらう。
- * 引数: ApiService.Execute(int flag, string correlationId) のように、引数として確実に渡してもらう。
- * ＞ 相関ID（CorrelationId）の発行と受け渡し
- * ＞ API（ApiService.Execute）を呼び出す際、呼び出しごとに一意なID（GUID等）を生成し、第2引数として渡してください。
- * ＞ これにより、API内部のログにこのIDが自動付与され、調査が容易になります。
+ * ### [2] 相関ID（CorrelationId）の生成と引数渡し
+ * ### API側のログとメイン側の動きを紐付けるための鍵となる情報を約束します。
+ * ### 生成ルール: API呼び出しごとに一意な文字列（Guid.NewGuid().ToString() など）を生成してもらう。
+ * ### 引数: ApiService.Execute(int flag, string correlationId) のように、引数として確実に渡してもらう。
+ * ### ＞ 相関ID（CorrelationId）の発行と受け渡し
+ * ### ＞ API（ApiService.Execute）を呼び出す際、呼び出しごとに一意なID（GUID等）を生成し、第2引数として渡してください。
+ * ### ＞ これにより、API内部のログにこのIDが自動付与され、調査が容易になります。
  * 
  * [3] 共通ログフォルダの作成権限
  * API側もメイン側も logs/ フォルダに書き込むため、実行環境においてそのフォルダへの書込み権限が
@@ -45,27 +45,19 @@ mainLog.Info("Main> Application start.");
 
 var apiService = new ApiService();
 
-// 相関ID
-// メインプログラム側からの個別のAPI呼び出しを識別するためのID
-// このIDがログに記述されることで、メイン-APIの関連付けが可能となる
-string correlationId = string.Empty;
-
 try
 {
     for (int flag = 1; flag <= 2; flag++)
     {
-        // APIを呼び出すたびに新しい相関IDを発行
-        correlationId = Guid.NewGuid().ToString("N").Substring(0, 12);
-        mainLog.Info($"Main> Invoking API. [flag: {flag}, ID: {correlationId}]");
-
-        var result = apiService.Execute(flag, correlationId);
-
-        mainLog.Info($"Main> API completed. [flag: {flag}, ID: {correlationId}]");
-    }
+		// メイン側では相関IDを意識せず、純粋にAPIを呼び出すだけ
+		mainLog.Info($"Main> Invoking API. [flag: {flag}]");
+		var result = apiService.Execute(flag);
+		mainLog.Info($"Main> API completed. [flag: {flag}]");
+	}
 }
 catch (Exception ex)
 {
-    mainLog.Error($"Main> API failed with critical error. [ID: {correlationId}]", ex);
+	mainLog.Error("Main> API failed with critical error.", ex);
 }
 
 mainLog.Info("Main> Application end.");

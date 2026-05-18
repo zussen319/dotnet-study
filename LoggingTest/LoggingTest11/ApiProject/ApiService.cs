@@ -1,4 +1,5 @@
 ﻿using log4net;
+using System.Diagnostics;
 
 namespace ApiProject;
 
@@ -7,11 +8,11 @@ public class ApiService
     // config内の <logger name="ApiLogger"> を使用
     private static readonly ILog log = LogManager.GetLogger("ApiLogger");
 
-    public List<object> Execute(int flag, string correlationId)
+    public List<object> Execute(int flag /*, string correlationId */)
     {
-        /*
+		/*
          * Close() のタイミングと「再呼び出し」
-         * ApiService の finally ブロックで appender.Close() を呼び出しています。これには注意が必要です。
+         * ApiService の finally ブロックで appender.Close() を呼び出すことには注意が必要です。
          * リスク: log4net の Appender は一度 Close すると、そのプロセス内では二度と書き込めなくなります。
          * 対策: もしメインプログラムが動いている間に「何度も API を呼び出す」可能性があるなら、
          * finally での Close() は行わないのが一般的です。
@@ -26,11 +27,11 @@ public class ApiService
          * 対策: 実装例に入れた通り、必ず finally ブロックで 
          * LogicalThreadContext.Properties.Remove("CorrelationId"); を実行し、コンテキストを掃除します。
          */
-        // ログスレッドコンテキストに相関IDをセット
-        LogicalThreadContext.Properties["CorrelationId"] = correlationId;
+		string correlationId = Guid.NewGuid().ToString("N").Substring(0, 8);
+		// LogicalThreadContext（論理スレッドローカル）にセット
+		LogicalThreadContext.Properties["CorrelationId"] = correlationId;
 
-        try
-        {
+		try {
             List<object> result = [];
             log.Info("API> Data processing started.");
 
@@ -48,7 +49,8 @@ public class ApiService
         catch (Exception ex)
         {
             log.Error("API> Exception occurred during operation.", ex);
-            throw;
+			// 元の例外(ex)を InnerException として包み込み、メッセージにIDを付与してスロー
+			throw new InvalidOperationException($"APIエラーが発生しました。 [API-ID: {correlationId}]", ex);
         }
         finally
         {
