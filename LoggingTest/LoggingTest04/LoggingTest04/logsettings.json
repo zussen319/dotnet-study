@@ -1,0 +1,31 @@
+﻿{
+  "MainSerilog": {
+    "Using": [ "Serilog.Sinks.File", "Serilog.Enrichers.Thread" ],
+    "MinimumLevel": "Information",
+    "Enrich": [ "WithThreadId" ],
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "logs/main.log",
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{ThreadId}] {Level:u3} {SourceContext} - {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  },
+
+  "ApiSerilog": {
+    "Using": [ "Serilog.Sinks.File", "Serilog.Enrichers.Thread" ],
+    "MinimumLevel": "Information",
+    "Enrich": [ "WithThreadId" ],
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "logs/api_service.log",
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{ThreadId}] {Level:u3} [{CorrelationId}] - {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  }
+}
