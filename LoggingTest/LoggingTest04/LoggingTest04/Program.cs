@@ -5,7 +5,6 @@ using Serilog;
 
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 
-
 /*
  * メインプログラム側に最低限してもらう3つのこと
  * 

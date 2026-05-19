@@ -7,8 +7,8 @@ namespace ApiProject;
 public class ApiService {
 
 	// API内部だけで共有するロガーファクトリ
-	private static readonly Microsoft.Extensions.Logging.ILoggerFactory _apiLoggerFactory;
-	private readonly Microsoft.Extensions.Logging.ILogger<ApiService> _logger;
+	private static readonly ILoggerFactory _apiLoggerFactory;
+	private readonly ILogger<ApiService> _logger;
 
 	// 静的コンストラクタで、最初に1度だけAPI専用のログ基盤を立ち上げる
 	static ApiService()
