@@ -1,0 +1,62 @@
+
+SELECT d.DEPTNO DEPTNO, d.DNAME DNAME,               -- レベル１
+       e1.EMPNO MEMBER_EMPNO, e1.ENAME MEMBER_ENAME, -- レベル２
+       e2.EMPNO STAFF_EMPNO, e2.ENAME STAFF_ENAME    -- レベル３
+FROM DEPT d 
+INNER JOIN EMP e1 ON e1.DEPTNO = d.DEPTNO 
+INNER JOIN EMP e2 ON e2.MGR = e1.EMPNO 
+WHERE d.DEPTNO = :DEPTNO
+ORDER BY d.DEPTNO, e1.EMPNO, e2.EMPNO
+
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+
+-- 表示が途中で切れないように環境変数を設定
+SET LONG 2000000000
+SET LONGCUNKSIZE 30000
+SET LINESIZE 32767
+SET PAGESIZE 0
+SET TRIMSPOOL ON
+SET FEEDBACK OFF
+SET VERIFY OFF
+
+-- 出力先ファイル名を指定
+SPOOL output_result.json
+
+-- SQLを実行
+SELECT JSON_ARRAYAGG(
+    JSON_OBJECT(
+        'DEPTNO' VALUE d.DEPTNO,
+        'DNAME'  VALUE d.DNAME,
+        'MEMBERS' VALUE (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'MEMBER_EMPNO' VALUE e1.EMPNO,
+                    'MEMBER_ENAME' VALUE e1.ENAME,
+                    'STAFFS'       VALUE (
+                        SELECT JSON_ARRAYAGG(
+                            JSON_OBJECT(
+                                'STAFF_EMPNO' VALUE e2.EMPNO,
+                                'STAFF_ENAME' VALUE e2.ENAME
+                            ) RETURNING CLOB
+                        )
+                        FROM EMP e2
+                        WHERE e2.MGR = e1.EMPNO
+                    )
+                ) RETURNING CLOB
+            )
+            FROM EMP e1
+            WHERE e1.DEPTNO = d.DEPTNO
+        )
+    ) RETURNING CLOB
+) AS FINAL_JSON_FILE
+FROM DEPT d;
+
+もし **Oracle SQL Developer** や **A5:SQL Mk-2** などのGUIツールを使っている場合は、設定を変更するよりもツール側のエクスポート機能を使うのが一番簡単です。
+
+1. 通常通り、先のSQL（パターンB）を実行します。
+2. 画面下部の「結果グリッド（データが表示される場所）」で、出力されたセル（1行1列だけあるセル）を**右クリック**します。
+3. メニューから **「エクスポート」**（または「テキストとして保存」「ファイルへ保存」）を選択します。
+4. ファイル形式を `json` または `txt` に指定して保存します。
+
+※ツールによっては、セルの上で「ダブルクリック」や「値の表示」を選ぶと、切れていない完全なテキストが別ウィンドウで表示され、そこからコピペできる場合もあります。
+
