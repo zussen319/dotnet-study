@@ -1,0 +1,14 @@
+﻿{
+  "LogSettings": {
+    "MainApp": {
+      "MinimumLevel": "Information",
+      "DirectoryPath": "logs",
+      "OutputTemplate": "{Timestamp} [{Level}] - {Message}"
+    },
+    "ApiService": {
+      "MinimumLevel": "Information",
+      "DirectoryPath": "logs",
+      "OutputTemplate": "{Timestamp} [Thread:{ThreadId}] [{Level}] - {Message}"
+    }
+  }
+}

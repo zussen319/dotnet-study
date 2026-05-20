@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ApiProject/ApiProject.csproj" />
+  <Project Path="LoggingTest05/LoggingTest05.csproj" Id="e0af279f-fc89-4287-bf04-05a3e7d995ab" />
+</Solution>
