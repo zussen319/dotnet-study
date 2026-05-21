@@ -18,7 +18,7 @@ public class CustomLogger : ILogger
 	// ログ出力フォーマット
 	private readonly string _outputTemplate = "{Timestamp} [{Level}] - {Message}";
 
-	// ログの開閉状態と相関IDを管理するオブジェクト
+	// ログ状態管理オブジェクト
 	// スレッド（処理）ごとに開いているストリームと相関IDを保持する
 	private readonly AsyncLocal<LogContext?> _currentContext = new();
 	// 相関ID
@@ -59,7 +59,7 @@ public class CustomLogger : ILogger
 		}
 	}
 
-	// BeginScope でファイルを開き、閉じるための枠組みを返す
+	// ロギング開始処理
 	public IDisposable? BeginScope<TState>(TState state) 
 		where TState : notnull
 	{
@@ -85,9 +85,11 @@ public class CustomLogger : ILogger
 		return _currentContext.Value;
 	}
 
+	// ロギングレベル対象チェック
 	public bool IsEnabled(LogLevel logLevel) 
 		=> logLevel >= _minimumLogLevel;
 
+	// ログ出力処理
 	public void Log<TState>(
 		LogLevel logLevel, EventId eventId, TState state,
 		Exception? exception, Func<TState, Exception?, string> formatter)
@@ -136,7 +138,7 @@ public class CustomLogger : ILogger
 		_ => LogLevel.Information
 	};
 
-	// ログの開閉状態と相関IDを管理する内部クラス
+	// ログ状態管理クラス
 	private class LogContext : IDisposable {
 		public StreamWriter Writer { get; }
 		public string CorrelationId { get; }
