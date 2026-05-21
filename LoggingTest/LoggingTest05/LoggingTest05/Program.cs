@@ -13,20 +13,16 @@ using (var mainScope = logger.BeginScope("MainProcessContext"))
 	logger.LogInformation($"Main> Current Main Log ID is: {(logger as CustomLogger)?.CorrelationId}");
 
 	var apiService = new ApiService();
-
 	try {
-		for (int flag = 1; flag <= 2; flag++) {
+		foreach (int flag in Enumerable.Range(1, 2)) {
 			logger.LogInformation("Main> Invoking API. [flag: {flag}]", flag);
-
 			// APIの呼び出し
 			var result = apiService.Execute(flag);
-
 			logger.LogInformation("Main> API completed. [flag: {flag}]", flag);
 		}
 	} catch (Exception ex) {
 		logger.LogError(ex, "Main> API failed with critical error.");
 	}
-
 	logger.LogInformation("Main> Application end.");
 }
 // ここでmainScopeが破棄され、main.logのファイルハンドルが解放される
