@@ -18,7 +18,7 @@ public class CustomLogger : ILogger
 	// ログ出力フォーマット
 	private readonly string _outputTemplate = "{Timestamp} [{Level}] - {Message}";
 
-	// 相関ID
+	// ログの開閉状態と相関IDを管理するオブジェクト
 	// スレッド（処理）ごとに開いているストリームと相関IDを保持する
 	private readonly AsyncLocal<LogContext?> _currentContext = new();
 	// 相関ID
@@ -32,7 +32,7 @@ public class CustomLogger : ILogger
 
 		// ファイルから設定情報を読み込む
 		string configPath = 
-			Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logsettings.json");
+			Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CustomLogger.json");
 
 		if (File.Exists(configPath)) {
 			try {
@@ -71,9 +71,9 @@ public class CustomLogger : ILogger
 		}
 
 		// ログファイル生成
-		string timestampStr = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+		string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 		string fullFilePath = 
-			Path.Combine(_directoryPath, $"{_categoryName}_{timestampStr}_{correlationId}.log");
+			Path.Combine(_directoryPath, $"{timestamp}_{_categoryName}_{correlationId}.log");
 
 		StreamWriter writer = new(fullFilePath, append: false, Encoding.UTF8)
 			{ AutoFlush = true };
