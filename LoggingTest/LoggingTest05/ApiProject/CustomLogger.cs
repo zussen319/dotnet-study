@@ -65,21 +65,23 @@ public class CustomLogger : ILogger
 	{
 		string correlationId = Guid.NewGuid().ToString("N")[..8];
 
+		// ログ出力先フォルダが存在しなければ作成
 		if (!Directory.Exists(_directoryPath)) {
 			Directory.CreateDirectory(_directoryPath);
 		}
 
+		// ログファイル生成
 		string timestampStr = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 		string fullFilePath = 
 			Path.Combine(_directoryPath, $"{_categoryName}_{timestampStr}_{correlationId}.log");
 
-		var writer = new StreamWriter(fullFilePath, append: false, Encoding.UTF8)
+		StreamWriter writer = new(fullFilePath, append: false, Encoding.UTF8)
 			{ AutoFlush = true };
 
-		// コンテキストの生成
+		// コンテキスト生成
 		_currentContext.Value = new LogContext(writer, correlationId);
 
-		// 使い終わったら破棄するトリガー（IDisposable）を返す
+		// 終了時に破棄するトリガー（IDisposable）を返却
 		return _currentContext.Value;
 	}
 
@@ -90,17 +92,20 @@ public class CustomLogger : ILogger
 		LogLevel logLevel, EventId eventId, TState state,
 		Exception? exception, Func<TState, Exception?, string> formatter)
 	{
+		// ロギングレベルが対象外の場合は出力しない
 		if (!IsEnabled(logLevel)) { return; }
 
-		// 現在のコンテキスト（ファイル）がなければ書き込まない
-		var context = _currentContext.Value;
+		// 現在のコンテキスト（ファイル）がなければ出力しない
+		LogContext? context = _currentContext.Value;
 		if (context is null) { return; }
 
 		string message = formatter(state, exception);
 		if (exception is not null) {
+			// 例外発生時はメッセージを追記
 			message += $"{Environment.NewLine}{exception}";
 		}
 
+		// ログ出力行を生成
 		string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
 		string threadId = Environment.CurrentManagedThreadId.ToString();
 		string levelLabel = logLevel switch {
@@ -131,7 +136,7 @@ public class CustomLogger : ILogger
 		_ => LogLevel.Information
 	};
 
-	// ログの開閉状態とIDを管理する内部クラス
+	// ログの開閉状態と相関IDを管理する内部クラス
 	private class LogContext : IDisposable {
 		public StreamWriter Writer { get; }
 		public string CorrelationId { get; }
