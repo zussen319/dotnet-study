@@ -8,7 +8,7 @@
     "ApiService": {
       "MinimumLevel": "Information",
       "DirectoryPath": "logs",
-      "OutputTemplate": "{Timestamp} [Thread:{ThreadId}] [{Level}] - {Message}"
+      "OutputTemplate": "{Timestamp} [{Level}] [{CorrelationId}] - {Message}"
     }
   }
 }
