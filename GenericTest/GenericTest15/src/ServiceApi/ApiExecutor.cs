@@ -15,6 +15,14 @@ public class ApiExecutor
     /*
      * APIのエントリポイント
      * 呼び出し元からはこのメソッドが呼び出され実行される
+     * 
+     * 引数順について：
+     * CancellationTokenは慣習上は最後に置くことが多いが、本APIでは
+     * fetchRowsより前に配置している
+     * fetchRowsはAPI内部のチューニング用であり、メイン側は原則デフォルト依存
+     * （指定は最終手段）
+     * 一方ctはメイン側で指定する頻度が相対的に高いため、
+     * 「指定頻度が高い引数を前」に置く意図でこの順序とした
      */
     [SuppressMessage("Style","IDE0008")]
     public async IAsyncEnumerable<TResponse> RunAsync<TService, TRequest, TResponse>(
@@ -27,6 +35,11 @@ public class ApiExecutor
             where TResponse : ResponseBase
     {
         // リクエストが0件の場合は即座に終了
+        /*
+         * ※requestsは「複数回列挙しても安全なコレクション（List/配列等）」を前提とする
+         *   検索条件（数件〜数百件規模）であり、遅延IEnumerableは想定しないため
+         *   入口での実体化（ToList）は行わない
+         */
         if (requests is null || !requests.Any()) { 
             // 処理が呼び出されたことを確認できるようにするため
             // ここでは何らかのメッセージを出力すべき

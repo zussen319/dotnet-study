@@ -223,6 +223,11 @@ public abstract class ServiceBase<TRequest, TResponse>
         while (await reader.ReadAsync(ct)) {
             // 呼び出し元（groupFunc）へ1行ずつ配送する
             /*
+             * DB検索（ExecuteReaderAsync）を実行する
+             * 1回のコマンド実行が返す行を列挙する（FetchSize最適化込み）
+             * readerはリクエスト単位でusingし、列挙終了（またはbreak）時に必ずクローズする
+             */
+            /*
              * 従来の"List<TResponse>"を返す方式と"IAsyncEnumerable<TResponse>"
              * を返す方式の最大の違いは、メモリ上でのデータの持ち方。
              * ・List方式: 100万件のDB検索結果がある場合、100万件すべてをメモリ (List) に
@@ -231,6 +236,12 @@ public abstract class ServiceBase<TRequest, TResponse>
              *  「配送」される。"yield return"によりこの「配送」を実現する。
              * "yield return"はメソッドを終了せずに、「一旦この値を呼び出し元に渡し
              * 次の要求があったら続きから再開する」という動作をする。
+             */
+            /*
+             * ※yield returnするreaderは「行ごとに同一インスタンス」（Read()でカーソルが進むだけ）。
+             *   そのため即時消費（mapFunc/groupFuncでその場で値を取り出す）専用とする。
+             *   readerをList等に保持・蓄積してはいけない（全要素が同じ＝最終行/クローズ済みを指してしまう）。
+             *   行を貯めたい場合は、readerからプリミティブ値を取り出した「レスポンス型」にして保持すること。
              */
             yield return reader;
         }

@@ -39,15 +39,4 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Requests\B1\" />
-    <Folder Include="Requests\C1\" />
-    <Folder Include="Requests\C2\" />
-    <Folder Include="Responses\B1\" />
-    <Folder Include="Responses\C2\" />
-    <Folder Include="Services\B1\" />
-    <Folder Include="Services\C1\" />
-    <Folder Include="Services\C2\" />
-  </ItemGroup>
-
 </Project>
