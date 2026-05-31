@@ -621,6 +621,35 @@ public class TEST_ApiExecutor
         /// <summary>
         /// OracleExceptionはpublicなコンストラクタがないため、リフレクションで生成する
         /// </summary>
+#if true
+        private OracleException CreateOracleException(int errorCode, string message)
+        {
+            Type type = typeof(OracleException);
+
+            // 引数の型シグネチャを明示して内部コンストラクタを特定する
+            /*
+             * OracleException は sealed かつ全コンストラクタが internal。
+             * 利用するのは ODP.NET Managed 23.x で確認した次の5引数版：
+             *   (int errCode, string dataSrc, string procedure, string errMsg, int parseErrorOffset)
+             * GetConstructors().FirstOrDefault() のように先頭を無条件に選ぶと、
+             * 引数個数の異なるコンストラクタを掴み TargetParameterCountException になるため、
+             * GetConstructor(types: ...) で型まで指定して取得する。
+             */
+            ConstructorInfo? ctor = type.GetConstructor(
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                types: [typeof(int), typeof(string), typeof(string), typeof(string), typeof(int)],
+                modifiers: null);
+
+            if (ctor is null) {
+                throw new InvalidOperationException(
+                    "OracleException の内部コンストラクタ (int,string,string,string,int) が見つかりませんでした。");
+            }
+
+            // errCode=errorCode, dataSrc=null, procedure=null, errMsg=message, parseErrorOffset=0
+            return (OracleException)ctor.Invoke([errorCode, null, null, message, 0]);
+        }
+#else
         private OracleException CreateOracleException(int errorCode, string message)
         {
             Type type = typeof(OracleException);
@@ -635,8 +664,45 @@ public class TEST_ApiExecutor
             }
             return (OracleException)ctor.Invoke([message, errorCode]);
         }
+#endif
     }
 
+#if true
+    [Fact]
+    public async Task RunAsync_異常系_OracleExceptionハンドリング確認_01()
+    {
+        // Arrange
+        // 静的フラグなどで破棄確認が必要なら追加
+        OracleErrorStub.IsDisposed = false;
+
+        // Act & Assert
+        // OracleException「そのもの」がスローされることを検証する。
+        /*
+         * ThrowsAnyAsync<Exception> ではリフレクションによる OracleException 生成に失敗して
+         * 別の例外（InvalidOperationException 等）が飛んでもパスしてしまい、
+         * ApiExecutor の catch (OracleException) 分岐を通ったことを保証できない。
+         * 型を OracleException に限定し、エラーコードまで確認することで、
+         * 「Oracle 専用分岐を実際に通った」ことを担保する。
+         */
+        OracleException ex =
+            await Assert.ThrowsAsync<OracleException>(async () => {
+                // TServiceにスタブを指定。第1引数に接続文字列を渡す。
+                IAsyncEnumerable<MockResponse> stream =
+                    new ApiExecutor().RunAsync<OracleErrorStub, MockRequest, MockResponse>(
+                        _connectionString, [new MockRequest()]);
+
+                await foreach (MockResponse item in stream) {
+                    // 1件目は成功するが、次の MoveNextAsync で OracleException が飛ぶ
+                }
+            });
+
+        // スタブが生成した ORA-12154 が伝播していることを確認
+        Assert.Equal(12154, ex.Number);
+
+        // 例外発生後もサービスが破棄されていること
+        Assert.True(OracleErrorStub.IsDisposed, "例外発生後もサービスが破棄されていません。");
+    }
+#else
     [Fact]
     public async Task RunAsync_異常系_OracleExceptionハンドリング確認_01()
     {
@@ -660,6 +726,7 @@ public class TEST_ApiExecutor
 
         Assert.True(OracleErrorStub.IsDisposed, "例外発生後もサービスが破棄されていません。");
     }
+#endif
 
     /*
      * #### 1. なぜ `IB1Service` ではなく `B1Service` なのか
