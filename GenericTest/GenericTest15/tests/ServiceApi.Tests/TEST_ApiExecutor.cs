@@ -440,6 +440,33 @@ public class TEST_ApiExecutor
     }
 
     // --- テスト用のキャンセル検証スタブ ---
+#if true
+    public class ServiceCancelStub : TestServiceBase<MockRequest, MockResponse> {
+        // キャンセル発生時に破棄されたことを追跡するフラグ
+        public static bool IsDisposed { get; set; }
+
+        // 基底クラスのコンストラクタ(string _)を呼び出す
+        public ServiceCancelStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows) { }
+
+        public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            // 渡された CancellationToken をチェック
+            ct.ThrowIfCancellationRequested();
+
+            yield return new MockResponse { Id = 999 };
+            await Task.Yield();
+        }
+
+        // 破棄を検証するため override
+        public override ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return base.DisposeAsync();
+        }
+    }
+#else
     public class ServiceCancelStub : TestServiceBase<MockRequest, MockResponse>
     {
         // 基底クラスのコンストラクタ(string _)を呼び出す
@@ -456,22 +483,24 @@ public class TEST_ApiExecutor
             await Task.Yield();
         }
     }
+#endif
 
     /*
      * 1. キャンセルの伝播:
      *    上位（呼び出し元）からキャンセルが指示されたとき、ApiExecutor が
      *    それを無視して処理を続行せず、即座に反応できること。
      * 2. リソースの即時解放:
-     *    ApiExecutor 内の using var scope は、例外（キャンセル例外含む）が発生して
-     *    メソッドを抜ける瞬間に実行されます。これにより、キャンセルされた瞬間に
-     *    DB セッションやメモリが解放されることが保証されます。
+     *    ApiExecutor 内の await using (service) は、例外（キャンセル例外含む）が発生して
+     *    メソッドを抜ける瞬間に DisposeAsync を呼び出します。これにより、キャンセルされた
+     *    瞬間にサービス（本番では DB セッション）が解放されることが保証されます。
+     *    （本テストでは ServiceCancelStub.IsDisposed で実際に破棄を検証している）
      */
     /*
      * なぜキャンセルが検証できるのか
      * トークンの伝播: ApiExecutor.RunAsync の第3引数に渡した cts.Token は
      * 内部で TService.ExecuteAsync の引数として渡されます。
      * 
-     * スタブの挙動: B1Service_CancelStub は、メソッドの冒頭で
+     * スタブの挙動: ServiceCancelStub は、メソッドの冒頭で
      * ct.ThrowIfCancellationRequested() を呼び出します。
      * 
      * 検証の成立: cts.Cancel() が呼ばれているため、RunAsync から呼び出されたスタブが
@@ -482,10 +511,37 @@ public class TEST_ApiExecutor
      * ### 注意点：`WithCancellation` について
      * テストコード内の `stream.WithCancellation(cts.Token)` は、
      * `IAsyncEnumerable` 全体のキャンセルを制御するために残しておいて問題ありません。
-     * これにより、`ApiExecutor` 側のループと `B1Service` 側のループの両方に対して
-     * キャンセル要求が有効になります。
+     * これにより、`ApiExecutor` 側のループとサービス（ServiceCancelStub）側のループの
+     * 両方に対してキャンセル要求が有効になります。
      */
+#if true
+    [Fact]
+    public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認_01()
+    {
+        // 1. 準備 (Arrange)
+        ServiceCancelStub.IsDisposed = false;
+        using CancellationTokenSource cts = new();
+        cts.Cancel(); // 実行前にキャンセル状態にする
 
+        // 2. 実行 & 3. 検証 (Act & Assert)
+
+        // CancellationToken が正しく伝播していれば、OperationCanceledException がスローされる
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            // 具象クラスのスタブを指定し、接続文字列を渡す
+            IAsyncEnumerable<MockResponse> stream =
+                new ApiExecutor().RunAsync<ServiceCancelStub, MockRequest, MockResponse>(
+                    _connectionString, [new MockRequest()], cts.Token);
+
+            await foreach (MockResponse item in stream.WithCancellation(cts.Token)) {
+                // ここには到達しないはず
+            }
+        });
+
+        // キャンセル時も await using によりサービスが破棄されること（＝即時解放の実証）
+        Assert.True(ServiceCancelStub.IsDisposed, "キャンセル発生時にサービスが破棄されていません。");
+    }
+#else
     [Fact]
     public async Task RunAsync_異常系_ApiExecutor実行キャンセル確認_01()
     {
@@ -509,6 +565,7 @@ public class TEST_ApiExecutor
             }
         });
     }
+#endif
 
     /*
      * 処理の途中でタイムアウトが発生した場合のテスト
@@ -523,6 +580,37 @@ public class TEST_ApiExecutor
      * タイムアウト時に即座に例外が発生すれば、await using によるリソース破棄も
      * 即座に実行されます。これを検証することで、システム全体の安定性を確認できます。
      */
+#if true
+    public class ServiceTimeoutStub : TestServiceBase<MockRequest, MockResponse> {
+        // タイムアウト発生時に破棄されたことを追跡するフラグ
+        public static bool IsDisposed { get; set; }
+
+        // 基底クラスのコンストラクタを呼び出す
+        public ServiceTimeoutStub(string dummyStr, int dummyRows = 0) : base(dummyStr, dummyRows) { }
+
+        // override を追加
+        public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            // 1件目はすぐに返す
+            yield return new MockResponse { Id = 1 };
+
+            // 2件目を出す前に、非常に長い時間がかかる処理をシミュレート
+            // この間にタイムアウトキャンセルが発生する想定
+            await Task.Delay(10000, ct);
+
+            yield return new MockResponse { Id = 2 };
+        }
+
+        // 破棄を検証するため override
+        public override ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return base.DisposeAsync();
+        }
+    }
+#else
     public class ServiceTimeoutStub : TestServiceBase<MockRequest, MockResponse>
     {
         // 基底クラスのコンストラクタを呼び出す
@@ -543,7 +631,34 @@ public class TEST_ApiExecutor
             yield return new MockResponse { Id = 2 };
         }
     }
+#endif
 
+#if true
+    [Fact]
+    public async Task RunAsync_異常系_ApiExecutor実行中のタイムアウトキャンセル確認_01()
+    {
+        // Arrange
+        ServiceTimeoutStub.IsDisposed = false;
+        // 100ミリ秒後に自動的にキャンセル（タイムアウト）される設定
+        using CancellationTokenSource cts = new();
+        cts.CancelAfter(100);
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            IAsyncEnumerable<MockResponse> stream =
+                new ApiExecutor().RunAsync<ServiceTimeoutStub, MockRequest, MockResponse>(
+                    _connectionString, [new MockRequest()], cts.Token);
+
+            await foreach (MockResponse item in stream.WithCancellation(cts.Token)) {
+                // 1件目は受け取れるかもしれないが、2件目の Delay で例外が発生する
+            }
+        });
+
+        // タイムアウト時も await using によりサービスが破棄されること（＝即時解放の実証）
+        Assert.True(ServiceTimeoutStub.IsDisposed, "タイムアウト発生時にサービスが破棄されていません。");
+    }
+#else
     [Fact]
     public async Task RunAsync_異常系_ApiExecutor実行中のタイムアウトキャンセル確認_01()
     {
@@ -565,6 +680,7 @@ public class TEST_ApiExecutor
             }
         });
     }
+#endif
 
     /*
      * このテストコードにおける最大の課題は

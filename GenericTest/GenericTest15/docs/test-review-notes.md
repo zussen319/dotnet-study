@@ -48,11 +48,11 @@
 | # | 区分 | 概要 | 状態 |
 |---|------|------|------|
 | T1 | 高 | OracleException テストのアサートが弱く誤った理由でパスしうる | ✅ 実装反映済み（2026-05-31） |
-| T2 | 中〜高 | キャンセル/タイムアウト時の破棄がコメントの主張に反して未検証 | ⬜ 未着手 |
+| T2 | 中〜高 | キャンセル/タイムアウト時の破棄がコメントの主張に反して未検証 | ✅ 実装反映済み（2026-05-31） |
 | T3 | 中 | `fetchRows` 引き渡し と ct→fetchRows 引数順（src#7）の回帰テスト無し | ⬜ 未着手 |
 | T4 | 中 | ライブDB依存の結合テストが単体と同居・無分類・アサート弱 | ⬜ 未着手 |
 | T5 | 中 | ログ分岐（MSG002/003/005, DB/Systemエラー文言）が未検証 | ⬜ 未着手 |
-| T6 | 中 | コメントと実装の不一致（旧DI/scope・存在しないスタブ名） | ⬜ 未着手 |
+| T6 | 中 | コメントと実装の不一致（旧DI/scope・存在しないスタブ名） | 🟡 一部対応（キャンセル確認_01 の3件 2026-05-31） |
 | T7 | 低〜中 | `requests is null` 経路が未テスト | ⬜ 未着手 |
 | T8 | 低 | スタブのエラー注入パターンが不統一 | ⬜ 未着手 |
 | T9 | 低 | 静的可変状態の順序/並列依存 | ⬜ 未着手 |
@@ -142,19 +142,28 @@
 
 ---
 
-## T2. キャンセル/タイムアウト時の破棄がコメントの主張に反して未検証 ⬜ 未着手 【中〜高】
+## T2. キャンセル/タイムアウト時の破棄がコメントの主張に反して未検証 ✅ 実装反映済み（2026-05-31）【中〜高】
 
 ### 問題
 `RunAsync_異常系_ApiExecutor実行キャンセル確認_01` / `_タイムアウトキャンセル確認_01` のコメント
 （L460-468 / L516-525）は「リソースの即時解放が保証される／検証できる」と書いているが、
-実テストは `OperationCanceledException` のスローのみをアサートし、`DisposeAsync` 呼び出しは確認していない。
-`ServiceCancelStub` / `ServiceTimeoutStub` は破棄追跡フラグも持たない。
+実テストは `OperationCanceledException` のスローのみをアサートし、`DisposeAsync` 呼び出しは確認していなかった。
+`ServiceCancelStub` / `ServiceTimeoutStub` は破棄追跡フラグも持たなかった。
 → コメントとテスト内容のミスマッチ（実装側 review-notes が重視する「コメントと実装の不一致」と同種）。
 
-### 対応案
-- 破棄追跡（`static bool IsDisposed`）付きのキャンセル用スタブにして、例外スロー後に `IsDisposed == true` を assert。
-  （実装は `await using` で破棄されるため通るはず。これで「即時解放」の主張を実証できる）
-- もしくは、検証しないならコメントの「保証/検証できる」表現を実態に合わせて弱める。
+### 採用した対応
+- `ServiceCancelStub` / `ServiceTimeoutStub` に破棄追跡フラグ `static bool IsDisposed` を追加し、
+  `DisposeAsync` を override して `true` をセット。
+- 各テストの Arrange で `IsDisposed = false` にリセットし、例外スロー後に
+  `Assert.True(...IsDisposed)` を追加。
+- ApiExecutor の `await using (service)` が例外（キャンセル含む）でブロックを抜ける瞬間に `DisposeAsync` を
+  呼ぶため、両テストとも緑化を確認（＝コメントが主張していた「即時解放」を実証）。
+
+### 補足
+- 今回は既存ロジックの置き換えではなく「破棄追跡フラグと assert の追加」だが、担当者の意向で変化点を後日
+  確認できるよう `#if true / #else / #endif` で残置（T1 と同方針）。
+- コメント中の「`ApiExecutor` 内の `using var scope`」表現は現行実装（`await using (service)`）と不一致のまま
+  据え置き。これは **T6（コメントと実装の不一致）** でまとめて正確化する。
 
 ---
 
@@ -203,7 +212,7 @@ DBやJSONが無い環境では失敗・遅延し、テストスイートが herm
 
 ---
 
-## T6. コメントと実装の不一致 ⬜ 未着手 【中】
+## T6. コメントと実装の不一致 🟡 一部対応（2026-05-31）【中】
 
 ### 問題
 現行 ApiExecutor は DI/scope を使わず `await using (service)` + `Activator` だが、テストコメントが
@@ -215,6 +224,24 @@ DBやJSONが無い環境では失敗・遅延し、テストスイートが herm
 
 ### 対応案
 - 上記コメントを現行実装（`await using (service)` / Activator / 実際のスタブ名）に合わせて修正。
+
+### 先行対応済み（2026-05-31）：`RunAsync_異常系_ApiExecutor実行キャンセル確認_01` の3件
+T2 対応の流れで、当該テストの解説コメントを実装と突き合わせて以下を訂正済み。
+1. 「`using var scope`」→ `await using (service)`（DisposeAsync を呼ぶ主体を正しく記述。
+   あわせて本番では DB セッション解放、本テストでは `ServiceCancelStub.IsDisposed` で破棄検証、を明記）。
+2. 実在しない「`B1Service_CancelStub`」→ 実体の `ServiceCancelStub`。
+3. 「`B1Service` 側のループ」→ サービス（`ServiceCancelStub`）側のループ。
+
+補足：
+- タイムアウト確認_01 のコメントは「`await using`」と正しく記述されており、T2 の破棄アサート追加で
+  「破棄を検証する」記述も実裏付けが取れた状態（訂正不要）。
+- `cts.Token` を第3引数で渡しつつ `stream.WithCancellation(cts.Token)` も付けているのは機能的に冗長
+  （二重指定）だが害はなく、コメントの「残して問題ない」は妥当。整理は任意。
+
+### 残り（未対応）
+- L41-43（クラス先頭の解説コメント）の「DIスコープの連動」「`using var scope`」。
+- その他テスト全体に残る旧DI/scope 由来の表現の総点検。
+  → ApiExecutor 分の他テストを一通り見た後、まとめて正確化する。
 
 ---
 
@@ -300,3 +327,9 @@ DBに触れないスタブテストも config 必須になり、結合設定に�
   強化により `OracleErrorStub.CreateOracleException` のコンストラクタ選択バグ（`FirstOrDefault` で誤ったctorを掴み
   `TargetParameterCountException`／従来テストは誤った理由でパスしていた）が表面化し、5引数ctorの型指定取得に修正。
   `OracleException` が sealed である事実に基づきコメント訂正。修正前後は `#if true/#else/#endif` で一時残置。
+- 2026-05-31: T2 を実装反映・テスト緑化（✅）。`ServiceCancelStub`/`ServiceTimeoutStub` に `IsDisposed` 追跡を追加し、
+  キャンセル/タイムアウト時も `await using` でサービスが破棄されることを assert。変化点は `#if true/#else/#endif` で残置。
+  コメントの「using var scope」表現の正確化は T6 へ送り。
+- 2026-05-31: T6 を一部先行対応（🟡）。`RunAsync_異常系_ApiExecutor実行キャンセル確認_01` のコメント3件を訂正
+  （①`using var scope`→`await using (service)`、②`B1Service_CancelStub`→`ServiceCancelStub`、③`B1Service 側のループ`→
+  サービス側）。L41-43 ほか残りの旧DI/scope 表現は ApiExecutor 分を見終えた後にまとめて正確化予定。
