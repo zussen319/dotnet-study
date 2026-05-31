@@ -1,4 +1,259 @@
-﻿using Oracle.ManagedDataAccess.Client;
+﻿#if true
+using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
+using ServiceApi.Requests;
+using ServiceApi.Responses;
+using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
+
+namespace ServiceApi.Services;
+
+/*
+ * サービスクラス（基底）
+ */
+public abstract class ServiceBase<TRequest, TResponse>
+    : IApiService<TRequest, TResponse>, IDisposable
+    where TRequest : RequestBase
+    where TResponse : ResponseBase {
+    // Oracleコネクション
+    protected OracleConnection Connection { get; }
+
+    // DB取得時のフェッチ行数指定
+    protected int FetchRows { get; }
+
+    // コンストラクタ
+    protected ServiceBase(string connectionString, int fetchRows = ApiConstants.DefaultFetchRows)
+    {
+        // DBフェッチ行数：1以上の値を設定
+        this.FetchRows = fetchRows <= 0
+            ? throw new ArgumentOutOfRangeException(
+                nameof(fetchRows), "fetchRowsは1以上の整数を指定してください。")
+            : fetchRows;
+
+        // DB接続
+        this.Connection = new OracleConnection(connectionString);
+    }
+
+    // サービス実行メソッド（Execute）：具象クラスに実装を強制する
+    public abstract IAsyncEnumerable<TResponse> ExecuteAsync(
+        IEnumerable<TRequest> requests,
+        CancellationToken ct = default);
+
+    // =========================================================================
+    // 【map：1レコード→1オブジェクト】用の検索
+    //   行を1件読むごとにmapFuncでレスポンスへ変換して返す
+    // =========================================================================
+
+    // (1) bindActionなし
+    protected IAsyncEnumerable<TResponse> ExecuteQueryAsync(
+        string sql,
+        IEnumerable<TRequest> requests,
+        Func<DbDataReader, TResponse> mapFunc,
+        CancellationToken ct = default)
+        => ExecuteQueryAsync(sql, requests, (_, _) => { }, mapFunc, ct);
+
+    // (2) bindActionあり
+    protected IAsyncEnumerable<TResponse> ExecuteQueryAsync(
+        string sql,
+        IEnumerable<TRequest> requests,
+        Action<OracleParameterCollection, TRequest> bindAction,
+        Func<DbDataReader, TResponse> mapFunc,
+        CancellationToken ct = default)
+    {
+        // 「map（1行→1レスポンス）」を、汎用集約「group」の特殊形として表現する
+        async IAsyncEnumerable<TResponse> groupFunc(IAsyncEnumerable<DbDataReader> rows)
+        {
+            await foreach (DbDataReader reader in rows) {
+                yield return mapFunc(reader);
+            }
+        }
+
+        return ExecuteQueryAsync(sql, requests, bindAction, groupFunc, ct);
+    }
+
+    // =========================================================================
+    // 【group：複数レコード→1オブジェクト】用の検索
+    //   1リクエスト分の行ストリームをgroupFuncに渡し、グルーピング集約を委ねる
+    // =========================================================================
+
+    // (3) bindActionなし
+    protected IAsyncEnumerable<TResponse> ExecuteQueryAsync(
+        string sql,
+        IEnumerable<TRequest> requests,
+        Func<IAsyncEnumerable<DbDataReader>, IAsyncEnumerable<TResponse>> groupFunc,
+        CancellationToken ct = default)
+        => ExecuteQueryAsync(sql, requests, (_, _) => { }, groupFunc, ct);
+
+    /*
+     * (4) すべての検索処理のコアループ
+     * OracleCommandはループ外で1回だけ生成し、リクエスト間ではパラメータのみ入れ替える
+     * （カーソル/パース再利用）
+     */
+    protected virtual async IAsyncEnumerable<TResponse> ExecuteQueryAsync(
+        string sql,
+        IEnumerable<TRequest> requests,
+        Action<OracleParameterCollection, TRequest> bindAction,
+        Func<IAsyncEnumerable<DbDataReader>, IAsyncEnumerable<TResponse>> groupFunc,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        // 接続状態を確認
+        if (this.Connection is { State: ConnectionState.Closed }) {
+            await this.Connection.OpenAsync(ct);
+        }
+
+        // コマンド作成
+        // ループ外で1回だけ生成し、リクエスト間はパラメータのみ入れ替える
+        // SQL解析(Parse)コストを抑えるため
+        /*
+         * foreachループの外側でOracleCommandをusing生成することにより
+         * 同じSQL文であればOracle側でのカーソル/パース再利用が促され
+         * バインドパラメータだけを入れ替えて実行することができる
+         */
+        using OracleCommand command = new(sql, this.Connection) { BindByName = true };
+
+        foreach (TRequest request in requests) {
+            // リクエスト境界でキャンセルを確認
+            // キャンセル要求を受け取ったら例外をスローしループを抜ける
+            /*
+             * ループの開始直後（ct.ThrowIfCancellationRequested()）と
+             * フェッチ処理（reader.ReadAsync(ct)）の両方にCancellationTokenを適用する
+             * 大量のリクエスト配列が渡された場合でも安全かつ迅速に中断が可能となる
+             */
+            ct.ThrowIfCancellationRequested();
+
+            // パラメータを入れ替えるだけで同一コマンドを再実行する
+            command.Parameters.Clear();
+            bindAction(command.Parameters, request);
+
+            // 1リクエスト分の行ストリームをgroupFuncへ渡し、集約結果を流す
+            // readerの生成・寿命はこのコアループ内（ReadRowsAsync）で完全に閉じる
+            await foreach (TResponse response in groupFunc(ReadRowsAsync(command, ct))) {
+                yield return response;
+            }
+        }
+        // 1リクエストが終わるたびにreaderがDisposeされ、
+        // 全リクエスト終了時にcommandがDisposeされる
+    }
+
+    /*
+     * DB検索（ExecuteReaderAsync）を実行する
+     * 1回のコマンド実行が返す行を列挙する（FetchSize最適化込み）
+     * readerはリクエスト単位でusingし、列挙終了（またはbreak）時に必ずクローズする
+     * ※yield returnするreaderは行ごとに同一インスタンス。即時消費専用（保持・蓄積は禁止）
+     *
+     * 〔FetchSize最適化メモ〕
+     *   reader.FetchSize = reader.RowSize * FetchRows により、1回の通信でまとめて取得する
+     *   バッファサイズ（バイト数）を最適化し、SQL*Netのラウンドトリップ回数を削減する
+     *   FetchRowsは100程度から調整するのが目安
+     */
+    private async IAsyncEnumerable<DbDataReader> ReadRowsAsync(
+        OracleCommand command,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        /*
+         * ループ内でusingすることで、次リクエストのExecuteReaderAsyncに移る前に
+         * 現在のreaderがクローズされる（Oracleの最大オープンカーソル数制限の回避）
+         */
+        using OracleDataReader reader = await command.ExecuteReaderAsync(ct);
+
+        // FetchSize最適化（確定したRowSizeを使用）
+        // ExecuteReaderAsync実行により確定したRowSizeを使ってFetchSizeを最適化する
+        /*
+         * FetchRows (まとめて取得する行数) は100-500程度が一般的。
+         * 対象のテーブルが非常に「横に長い（カラム数が多い、あるいは1カラムの定義サイズが大きい）」
+         * 場合はRowSize自体が大きくなる。その際、あまり行数を大きくしすぎると
+         * 1回の通信で数MBものメモリを消費し、逆にスワップが発生して遅くなる場合がある。
+         * まずは100程度で試してみて、本番環境のネットワーク遅延が大きい (DBサーバーが遅い) 場合は
+         * この数値を徐々に増やして調整するのがよい。
+         * ベストプラクティスでは、1つのクエリにつき1MB-2MB程度のバッファを確保するのが
+         * 最もコストパフォーマンスが良い (速度向上の幅が大きくメモリ負荷が低い)とされる。
+         * RowSizeが小さい (例：100 bytes) 場合: FetchRows = 10000 くらいまで上げてもOK。
+         * RowSizeが大きい (例：10,000 bytes) 場合: FetchRows = 100 くらいが適切。
+         * 特別な制約がない限り、初期設定としては100程度が推奨。
+         * デフォルト状態 (FetchSize = 65536 バイトなど) に比べて
+         * ネットワーク通信回数が削減され高速化が期待できる。
+         */
+        reader.FetchSize = reader.RowSize * this.FetchRows;
+        /*
+         * reader.FetchSizeの実際の値は、ExecuteReaderAsyncが実行された直後に
+         * C#のコード上で直接ミリバイト（MB）単位などに計算して出力することができる。
+         * reader.RowSizeは、クエリが選択した1行あたりの推定バイト数（Oracleデータ型から
+         * 算出されるサイズ）を保持しているため、設定後の値をログ等に書き出すのが最もシンプルで確実。
+         */
+        /*
+         * ODP.NET（Oracle.ManagedDataAccess）において、FetchSizeプロパティは
+         * クライアント側のメモリ上に確保するキャッシュバッファのサイズ（バイト数）を表す
+         */
+        // 実際に設定されたバッファサイズ（バイト数）を取得・計算
+        //long actualBufferBytes = reader.FetchSize;
+        //double actualBufferMegaBytes = (double)actualBufferBytes / (1024 * 1024);
+
+        // コンソールやログに出力して確認
+        //Console.WriteLine($"[Debug] 1行あたりのサイズ (RowSize): {reader.RowSize} バイト");
+        //Console.WriteLine($"[Debug] 設定したフェッチ行数 (FetchRows): {this.FetchRows} 件");
+        //Console.WriteLine($"[Debug] 確保されたメモリバッファサイズ: {actualBufferBytes} バイト ({actualBufferMegaBytes:F2} MB)");
+
+        /*
+         * Oracleデータベース側（V$基準）から観察する方法
+         * アプリケーションが期待通りにバッファを確保し、データベースとの通信回数を削減できているかを
+         * 客観的に証明したい場合は、Oracleの動的パフォーマンス・ビュー（V$SESSTAT）を監視する。
+         * 具体的には、対象の検索処理を実行する前と後で、以下のSQLを実行して統計情報の変化（差分）を確認する。
+         * 
+         * ■ 確認用SQL
+         * SELECT 
+         *     n.name AS statistic_name, 
+         *     s.value AS statistic_value
+         * FROM 
+         *     v$mystat s
+         * JOIN 
+         *     v$statname n ON s.statistic# = n.statistic#
+         * WHERE 
+         *     n.name IN ('SQL*Net roundtrips to/from client', 'bytes sent via SQL*Net to client');
+         * 
+         * ■ 注目すべき項目
+         * - SQL*Net roundtrips to/from client（通信回数）
+         *   FetchRows（FetchSize）を大きくすると、このラウンドトリップ回数が劇的に減少する。
+         *   もし1万件のデータを取得する際、このカウントが「1」や「数回」で収まっていれば
+         *   狙い通り巨大なバッファにデータを一括で詰め込んでクライアントに送信できていることが確認できる。
+         * - bytes sent via SQL*Net to client（送信バイト数）
+         *   実際にネットワークを流れたデータサイズ。これを確認することで、計算したバッファサイズに対して
+         *   どれだけの密度でデータが送られてきたかを比較検証できる。
+         */
+        while (await reader.ReadAsync(ct)) {
+            // 呼び出し元（groupFunc）へ1行ずつ配送する
+            /*
+             * 従来の"List<TResponse>"を返す方式と"IAsyncEnumerable<TResponse>"
+             * を返す方式の最大の違いは、メモリ上でのデータの持ち方。
+             * ・List方式: 100万件のDB検索結果がある場合、100万件すべてをメモリ (List) に
+             *   格納し終わるまで、呼び出し元にはデータは一切渡されない。
+             * ・ストリーム方式: DBから1行読み込むごとに、そのデータが即座に呼び出し元へ
+             *  「配送」される。"yield return"によりこの「配送」を実現する。
+             * "yield return"はメソッドを終了せずに、「一旦この値を呼び出し元に渡し
+             * 次の要求があったら続きから再開する」という動作をする。
+             */
+            yield return reader;
+        }
+    }
+
+    // 同期的リソース解放
+    public void Dispose()
+    {
+        if (this.Connection is { State: ConnectionState.Open }) { this.Connection.Close(); }
+        this.Connection?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    // 非同期的リソース解放
+    public async ValueTask DisposeAsync()
+    {
+        if (this.Connection is { State: ConnectionState.Open }) { await this.Connection.CloseAsync(); }
+        if (this.Connection is not null) { await this.Connection.DisposeAsync(); }
+        GC.SuppressFinalize(this);
+    }
+}
+#else
+using Oracle.ManagedDataAccess.Client;
 using ServiceApi.Common;
 using ServiceApi.Requests;
 using ServiceApi.Responses;
@@ -223,3 +478,4 @@ public abstract class ServiceBase<TRequest, TResponse> : IApiService<TRequest, T
         GC.SuppressFinalize(this);
     }
 }
+#endif

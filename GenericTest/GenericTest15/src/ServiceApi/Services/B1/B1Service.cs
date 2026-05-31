@@ -37,7 +37,7 @@ public class B1Service(string connectionString, int fetchRows = ApiConstants.Def
         };
 
         // マッピング用の式を定義
-        Func<DbDataReader, B1Response> mapFunc = r => new B1Response 
+        Func<DbDataReader, B1Response> mapEmp = r => new B1Response 
         {
 #if true
             // この記述スタイルの方が効率がよい
@@ -107,6 +107,6 @@ public class B1Service(string connectionString, int fetchRows = ApiConstants.Def
          * ExecuteQueryAsync（基底クラス側）が非同期ストリームの実体を作成して返却するため
          * 具象クラスは単なる「パス（中継役）」として振る舞えばよい
          */
-        return ExecuteQueryAsync(sql, requests, bindAction, mapFunc, ct);
+        return ExecuteQueryAsync(sql, requests, bindAction, mapEmp, ct);
     }
 }
