@@ -4,7 +4,7 @@
 - **実装対象（参考）**: `GenericTest15/src/ServiceApi`（Service / Request / Response 構成、Oracle 接続 SELECT）
 - **環境**: .NET 10 / C# 最新, xUnit, Oracle.ManagedDataAccess.Core
 - **初回レビュー実施日**: 2026-05-31
-- **最終更新日**: 2026-05-31
+- **最終更新日**: 2026-06-02
 
 > このファイルは実装側 `review-notes.md` と対をなす「テスト指摘事項の台帳」です。各項目の `状態` を更新しながら使ってください。
 > レビューは API側のクラス構成に従って進める。**第1弾は `ApiExecutor` クラスのテスト**（本ファイルの対象）。
@@ -49,7 +49,7 @@
 |---|------|------|------|
 | T1 | 高 | OracleException テストのアサートが弱く誤った理由でパスしうる | ✅ 実装反映済み（2026-05-31） |
 | T2 | 中〜高 | キャンセル/タイムアウト時の破棄がコメントの主張に反して未検証 | ✅ 実装反映済み（2026-05-31） |
-| T3 | 中 | `fetchRows` 引き渡し と ct→fetchRows 引数順（src#7）の回帰テスト無し | ⬜ 未着手 |
+| T3 | 中 | `fetchRows` 引き渡し と ct→fetchRows 引数順（src#7）の回帰テスト無し | ✅ 実装反映済み（2026-06-02） |
 | T4 | 中 | ライブDB依存の結合テストが単体と同居・無分類・アサート弱 | ⬜ 未着手 |
 | T5 | 中 | ログ分岐（MSG002/003/005, DB/Systemエラー文言）が未検証 | ⬜ 未着手 |
 | T6 | 中 | コメントと実装の不一致（旧DI/scope・存在しないスタブ名） | 🟡 一部対応（キャンセル確認_01 の3件 2026-05-31） |
@@ -167,19 +167,34 @@
 
 ---
 
-## T3. fetchRows 引き渡し と ct→fetchRows 引数順（src#7）の回帰テスト無し ⬜ 未着手 【中】
+## T3. fetchRows 引き渡し と ct→fetchRows 引数順（src#7）の回帰テスト無し ✅ 実装反映済み（2026-06-02）【中】
 
 ### 問題
 ApiExecutor は `fetchRows` を `Activator.CreateInstance` の第2引数として渡すが、全スタブが受け取って
-無視するため、**既定値100が渡るか／明示値が伝わるか**が一切検証されていない。
-実装側 review-notes §7 で「`ct` を `fetchRows` より前に置く」と意図的に決めた引数順を守るガードも無い。
+無視するため、**既定値100が渡るか／明示値が伝わるか**が一切検証されていなかった。
+実装側 review-notes §7 で「`ct` を `fetchRows` より前に置く」と意図的に決めた引数順を守るガードも無かった。
 
-### 対応案
-- コンストラクタで受け取った `fetchRows` を `static` に記録するスタブを用意し、
-  (a) 既定 `100`（ApiConstants.DefaultFetchRows）が渡る、
-  (b) `fetchRows:` を名前付き指定したとき伝播する、
-  (c) `ct` のみ位置指定で呼び出せる（`fetchRows` を飛ばせる）、を確認するテストを追加。
-- (c) は §7 の設計（指定頻度が高い ct を前）を回帰的に保護する。
+### 採用した対応
+- コンストラクタで受け取った `fetchRows` を `static CapturedFetchRows` に記録するスタブ
+  `FetchRowsCaptureStub`（`TestServiceBase` 継承）を追加。
+- 以下3テストを追加し、いずれも緑化を確認：
+  - (a) `RunAsync_正常系_fetchRows既定値がサービスに渡る_01` … fetchRows 省略時に
+    `ApiConstants.DefaultFetchRows`(100) が渡る。
+  - (b) `RunAsync_正常系_fetchRows明示指定がサービスに渡る_01` … `fetchRows: 500` が伝播する。
+  - (c) `RunAsync_正常系_ct位置指定でfetchRowsは既定のまま_01` … `ct` を第3引数（位置指定）で渡しても
+    fetchRows は既定のまま。§7 の引数順（ct を前）に対する回帰ガード
+    （順序が逆なら CancellationToken を int 引数に渡せずコンパイルエラーになる）。
+- サービスは最初の `MoveNextAsync`（`await foreach` 開始）時に `Activator.CreateInstance` で生成されるため、
+  ストリームを列挙すればコンストラクタが呼ばれ fetchRows を捕捉できる。
+
+### 補足
+- `ApiConstants` 参照のため `using ServiceApi.Common;` を追加（既定値はリテラル直書きせず
+  `ApiConstants.DefaultFetchRows` 参照とし、既定値変更時も回帰検知できるようにした）。
+- 純粋な追加のため `#if true/#else/#endif` 残置は不要（修正前が存在しない）。
+- (a) と (c) はアサート結果が同じ（既定100）だが狙いが異なる（(a)=素の既定値、(c)=ct位置指定で
+  fetchRows を巻き込まない＝§7 の本質確認）ため両方残置。
+- 静的状態（`CapturedFetchRows`）は各テスト Arrange でリセット。T9（静的状態の脆さ）と同構図だが
+  クラス内直列実行のため現状は問題なし。
 
 ---
 
@@ -333,3 +348,5 @@ DBに触れないスタブテストも config 必須になり、結合設定に�
 - 2026-05-31: T6 を一部先行対応（🟡）。`RunAsync_異常系_ApiExecutor実行キャンセル確認_01` のコメント3件を訂正
   （①`using var scope`→`await using (service)`、②`B1Service_CancelStub`→`ServiceCancelStub`、③`B1Service 側のループ`→
   サービス側）。L41-43 ほか残りの旧DI/scope 表現は ApiExecutor 分を見終えた後にまとめて正確化予定。
+- 2026-06-02: T3 を実装反映・テスト緑化（✅）。`FetchRowsCaptureStub` を追加し、(a)既定値100/(b)明示指定500/
+  (c)ct位置指定で fetchRows 据え置き の3テストを追加。`using ServiceApi.Common;` 追加。引数順 src#7 の回帰ガードを確立。

@@ -1,4 +1,5 @@
 ﻿using Oracle.ManagedDataAccess.Client;
+using ServiceApi.Common;
 using ServiceApi.Requests;
 using ServiceApi.Requests.A1;
 using ServiceApi.Requests.B1;
@@ -681,6 +682,96 @@ public class TEST_ApiExecutor
         });
     }
 #endif
+
+    /*
+     * コンストラクタで受け取った fetchRows を記録するスタブを用意し
+     * (a) 既定 100
+     * (b) fetchRows: 名前付き指定の伝播
+     * (c) ctのみ位置指定で呼べる
+     * を確認するテストを追加する
+     */
+    // --- コンストラクタに渡された fetchRows を捕捉するスタブ ---
+    public class FetchRowsCaptureStub : TestServiceBase<MockRequest, MockResponse> {
+        // ApiExecutor → Activator 経由でコンストラクタに渡された fetchRows を記録する
+        public static int CapturedFetchRows { get; set; }
+
+        // 第2引数 fetchRows を捕捉（基底 TestServiceBase は値を検証せず無視する）
+        public FetchRowsCaptureStub(string connStr, int fetchRows = 0) : base(connStr, fetchRows)
+        {
+            CapturedFetchRows = fetchRows;
+        }
+
+        public override async IAsyncEnumerable<MockResponse> ExecuteAsync(
+            IEnumerable<MockRequest> requests,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            yield return new MockResponse { Id = 1 };
+            await Task.Yield();
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_正常系_fetchRows既定値確認_01()
+    {
+        // 引数を何も足さない素の呼び出しで既定値が渡ること
+
+        // Arrange
+        FetchRowsCaptureStub.CapturedFetchRows = 0;
+
+        // Act
+        // fetchRows を指定せずに呼び出す → ApiConstants.DefaultFetchRows が渡るはず
+        IAsyncEnumerable<MockResponse> stream =
+            new ApiExecutor().RunAsync<FetchRowsCaptureStub, MockRequest, MockResponse>(
+                _connectionString, [new MockRequest()]);
+        await foreach (MockResponse _ in stream) { }
+
+        // Assert
+        Assert.Equal(ApiConstants.DefaultFetchRows, FetchRowsCaptureStub.CapturedFetchRows);
+    }
+
+    [Fact]
+    public async Task RunAsync_正常系_fetchRows明示指定確認_01()
+    {
+        // Arrange
+        FetchRowsCaptureStub.CapturedFetchRows = 0;
+        const int expected = 500;
+
+        // Act
+        // fetchRows を名前付きで明示指定（ct は省略）
+        IAsyncEnumerable<MockResponse> stream =
+            new ApiExecutor().RunAsync<FetchRowsCaptureStub, MockRequest, MockResponse>(
+                _connectionString, [new MockRequest()], fetchRows: expected);
+        await foreach (MockResponse _ in stream) { }
+
+        // Assert
+        Assert.Equal(expected, FetchRowsCaptureStub.CapturedFetchRows);
+    }
+
+    [Fact]
+    public async Task RunAsync_正常系_ct位置指定_fetchRows既定値確認_01()
+    {
+        // ctを位置指定で渡してもfetchRowsを巻き込まないこと
+        // Arrange
+        FetchRowsCaptureStub.CapturedFetchRows = 0;
+        using CancellationTokenSource cts = new(); // キャンセルはしない
+
+        // Act
+        /*
+         * ct を第3引数（位置指定）で渡し、fetchRows は省略する。
+         * シグネチャが (..., CancellationToken ct, int fetchRows) の順（src review-notes §7）
+         * であることのコンパイル時／実行時の回帰ガード。
+         * もし ct と fetchRows の順序が逆だと、CancellationToken を int 引数に渡せず
+         * コンパイルエラーになる（＝引数順を破壊する変更を検知できる）。
+         */
+        IAsyncEnumerable<MockResponse> stream =
+            new ApiExecutor().RunAsync<FetchRowsCaptureStub, MockRequest, MockResponse>(
+                _connectionString, [new MockRequest()], cts.Token);
+        await foreach (MockResponse _ in stream) { }
+
+        // Assert
+        // ctを渡してもfetchRowsは既定値(100)のまま据え置かれること
+        Assert.Equal(ApiConstants.DefaultFetchRows, FetchRowsCaptureStub.CapturedFetchRows);
+    }
 
     /*
      * このテストコードにおける最大の課題は
