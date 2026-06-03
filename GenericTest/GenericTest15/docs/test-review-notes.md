@@ -1,10 +1,13 @@
+<div lang="ja"></div>
+<style>body{font-family:"Yu Gothic UI","Meiryo","BIZ UDGothic",sans-serif;}</style>
+
 # ServiceApi テストコード レビュー記録
 
 - **対象**: `GenericTest15/tests/ServiceApi.Tests` 配下（API側のテストコード）
 - **実装対象（参考）**: `GenericTest15/src/ServiceApi`（Service / Request / Response 構成、Oracle 接続 SELECT）
 - **環境**: .NET 10 / C# 最新, xUnit, Oracle.ManagedDataAccess.Core
 - **初回レビュー実施日**: 2026-05-31
-- **最終更新日**: 2026-06-02
+- **最終更新日**: 2026-06-03
 
 > このファイルは実装側 `review-notes.md` と対をなす「テスト指摘事項の台帳」です。各項目の `状態` を更新しながら使ってください。
 > レビューは API側のクラス構成に従って進める。**第1弾は `ApiExecutor` クラスのテスト**（本ファイルの対象）。
@@ -50,7 +53,7 @@
 | T1 | 高 | OracleException テストのアサートが弱く誤った理由でパスしうる | ✅ 実装反映済み（2026-05-31） |
 | T2 | 中〜高 | キャンセル/タイムアウト時の破棄がコメントの主張に反して未検証 | ✅ 実装反映済み（2026-05-31） |
 | T3 | 中 | `fetchRows` 引き渡し と ct→fetchRows 引数順（src#7）の回帰テスト無し | ✅ 実装反映済み（2026-06-02） |
-| T4 | 中 | ライブDB依存の結合テストが単体と同居・無分類・アサート弱 | ⬜ 未着手 |
+| T4 | 中 | ライブDB依存の結合テストが単体と同居・無分類・アサート弱 | ✅ 対応（現状維持＋整理 2026-06-03） |
 | T5 | 中 | ログ分岐（MSG002/003/005, DB/Systemエラー文言）が未検証 | ⬜ 未着手 |
 | T6 | 中 | コメントと実装の不一致（旧DI/scope・存在しないスタブ名） | 🟡 一部対応（キャンセル確認_01 の3件 2026-05-31） |
 | T7 | 低〜中 | `requests is null` 経路が未テスト | ⬜ 未着手 |
@@ -198,19 +201,39 @@ ApiExecutor は `fetchRows` を `Activator.CreateInstance` の第2引数とし�
 
 ---
 
-## T4. ライブDB依存の結合テストが単体と同居・無分類・アサート弱 ⬜ 未着手 【中】
+## T4. ライブDB依存の結合テストが単体と同居・無分類・アサート弱 ✅ 対応（現状維持＋整理 2026-06-03）【中】
 
-### 問題
+### 問題（当初）
 `〜Service実行_01`（A1/B1/C1/C2 実DB）と `〜Service_Test実行_01`（JSON読込＋`Task.Delay`）が、
 純粋なスタブ単体テストと同じクラスにあり、`[Trait]`/Skip 等の区別なく、`Assert.NotEmpty` のみ。
 DBやJSONが無い環境では失敗・遅延し、テストスイートが hermetic でない。
 
-### 対応案
-- 結合テストは `[Trait("Category","Integration")]` や別コレクション、または Skip で分離する。
-- アサートを件数/値まで強化する余地あり。
-- 範囲整理：ご方針（現状B1のみ厳密、A1/C1/C2は簡易）に照らすと、A1/C1/C2 の実行テストは
-  「ApiExecutor のテスト」というより各サービスのスモークテスト。ApiExecutor テストの範囲としては過剰で、
-  位置づけ（移設 or 削減）の検討を推奨。
+### 確定した方針（担当者判断）
+**「DBサービス起動」を前提条件としてよい**ため、A1/B1/C1/C2 の実サービス（`XXService`）と
+テスト用サービス（`XXService_Test`）の**最小限の稼働確認（スモーク）を簡易に実行できる状態で残す**。
+複雑化を避けることを優先し、当初案は以下のとおり**いずれも見送り**とした。
+
+- 分離/分類（`[Trait]`/別コレクション/別プロジェクト）… 見送り（DB起動前提でよく、複雑化を避ける）
+- アサート強化（件数・値の突合）… 見送り（`NotEmpty`＝最小稼働確認のまま。正しさは `TEST_B1Service` が担当）
+- A1/C1/C2 の実行テスト削除 … 見送り（4サービスのスモークを残したいというご意向）
+- 配置（`TEST_ApiExecutor` のまま）… 現状維持（強いこだわりなし）
+
+### 実施した軽微整理（2026-06-03）
+1. **csproj の dangling 指定を削除**：`<None Update="Services\B1\B1Service_Test.json">` は実体ファイルが
+   存在せず（`Services/` 配下に json なし）、空フォルダ `bin/Services/B1` を作るだけの no-op だった。
+   実際に読まれる `B1Service_Test.json` はルートの `<None Update="B1Service_Test.json">` が bin 直下へ供給
+   （こちらは残置）。削除してもテスト動作に影響なしを実ファイルで確認済み。
+2. **前提コメント追記**：スモーク群の先頭（`A1Service実行_01` 直前）に「実DBサービス起動前提・
+   `XXService`=実DB / `XXService_Test`=スタブ・正しさは TEST_B1Service 担当・DB未起動時の失敗は想定挙動」を明記。
+
+### 誤指摘の訂正（重要）
+レビュー初回に「`A1Service_Test.json` 不在で `RunAsync_正常系_A1Service_Test実行_01` が壊れている」と
+指摘したが、これは**誤り**。`A1Service_Test` は `ExecuteAsync` を override してデータをコード生成しており
+（[A1Service_Test.cs](../src/ServiceApi/Services/A1/A1Service_Test.cs)）、JSON を読まないため `A1Service_Test.json` は不要。
+B1/C1/C2 の `_Test` は基底 `TestServiceBase` の JSON 読込方式（各 `*Service_Test.json` 必要・存在・コピー済み）。
+
+### 残課題（任意・将来）
+- 将来「本番想定」フェーズで結合テストを増やす場合は、その時点で `[Trait]` 分類や別プロジェクト化を再検討する。
 
 ---
 
@@ -350,3 +373,6 @@ DBに触れないスタブテストも config 必須になり、結合設定に�
   サービス側）。L41-43 ほか残りの旧DI/scope 表現は ApiExecutor 分を見終えた後にまとめて正確化予定。
 - 2026-06-02: T3 を実装反映・テスト緑化（✅）。`FetchRowsCaptureStub` を追加し、(a)既定値100/(b)明示指定500/
   (c)ct位置指定で fetchRows 据え置き の3テストを追加。`using ServiceApi.Common;` 追加。引数順 src#7 の回帰ガードを確立。
+- 2026-06-03: T4 を「現状維持＋軽微整理」で決着（✅）。DB起動前提のスモーク確認として4サービス分を残置（分離/分類・
+  アサート強化・削除はいずれも見送り）。csproj の dangling 指定（`Services\B1\B1Service_Test.json`）を削除、スモーク群に
+  前提コメントを追記。初回の「A1Service_Test.json 不在で壊れている」指摘は誤りと判明（A1_Test はコード生成方式で JSON 不要）と訂正。

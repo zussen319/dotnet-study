@@ -261,6 +261,14 @@ public class TEST_ApiExecutor
         Assert.True(ExceptionStub.IsDisposed, "例外発生時にサービスが破棄されていません。");
     }
 
+    /*
+     * 以下は ApiExecutor の汎用ディスパッチ＋各サービスの「最小稼働確認（スモーク）」。
+     * 前提：実DBサービスが起動していること（XXService は実DB / XXService_Test はスタブ）。
+     *   - XXService実行       … 実DBに接続して結果が返ることだけを確認（NotEmpty）
+     *   - XXService_Test実行  … スタブ（B1/C1/C2 は *Service_Test.json を読込、A1 はコード生成）
+     * 正しさ（件数・値の突合）は TEST_B1Service が担当。ここは結線確認に限定し深いアサートは行わない。
+     * ※DB未起動時はXXService実行系が失敗するが、これは想定挙動。
+     */
     [Theory]
     [InlineData(10)]
     public async Task RunAsync_正常系_A1Service実行_01(decimal value)
