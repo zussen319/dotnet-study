@@ -1,6 +1,3 @@
-<div lang="ja"></div>
-<style>body{font-family:"Yu Gothic UI","Meiryo","BIZ UDGothic",sans-serif;}</style>
-
 # ServiceApi テストコード レビュー記録
 
 - **対象**: `GenericTest15/tests/ServiceApi.Tests` 配下（API側のテストコード）

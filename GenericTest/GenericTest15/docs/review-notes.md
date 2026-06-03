@@ -1,6 +1,3 @@
-<div lang="ja"></div>
-<style>body{font-family:"Yu Gothic UI","Meiryo","BIZ UDGothic",sans-serif;}</style>
-
 # ServiceApi コードレビュー記録
 
 - **対象**: `GenericTest15/src/ServiceApi` 配下（API側。Service / Request / Response 構成、Oracle 接続 SELECT）
