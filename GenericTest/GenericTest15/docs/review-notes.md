@@ -456,6 +456,22 @@ responseStream = ApiExecutor.RunAsync<B1Service_Test, B1Request, B1Response>(con
 - 後日対応予定：**指摘9（`#if true/#else` 削除）** … B1/C1/C2 の旧コードを「完全に不要」と判断した段階で削除。
 - 残る議論候補: **補（reader 同一インスタンス `yield` の注意）** … 唯一の純粋な未着手項目。
 
+## 次回の議論テーマ（2026-06-06 時点・未着手）
+
+「モダンC#構文での具体的な置き換え例」を、本プロジェクトのコードを題材に検討する。
+（一般的な構文一覧は `docs/csharp-modern-syntax.md` を参照）
+
+| # | 対象 | 内容 | 効果/推奨度 |
+|---|------|------|------|
+| 1 | `B1Service` の `mapEmp` | DBNull 判定を**拡張メソッド**（`GetStringOrEmpty`/`GetDecimalOrNull`）に切り出し、`is DBNull or null`（or パターン）で実装。B1/C1/C2 の map 重複削減。レビュー指摘6（桁あふれ対策）も将来ここ1箇所で対応可能に | ★★★ 最も効果大 |
+| 2 | `ServiceBase` / Dispose 系の `is { ... }` パターン | 既にプロパティパターン・`is not null` 採用済みで概ねベスト。基本は**現状維持**（参考確認） | ― 変更不要寄り |
+| 3 | `ServiceBase` コンストラクタの三項 throw（`fetchRows <= 0 ? throw ... : fetchRows`） | `ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fetchRows)`（.NET 8）に置換可。**ただし日本語メッセージを残すなら現状維持** | ★★☆ 要判断 |
+| 4 | `B1Test` の `response.ToString()` | record の自動 ToString。現状で妥当。**変更不要**（参考） | ― |
+| 5 | `B1Test` の `using (StreamWriter ...) { }` | **using 宣言**（C# 8）でネストを1段浅く。Dispose タイミングを明示したいなら現状維持も可 | ★☆☆ 好み |
+| 6 | `ApiConstants` の定数 | 現状がベスト。**変更不要**（参考） | ― |
+
+→ 特に **#1（拡張メソッド + or パターン）** が本命。次回はここから着手するとよい。
+
 ## 作業ログ
 - 2026-05-30: 初回レビュー（指摘1〜10・補を起票）。指摘1・2・10静的化の対応方針を確定。
 - 2026-05-31: 指摘1を実装反映・ビルド確認・本ノート更新。`ExecuteQueryAsync` 名称統一／`ExecuteReaderAsync` 単一箇所化／map・group 用語と命名規約／コメント3層規約を確定。
@@ -468,3 +484,4 @@ responseStream = ApiExecutor.RunAsync<B1Service_Test, B1Request, B1Response>(con
 - 2026-05-31: 指摘10のMSG005コメント崩れを修正。B1Response.DEPTNOは見送り（本番時に考慮）。static化は指摘3とセットで保留。
 - 2026-05-31: 補（reader同一インスタンス）を案A（コメント注意喚起）で対応完了。指摘10のcsproj `<Folder Include>` を削除（ビルド確認済み）。
 - 2026-05-31: 指摘10の `TestServiceBase` JSON名依存を見送り（担当者が認識済み・プロトタイプ段階では対応不要）。
+- 2026-06-06: コーディングスタイル確認（`=>`・演算子の改行位置）。C#標準（演算子・`=>`は継続行の行頭）に沿っており修正箇所なし。`docs/csharp-modern-syntax.md`（一般的なモダン構文メモ）を新規作成。次回テーマ（モダン構文での置き換え例 #1〜6）を起票。
