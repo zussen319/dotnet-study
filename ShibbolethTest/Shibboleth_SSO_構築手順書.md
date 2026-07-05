@@ -21,6 +21,7 @@
 | 0.11 | 2026-07-04 | フェーズ9（メタデータ相互登録・IdPエンドポイントの:8443補正・初回SSO成立）を追記。§12.1に配置注記（C:\opt推奨）、§12.2をネイティブモジュール(ShibNative)確認に修正 | 静的メタデータ方式 |
 | 0.12 | 2026-07-04 | フェーズ10（個人番号をNameIDで渡し`REMOTE_USER`へ）を追記し**全SSO完成**。§13.2の`<MetadataProvider>`配置を訂正（`</Sessions>`の後）、§10.4にmirrored時の`Listen 80/443`無効化を追記、§13.4に反映はTomcat再起動が確実と注記 | NameID方式で個人番号を連携 |
 | 0.13 | 2026-07-04 | フェーズ11（結合テスト・ログ・再起動堅牢性・問題早見表・本番展開メモ）を追記し**全工程完了**。§14.1を訂正（uidはPrincipalNameで定義済み・attribute-resolver.xml変更不要） | 全11フェーズ完了 |
+| 0.14 | 2026-07-05 | スナップショットからの再構築検証で判明した点を反映：§15.3のSession確認URLを`sp.plm-lab.local`に修正、§15.4をログアウト対象外に整理、§15.6にWSL2オンデマンド起動の説明と自動起動策（方法A/B/C）を追記。付録Bに「参照用ファイルバックアップ一覧」と「再現性検証のためのチェックポイント運用」を追記 | 再構築検証の知見を反映 |
 
 ---
 
@@ -1311,7 +1312,7 @@ Get-Date
 | 1 | 保護の発火＋遷移 | 未認証アクセスで IdP ログイン画面（8443）へ遷移 |
 | 2 | 認証 | uid=90001 でログインできる（LDAP 認証成立） |
 | 3 | 復路 | SP に戻り、`whoami.asp` が開ける（セッション確立） |
-| 4 | ステータス | `https://localhost/Shibboleth.sso/Session` に有効なセッションが見える |
+| 4 | ステータス | `https://sp.plm-lab.local/Shibboleth.sso/Session` に有効なセッションが見える（localhost では不可） |
 
 > この時点で `REMOTE_USER` は空でも合格。個人番号を `REMOTE_USER` に載せるのはフェーズ10。
 
@@ -1433,7 +1434,7 @@ iisreset
 |---|----------|----------|
 | 1 | SSO 往復 | ログイン後 `whoami.asp` に戻れる |
 | 2 | 個人番号の受け渡し | `REMOTE_USER = [90001]`（個人番号が入る） |
-| 3 | セッション内容 | `https://localhost/Shibboleth.sso/Session` に NameID/属性が見える |
+| 3 | セッション内容 | `https://sp.plm-lab.local/Shibboleth.sso/Session` に NameID/属性が見える（localhost では不可） |
 
 **これが表示できれば、本手順書の最終目標（個人番号による SSO 連携）は達成**です。
 
@@ -1469,15 +1470,18 @@ iisreset
 
 ### 15.3 セッションの確認
 
-- `https://localhost/Shibboleth.sso/Session` … 現在のセッションの NameID・属性・IdP entityID などが確認できる。
-- `https://localhost/Shibboleth.sso/Status` … SP の稼働状態（`<OK/>`）。
+- `https://sp.plm-lab.local/Shibboleth.sso/Session` … 現在のセッションの NameID・属性・IdP entityID などが確認できる。**必ずログインしたホスト名（`sp.plm-lab.local`）で開く**こと。`https://localhost/...` で開くと、セッション Cookie は `sp.plm-lab.local` に紐づいているため送られず `A valid session was not found.` になる（セッションが無いのではなく、ホスト名違いで Cookie が届かないだけ）。
+- `https://localhost/Shibboleth.sso/Status` … SP の稼働状態（`<OK/>`）。**Status は localhost で可**（acl が `127.0.0.1 ::1`）。Status と Session でアクセスすべきホスト名が異なる点に注意。
 
-### 15.4 ログアウト
+### 15.4 ログアウト（本手順の学習範囲では対象外）
 
-- `https://sp.plm-lab.local/Shibboleth.sso/Logout` にアクセスすると SP セッションが破棄される。
-- その後 `whoami.asp` に再アクセスすると、再びログインが要求される（未認証に戻っている）ことを確認。
+本手順書の学習目的は「SSO（シングルサインオン）の成立」であり、**ログアウト（特に SLO：シングルログアウト）は対象外**とする。終了する場合は**ブラウザ（プライベートウィンドウ）を閉じる**ことで足りる。
 
-> 本構成は SP ローカルのログアウト（`Logout>SAML2 Local`）。IdP 側のセッションは残るため、ログアウト直後の再ログインでパスワード入力を求められないことがある（IdP セッション有効中のため）。完全に切るにはブラウザを閉じる（プライベートウィンドウを閉じる）のが確実。
+補足（仕組み）：
+
+- `<Logout>SAML2 Local</Logout>`（既定）は「まず SAML2 の SLO を試み、だめなら Local」という設定。`/Shibboleth.sso/Logout` にアクセスすると SP は IdP の SLO エンドポイントへ LogoutRequest を送るが、**IdP 5 は既定で SLO プロファイルが整備されていない**ため、IdP 側が `Web Login Service - Error: NoHandlerFoundException`（＝IdP が出す Java/Spring の例外）を返す。
+- ログアウトを SP のローカルのみで完結させたい場合は `<Logout>Local</Logout>` に変更すると `/Shibboleth.sso/Logout` がエラーなく SP セッションを破棄する。ただし **IdP 側のセッションは残る**ため、直後に `whoami.asp` へ再アクセスするとパスワードなしで再ログインされる（SSO 本来の挙動）。完全に切るにはブラウザを閉じる。
+- 完全な SLO（IdP・SP を横断する単一ログアウト）は IdP 側の追加設定が必要で、本手順の範囲外とする。
 
 ### 15.5 ログの読み方
 
@@ -1494,20 +1498,41 @@ iisreset
 
 ### 15.6 再起動後の堅牢性（重要）
 
-学習環境はスリープ無効（§1）だが、**再起動しても自動復旧する**ことを確認しておくと安心です。各サービスが自動起動設定になっているか：
+学習環境はスリープ無効（§1）だが、**再起動後の挙動**を理解しておく。各サービスが自動起動設定になっているか：
 
 - WSL2：`sudo systemctl is-enabled slapd tomcat apache2`（いずれも `enabled`）
 - Windows：`Shibboleth 3 Daemon`（自動）、IIS（自動）
 
-ゲスト Windows を再起動 → WSL2 が起動 → 各サービスが上がる → `https://sp.plm-lab.local/whoami.asp` で再び SSO が通ることを確認します。
+**重要（WSL2 はオンデマンド起動）**：Windows を再起動した直後は、**WSL2 がまだ起動していない**。WSL2 は `wsl.exe` の実行や Ubuntu ターミナルを開いたタイミングで初めて起動する“オンデマンド”方式のため、それまでは中で動く IdP（Tomcat/Apache 8443）・OpenLDAP も動いておらず、ブラウザからは次のようになる：
 
-> mirrored ネットワークや WSL2 のサービスは、`wsl --shutdown` や再起動のたびに立ち上がるはず。もし WSL2 のサービスが上がっていなければ、`sudo systemctl start slapd tomcat apache2` で起動し、`is-enabled` を確認。時刻ずれが疑われる場合は §5.6・§13.5 の要領で確認。
+```
+https://sp.plm-lab.local/whoami.asp
+→ idp.plm-lab.local refused to connect（ERR_CONNECTION_REFUSED）
+```
+
+これは故障ではない。**Ubuntu ターミナルを1回開く（または `wsl` を実行する）と WSL2 が起動し、systemd により slapd・tomcat・apache2 が自動起動 → IdP が応答 → SSO が通る**。`is-enabled` が `enabled` であれば、WSL2 さえ起動すれば中のサービスは自動で上がる（＝再起動堅牢性としては正常）。
+
+**対処：Windows 起動時に WSL2 を自動起動させる**（ターミナルを開かなくても SSO が通るようにする場合）
+
+- **方法A（推奨・確実）**：タスクスケジューラで、ログオン時に WSL2 を常駐起動する。管理者 PowerShell：
+  ```powershell
+  $action  = New-ScheduledTaskAction -Execute "wsl.exe" -Argument "-d Ubuntu-24.04 -u root -e sleep infinity"
+  $trigger = New-ScheduledTaskTrigger -AtLogOn
+  $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Highest
+  Register-ScheduledTask -TaskName "Start-WSL2" -Action $action -Trigger $trigger -Principal $principal
+  ```
+  `sleep infinity` の常駐で WSL2 を起動しっぱなしにする。`-AtLogOn` はログオン時。`-AtStartup`（ログオン前）にする場合はタスクのユーザーを SYSTEM 等にする必要があり、mirrored との相性で挙動が変わることがあるため、学習用途では `-AtLogOn` が扱いやすい。
+- **方法B（簡易）**：`shell:startup` フォルダに、`wsl -d Ubuntu-24.04 -u root -e sleep infinity` を実行するショートカット／バッチを置く。
+- **方法C（最も手軽・運用でカバー）**：「Windows を再起動したら、まず Ubuntu ターミナルを1回開く（または `wsl` を実行する）」という運用にする。学習・検証環境ならこれで十分実用的。
+
+> WSL2 起動後にサービスが上がっていなければ `sudo systemctl start slapd tomcat apache2` で起動し `is-enabled` を確認。時刻ずれが疑われる場合は §5.6・§13.5 の要領で確認。
 
 ### 15.7 よくある問題の早見表（総まとめ）
 
 | 症状 | 主な原因 | 対処（参照） |
 |------|----------|--------------|
 | ブラウザで IdP に「接続拒否」 | localhost 転送が効かない／Apache 停止 | mirrored 化（§6.3）、Apache 起動、`Listen 80/443` 無効化（§10.4） |
+| 再起動直後だけ IdP に「接続拒否」 | WSL2 未起動（オンデマンド） | ターミナルを開く／`wsl` 実行、または自動起動（§15.6 方法A〜C） |
 | Apache が `Address already in use` | IIS と 80/443 衝突（mirrored） | `Listen 80/443` をコメントアウト（§10.4） |
 | IdP ログイン後 443 に飛ぶ | IdP メタデータのポート未補正 | エンドポイントを :8443 に（§13.1） |
 | shibd 起動失敗（content model エラー） | `<MetadataProvider>` を Sessions 内に配置 | `</Sessions>` の後・`<Errors>` の下へ（§13.2） |
@@ -1553,6 +1578,67 @@ iisreset
   wsl --import Ubuntu-24.04 C:\WSL\Ubuntu D:\backup\ubuntu-idp.tar
   ```
   これにより、万一ゲスト Windows を作り直しても、IdP スタックを含む Linux 環境をそのまま復元できます。VMごと巻き戻すチェックポイントと、Ubuntu 単体を書き出すエクスポートの二重化になります。
+
+### 付録B-1：参照用ファイルバックアップ一覧（再構築時の“答え合わせ”用）
+
+**位置づけ**：本環境の主目的は「**手順書だけで素の状態から再度完成に到達できるか**の検証」。したがって「完成環境まるごとの保持」は必須ではなく（まるごとバックアップに頼ると手順書の不備が隠れる）、むしろ**前回どう設定したかを確認するための“答え合わせ用”**として、テキスト中心の設定ファイルを個別に保存しておくのが有用。以下は完成後の最終ファイル。
+
+**WSL2 側（IdP／Tomcat／Apache）**
+
+- `/opt/shibboleth-idp/conf/ldap.properties`（LDAP 接続の最終値）
+- `/opt/shibboleth-idp/conf/attribute-filter.xml`（uid の解放先＝SP）
+- `/opt/shibboleth-idp/conf/saml-nameid.xml`（NameID 生成の追加 bean）
+- `/opt/shibboleth-idp/conf/relying-party.xml`（nameIDFormatPrecedence）
+- `/opt/shibboleth-idp/conf/metadata-providers.xml`（LocalSP の登録）
+- `/opt/shibboleth-idp/credentials/secrets.properties`（bindDNCredential の集約先）
+- `/opt/shibboleth-idp/metadata/idp-metadata-for-sp.xml`（:8443 補正済みの見本）
+- `/opt/tomcat/conf/server.xml`（8080 コネクタのプロキシ設定）
+- `/etc/apache2/ports.conf`、`/etc/apache2/sites-available/idp-8443.conf`（80/443 無効化・8443 VirtualHost）
+
+**Windows 側（SP）**
+
+- `C:\opt\shibboleth-sp\etc\shibboleth\shibboleth2.xml`（ISAPI／RequestMapper／SSO／MetadataProvider／REMOTE_USER の最終形）
+- `C:\opt\shibboleth-sp\etc\shibboleth\attribute-map.xml`（NameIDAttributeDecoder の追加）
+- `C:\inetpub\wwwroot\whoami.asp`
+
+**証明書・LDAP（値の照合用）**
+
+- `~/lab-ca/` 一式（証明書・鍵の実体。ただし再構築では作り直すので、あくまで「前回どう作ったか」の参照）
+- `~/lab-ldap/` の LDIF、または `sudo slapcat -n 1 > ~/ldap-backup.ldif`（uid・`{SSHA}` ハッシュの実値）
+
+**収集のコツ**：WSL2 側は相対パスを保って集約し 1 ファイルにまとめると `\\wsl$` 経由で取り出しやすい。
+
+```bash
+mkdir -p ~/ref && cd /
+cp --parents \
+  /opt/shibboleth-idp/conf/{ldap.properties,attribute-filter.xml,saml-nameid.xml,relying-party.xml,metadata-providers.xml} \
+  /opt/shibboleth-idp/credentials/secrets.properties \
+  /opt/shibboleth-idp/metadata/idp-metadata-for-sp.xml \
+  /opt/tomcat/conf/server.xml \
+  /etc/apache2/ports.conf /etc/apache2/sites-available/idp-8443.conf \
+  ~/ref/ 2>/dev/null
+sudo slapcat -n 1 > ~/ref/ldap-backup.ldif
+tar czf ~/ref.tar.gz -C ~ ref
+```
+
+> 鍵(b)・sp.pfx 等のバイナリは、再構築では新規生成する前提のため参照用としての優先度は低い（値の照合には使えない）。
+
+### 付録B-2：再現性検証のためのチェックポイント運用
+
+**目的**：素のスナップショットから手順書だけで再構築し、`REMOTE_USER=[90001]` まで到達できるかを検証する。**完成環境は保険として一時的に残すだけ**にする（まるごとバックアップは重視しない）。
+
+**推奨手順**：
+
+1. ゲスト Windows を**シャットダウン（電源オフ）**。
+2. （任意）`Set-VM -Name "<VM名>" -CheckpointType Standard`。**入れ子仮想化を有効にしている本環境では標準（Standard）チェックポイントが確実**（運用／VSS はゲスト内 WSL2 の状態と相性が悪く、取得・復元で不整合が出ることがある）。停止状態での取得なら種別の影響を受けにくく最も安全。
+3. 現在（完成）状態の**チェックポイントを取得** → Hyper-V マネージャーのツリーに表示されたことを確認。
+4. **作業前チェックポイントを「適用」**（適用前の追加作成は不要。完成状態は手順3で取得済み）。
+5. 適用後、**VM 設定の再適用要否を確認**。作業前チェックポイントが入れ子仮想化・メモリ 8GB・MAC 設定より前なら、停止状態で §5.2 の設定（`ExposeVirtualizationExtensions $true` 等）を再適用してから起動（入れ子仮想化が無いと WSL2 が起動しない）。
+6. 起動後、**時刻を確認・同期**（古い時点に戻るとクロックスキューで SAML が失敗しやすい。§5.6・§13.5）。
+7. 手順書に沿って**再構築**。
+8. 検証完了後、保険で取った**完成状態チェックポイントを削除**（ディスクを解放）。
+
+**その他の注意**：WSL2 の状態はゲストディスク内にあるためスナップショットと一緒に巻き戻る（`.wslconfig` も）。評価版の 90 日カウントもその時点に戻る（付録A）。再実施で (b) 鍵を作り直す場合は、古いメタデータと新しい鍵を混在させず、SP/IdP のメタデータを新しい鍵で作り直して再交換する。
 
 ## 付録C：スリープ有効環境向け・復帰時の時刻再同期（参考）
 
