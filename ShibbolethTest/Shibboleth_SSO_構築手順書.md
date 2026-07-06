@@ -22,6 +22,7 @@
 | 0.12 | 2026-07-04 | フェーズ10（個人番号をNameIDで渡し`REMOTE_USER`へ）を追記し**全SSO完成**。§13.2の`<MetadataProvider>`配置を訂正（`</Sessions>`の後）、§10.4にmirrored時の`Listen 80/443`無効化を追記、§13.4に反映はTomcat再起動が確実と注記 | NameID方式で個人番号を連携 |
 | 0.13 | 2026-07-04 | フェーズ11（結合テスト・ログ・再起動堅牢性・問題早見表・本番展開メモ）を追記し**全工程完了**。§14.1を訂正（uidはPrincipalNameで定義済み・attribute-resolver.xml変更不要） | 全11フェーズ完了 |
 | 0.14 | 2026-07-05 | スナップショットからの再構築検証で判明した点を反映：§15.3のSession確認URLを`sp.plm-lab.local`に修正、§15.4をログアウト対象外に整理、§15.6にWSL2オンデマンド起動の説明と自動起動策（方法A/B/C）を追記。付録Bに「参照用ファイルバックアップ一覧」と「再現性検証のためのチェックポイント運用」を追記 | 再構築検証の知見を反映 |
+| 0.15 | 2026-07-05 | §5.2 の PowerShell を修正：`Set-VM`／`Checkpoint-VM` の VM 名指定を誤った `-VMName` から正しい `-Name` に訂正（3か所）。あわせて `-Name`（VM自体系）と `-VMName`（構成要素系）の使い分け注記を追加 | コマンド誤りの訂正 |
 
 ---
 
@@ -156,7 +157,7 @@ Set-VMMemory -VMName "<VM名>" -DynamicMemoryEnabled $false -StartupBytes 8GB
 Set-VMNetworkAdapter -VMName "<VM名>" -MacAddressSpoofing On
 
 # 5) 電源断時に保存状態にせずシャットダウンさせる（保存状態からの復帰による時刻ずれ回避）
-Set-VM -VMName "<VM名>" -AutomaticStopAction ShutDown
+Set-VM -Name "<VM名>" -AutomaticStopAction ShutDown
 
 # 6) 確認
 Get-VMProcessor -VMName "<VM名>" | Select-Object ExposeVirtualizationExtensions
@@ -170,13 +171,15 @@ Get-VMProcessor -VMName "<VM名>" | Select-Object ExposeVirtualizationExtensions
 
 ```powershell
 # 種類を運用チェックポイントに固定（既定だが明示）
-Set-VM -VMName "<VM名>" -CheckpointType Production
+Set-VM -Name "<VM名>" -CheckpointType Production
 
 # フェーズ1着手前の素の状態を取得（VMは停止中のまま）
-Checkpoint-VM -VMName "<VM名>" -SnapshotName "Phase1前_素のWindows11"
+Checkpoint-VM -Name "<VM名>" -SnapshotName "Phase1前_素のWindows11"
 ```
 
 > チェックポイントは短期のやり直し用であり、バックアップではありません（付録B）。以降、稼働中に取得する場合は直前に `wsl --shutdown` を実行し、WSL2 の仮想ディスクを静止させてから取得してください。
+>
+> ⚠️ **パラメータ名の注意（`-Name` と `-VMName`）**：Hyper-V コマンドレットは、**VM 自体を操作する系**（`Set-VM`／`Get-VM`／`Start-VM`／`Stop-VM`／`Checkpoint-VM` など）は VM 名を **`-Name`** で指定し、**VM の構成要素を操作する系**（`Set-VMProcessor`／`Set-VMMemory`／`Set-VMNetworkAdapter` など）は **`-VMName`** で指定する。上のコマンド群でも両者が混在している（`Set-VMProcessor -VMName …` と `Set-VM -Name …`）ので注意。取り違えを避けたい場合は `Get-VM "<VM名>" | Set-VM -CheckpointType Production` のようにパイプで VM オブジェクトを渡すと、パラメータ名を意識せずに済む。
 
 ### 5.3 ゲスト側：WSL2 の有効化
 
