@@ -10,6 +10,9 @@
 | 0.4 | 2026-07-05 | フェーズ3（ApacheDS 導入・パーティション作成・ou=people・テストユーザー 01PLM01/02・検索バインド idp-reader）を追記 | LDAP は ApacheDS。GUI（Directory Studio）＋LDIF |
 | 0.5 | 2026-07-08 | フェーズ3 の実機知見を反映（Java 前倒し／zip 優先方針／C:\opt 統一／ApacheDS は LDAP ポート 10389・設定は ou=config 方式で config.ldif 無し→既定パーティション `dc=example,dc=com` 流用／Directory Studio は exe 起動／userPassword は SSHA 自動ハッシュ）。§6.4.1「証明書コマンドの解説」を追記 | 実機検証の反映と解説の追加 |
 | 0.6 | 2026-07-08 | フェーズ4（OpenJDK は §5.6 で導入済み。Tomcat 10.1 の zip 展開・環境変数・service.bat によるサービス化・8080 起動確認）を追記 | Tomcat は zip＋service.bat |
+| 0.7 | 2026-07-08 | フェーズ5（Shibboleth IdP 5：zip 展開＋install.bat 導入・context フラグメント配置・ldap.properties（10389/dc=example,dc=com/idp-reader）・emailAddress NameID の元 mail・起動確認）を追記。フェーズ4 のサービス表示名を実機値「Apache Tomcat 10.1 Tomcat10」に補足 | 本構成の山場 |
+| 0.8 | 2026-07-09 | フェーズ5 実機反映：§9.3 を訂正し **JSTL（API＋Glassfish 実装の2 jar）追加＋build.bat 再ビルドを必須手順**に（未追加だと `/idp/profile/status` が `ClassNotFoundException: jakarta.servlet.jsp.jstl.core.Config`→ServletException）。§9.4 に trustCertificates/trustStore のコメントアウト、saml-nameid の bean 重複回避を追記 | JSTL は必須だった |
+| 0.9 | 2026-07-09 | フェーズ6（Tomcat 直 HTTPS 8443 公開：idp.pfx を conf に配置し server.xml に SSLHostConfig＋Certificate の 8443 コネクタを追加、8080 は localhost 限定、鍵マーク確認）を追記。Apache 前段は不要 | WSL 版の Apache＋mirrored を Tomcat コネクタ1つで代替 |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -142,8 +145,8 @@
 | 2 | ネットワーク土台（hosts・内部CA・idp/sp 証明書(a)・ポート設計） | 変更（openssl for Windows で流用） | ✅ 本版で記載 |
 | 3 | ApacheDS（LDAP）導入・ディレクトリ設計・テストユーザー投入 | 新規（OpenLDAP から置換） | ✅ 本版で記載 |
 | 4 | OpenJDK ＋ Tomcat（Windows サービス） | 変更（Windows 版・service.bat） | ✅ 本版で記載 |
-| 5 | Shibboleth IdP 5（Windows・LDAP連携・emailAddress NameID 準備） | 変更（install.bat・Windows パス） | ⬜ 未 |
-| 6 | Tomcat 直 HTTPS（8443）公開 | 置換（Apache 前段を廃止） | ⬜ 未 |
+| 5 | Shibboleth IdP 5（Windows・LDAP連携・emailAddress NameID 準備） | 変更（install.bat・Windows パス） | ✅ 本版で記載 |
+| 6 | Tomcat 直 HTTPS（8443）公開 | 置換（Apache 前段を廃止） | ✅ 本版で記載 |
 | 7 | IIS（SP の保護対象サイト・443/TLS） | 流用（WSL 版とほぼ同一） | ⬜ 未 |
 | 8 | Shibboleth SP（IIS ネイティブモジュール・サイト全体保護） | 流用（WSL 版とほぼ同一） | ⬜ 未 |
 | 9 | メタデータ交換（IdP ↔ SP の相互信頼・初回 SSO） | 変更（:8443 補正が不要に） | ⬜ 未 |
@@ -635,7 +638,7 @@ cd /d C:\opt\tomcat\bin
 service.bat install
 ```
 
-- 成功すると、サービス名 **`Tomcat10`**（既定）が登録されます（`service.bat install <名前>` で任意名も可）。
+- 成功すると、サービス名 **`Tomcat10`**（既定。サービスの表示名は実機で **「Apache Tomcat 10.1 Tomcat10」** となる）が登録されます（`service.bat install <名前>` で任意名も可）。
 - UAC が有効な場合、`Tomcat10.exe` 起動時に追加の権限を求められることがあります（管理者で実行していれば通過）。
 
 **JVM（Java）をサービスに確実に認識させる**：サービスが JVM を見つけられないと起動に失敗します。GUI 設定ツール `tomcat10w` で確認・調整できます。
@@ -681,4 +684,232 @@ netstat -ano | findstr 8080
 
 ---
 
-> 以降のフェーズ（§9 フェーズ5〜§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
+## 9. フェーズ5：Shibboleth IdP 5（テスト IdP）
+
+**目的**：Windows 上の Tomcat に Shibboleth IdP 5 を導入し、ApacheDS（LDAP）で認証、`mail` 属性を **emailAddress 形式の NameID** の元として扱う準備までを行う。将来この IdP は Entra ID に差し替え可能（学習用テスト IdP）。
+
+> **WSL 版との違い**：`install.sh`→**`install.bat`**、Linux パス→Windows パス、`systemctl restart`→**Tomcat サービス再起動**。SAML の設計（LDAP 認証・NameID）は共通。NameID 形式は WSL 版の unspecified から **emailAddress** に変更し、元属性を uid→**mail** にする（顧客 Entra の形式に合わせる）。
+
+> **前提**：フェーズ4 で Tomcat が 8080 で起動確認済み。フェーズ3 の LDAP 引き継ぎ値（`ldap://localhost:10389`／`ou=people,dc=example,dc=com`／`uid=idp-reader,ou=people,dc=example,dc=com`／`idp-reader`／`(uid={user})`／NameID の元 `mail`）を使う。
+
+### 9.1 IdP 5 の入手と展開
+
+1. Shibboleth 公式（`https://shibboleth.net/downloads/identity-provider/latest5/`）から **IdP 5 の zip**（Windows は zip 推奨。Windows 改行）を入手し `C:\lab\installers` へ。
+   - `latest5/` には**その時点の最新版だけ**が置かれる。実在版のファイル名を確認してから取得する（例：ブラウザで上記 URL を開き、`shibboleth-identity-provider-5.x.y.zip` を確認）。
+2. 任意の場所（例 `C:\lab`）に展開。展開先は導入後は不要。
+   ```powershell
+   Expand-Archive -Path "C:\lab\installers\shibboleth-identity-provider-5.*.zip" -DestinationPath "C:\lab" -Force
+   Get-ChildItem C:\lab | Where-Object Name -like "shibboleth-identity-provider-5*"
+   ```
+
+### 9.2 install.bat による導入
+
+展開したディストリビューションフォルダに入り、`bin\install.bat` を**管理者コマンドプロンプト**で実行します（対話式）。
+
+```bat
+cd /d C:\lab\shibboleth-identity-provider-5.x.y
+bin\install.bat
+```
+
+対話（プロンプト）での入力：
+
+| 質問 | 入力値 |
+|------|--------|
+| Installation Directory（idp.home） | `C:\opt\shibboleth-idp` |
+| Host Name | `idp.plm-lab.local` |
+| SAML EntityID | `https://idp.plm-lab.local/idp/shibboleth` |
+| Attribute Scope | `plm-lab.local` |
+| Keystore Password | `changeit` |
+| Sealer Password | `changeit` |
+
+- 導入すると、署名・暗号化鍵(b)（idp-signing / idp-encryption / sealer 等）が自動生成され、`C:\opt\shibboleth-idp\` に配置、`war\idp.war` がビルドされる。
+- `RIPEMD-160` などの INFO ログは無害（SAML では使わない）。
+
+> `install.bat` が JAVA を見つけられない場合は、`JAVA_HOME=C:\opt\jdk-17`（§5.6）が設定され、新しいコマンドプロンプトで実行しているか確認する。
+
+### 9.3 Tomcat への配置（context フラグメント）
+
+Tomcat に IdP の war を認識させる **context フラグメント** `idp.xml` を配置します。
+
+1. フォルダを作成（無ければ）：`C:\opt\tomcat\conf\Catalina\localhost\`
+2. `idp.xml` を作成（管理者権限。昇格 PowerShell 例）：
+   ```powershell
+   New-Item -ItemType Directory -Force -Path "C:\opt\tomcat\conf\Catalina\localhost" | Out-Null
+   Set-Content -Path "C:\opt\tomcat\conf\Catalina\localhost\idp.xml" -Encoding ASCII -Value '<Context docBase="C:/opt/shibboleth-idp/war/idp.war" privileged="true" antiResourceLocking="false" swallowOutput="true" />'
+   ```
+   > `docBase` のパス区切りは `/`（スラッシュ）で記述する（Tomcat の context では Windows でも `/` が無難）。
+
+> **JSTL の追加（必須）**：IdP 5.2.3 では、状態ページ `/idp/profile/status` などが JSP＋JSTL で描画されるため、**JSTL を war に追加しないと `ClassNotFoundException: jakarta.servlet.jsp.jstl.core.Config` → ServletException になる**（メタデータ `/idp/shibboleth` は JSTL 不要のため返るが、status は失敗する）。次の手順で **API と実装（Glassfish）の2 jar** を overlay に置き、`build.bat` で war を再ビルドする。
+
+```powershell
+$lib = "C:\opt\shibboleth-idp\edit-webapp\WEB-INF\lib"
+New-Item -ItemType Directory -Force -Path $lib | Out-Null
+# JSTL API
+Invoke-WebRequest -UseBasicParsing -Uri "https://repo1.maven.org/maven2/jakarta/servlet/jsp/jstl/jakarta.servlet.jsp.jstl-api/3.0.0/jakarta.servlet.jsp.jstl-api-3.0.0.jar" -OutFile "$lib\jakarta.servlet.jsp.jstl-api-3.0.0.jar"
+# JSTL 実装（Glassfish）※ 実装が無いと Config クラスが見つからずエラーになる
+Invoke-WebRequest -UseBasicParsing -Uri "https://repo1.maven.org/maven2/org/glassfish/web/jakarta.servlet.jsp.jstl/3.0.1/jakarta.servlet.jsp.jstl-3.0.1.jar" -OutFile "$lib\jakarta.servlet.jsp.jstl-3.0.1.jar"
+```
+
+```bat
+cd /d C:\opt\shibboleth-idp\bin
+build.bat
+```
+
+`Rebuilding ...\war\idp.war` / `Overlay from ...\edit-webapp` / `Creating war file ...\war\idp.war` が出れば成功。オフライン環境では別端末で2 jar を取得し `edit-webapp\WEB-INF\lib\` にコピーしてから `build.bat` する。
+
+### 9.4 LDAP 認証の設定（ldap.properties）
+
+`C:\opt\shibboleth-idp\conf\ldap.properties` を編集し、フェーズ3 の値に合わせます（**平文 LDAP・10389・dc=example,dc=com**）。主な項目：
+
+```properties
+idp.authn.LDAP.authenticator                   = bindSearchAuthenticator
+idp.authn.LDAP.ldapURL                         = ldap://localhost:10389
+idp.authn.LDAP.useStartTLS                     = false
+idp.authn.LDAP.useSSL                          = false
+idp.authn.LDAP.baseDN                          = ou=people,dc=example,dc=com
+idp.authn.LDAP.subtreeSearch                   = true
+idp.authn.LDAP.userFilter                      = (uid={user})
+idp.authn.LDAP.bindDN                          = uid=idp-reader,ou=people,dc=example,dc=com
+idp.authn.LDAP.dnFormat                        = uid=%s,ou=people,dc=example,dc=com
+# 返す属性に mail を含める（NameID の元）
+idp.authn.LDAP.returnAttributes                = mail,uid
+```
+
+- **検索バインドのパスワード**は `credentials\secrets.properties` に集約します（WSL 版と同様、二重定義による WARN を避ける）。`C:\opt\shibboleth-idp\credentials\secrets.properties` の該当行：
+  ```properties
+  idp.authn.LDAP.bindDNCredential = idp-reader
+  ```
+  `ldap.properties` 側に `idp.authn.LDAP.bindDNCredential` の行があれば **コメントアウト**して重複を避ける。
+- `useStartTLS=false`／`useSSL=false` のため、`trustCertificates`／`trustStore` 系の行は使われない（有効なら不要・コメントアウト可）。**インストール直後は `trustCertificates = %{idp.home}/credentials/ldap-server.crt` 等が有効になっていることがあり、存在しないファイルを指すため紛らわしい。平文 LDAP では両行をコメントアウトしておく**。
+- 属性解決（attribute-resolver）でも同じ LDAP を参照する場合は `idp.attribute.resolver.LDAP.*` を同様に設定するが、本書は NameID の元 `mail` を authn 側の returnAttributes で取得する構成を基本とする（フェーズ10 で属性解放と NameID 生成を確定）。
+
+### 9.5 emailAddress 形式 NameID の準備（saml-nameid.xml）
+
+`mail` 属性を **emailAddress 形式の NameID** として発行する定義を、`C:\opt\shibboleth-idp\conf\saml-nameid.xml` の `<util:list id="shibboleth.SAML2NameIDGenerators">` の内側に追加します（詳細な解放設定はフェーズ10 で仕上げる。ここでは生成器の準備まで）。
+
+```xml
+<bean parent="shibboleth.SAML2AttributeSourcedGenerator"
+      p:omitQualifiers="true"
+      p:format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+      p:attributeSourceIds="#{ {'mail'} }" />
+```
+
+> これにより、ログインユーザーの `mail`（例 `01PLM01@plm-lab.local`）が emailAddress 形式の NameID として発行できる状態になる。SP 側での REMOTE_USER へのマッピングはフェーズ10 で行う。
+
+> **注意（重複させない）**：既存のコメントアウト例を有効化する場合は、それとは別に同じ bean を追記しないこと。`shibboleth.SAML2NameIDGenerators` の中に同一の `SAML2AttributeSourcedGenerator` が2つ入っていると意図しない重複になる（1つだけにする）。SAML1 側（`shibboleth.SAML1NameIDGenerators`）は本構成では不要。
+
+### 9.6 起動と動作確認
+
+```powershell
+Restart-Service Tomcat10
+Start-Sleep -Seconds 20
+# ステータス（テキストが返る）
+Invoke-WebRequest http://localhost:8080/idp/profile/status -UseBasicParsing | Select-Object -ExpandProperty Content
+# メタデータ（<EntityDescriptor ...> が返る）
+(Invoke-WebRequest http://localhost:8080/idp/shibboleth -UseBasicParsing).Content.Substring(0,300)
+```
+
+- `C:\opt\shibboleth-idp\logs\idp-process.log` に致命的 ERROR が無いこと（`bindDNCredential` の Duplicate WARN が出たら §9.4 の集約を確認）。
+- `install.bat` 導入直後に `bin\status.bat` を実行すると、既定で `http://localhost/idp/status`（80番）を見にいき「Connection refused」になることがあるが、これは想定どおり（本構成は 8080／のちに 8443）。確認は上記 8080 の URL で行う。
+
+### 9.7 動作確認チェックリスト（フェーズ5）
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | IdP 導入 | `C:\opt\shibboleth-idp\` に conf/credentials/metadata/war が存在 |
+| 2 | context 配置 | `C:\opt\tomcat\conf\Catalina\localhost\idp.xml` が存在 |
+| 2b | JSTL 追加 | `edit-webapp\WEB-INF\lib` に JSTL の API＋実装 2 jar があり `build.bat` 済み |
+| 3 | Tomcat 起動 | `Tomcat10` が Running |
+| 4 | ステータス | `http://localhost:8080/idp/profile/status` が環境情報を返す |
+| 5 | メタデータ | `http://localhost:8080/idp/shibboleth` が `<EntityDescriptor>` を返す |
+| 6 | LDAP 設定 | `ldap.properties` が 10389／`dc=example,dc=com`／`idp-reader`、returnAttributes に mail |
+| 7 | NameID 準備 | `saml-nameid.xml` に emailAddress の `SAML2AttributeSourcedGenerator`（mail） |
+| 8 | ログ | `idp-process.log` に致命的 ERROR・重複 WARN が無い |
+
+すべて確認できれば、フェーズ5 は完了です。次はフェーズ6（Tomcat を直接 HTTPS 8443 で公開）です。
+
+---
+
+## 10. フェーズ6：Tomcat 直 HTTPS（8443）公開
+
+**目的**：ブラウザから IdP へ **HTTPS（8443）** で到達できるようにする。WSL 版では前段に Apache を置いて TLS を終端したが、本構成では **Tomcat 自身に HTTPS コネクタを持たせて Apache を省略**する。証明書はフェーズ2 で作成した `idp.pfx`（TLS/HTTPS サーバ証明書(a)・パスワード `changeit`）を使う。
+
+> **WSL 版との違い**：Apache HTTPD の導入・リバースプロキシ設定・mirrored ネットワーク・`Listen 80/443` 無効化がすべて不要。Tomcat の `server.xml` に SSL コネクタを1つ追加するだけ。
+
+### 10.1 証明書（idp.pfx）を Tomcat に配置
+
+フェーズ2 で作成した `C:\lab\ca\idp.pfx` を Tomcat の `conf` に配置します（管理者 PowerShell）。
+
+```powershell
+Copy-Item "C:\lab\ca\idp.pfx" "C:\opt\tomcat\conf\idp.pfx" -Force
+Get-Item "C:\opt\tomcat\conf\idp.pfx"
+```
+
+> `idp.pfx` は idp.crt＋idp.key＋rootCA.crt を含む PKCS12（SAN=`idp.plm-lab.local`）。パスワードは `changeit`（§3.1）。
+
+### 10.2 server.xml に HTTPS 8443 コネクタを追加
+
+`C:\opt\tomcat\conf\server.xml` を管理者権限で編集します。既存の 8080 HTTP コネクタ（`<Connector port="8080" .../>`）の**近く**に、次の HTTPS 8443 コネクタを追加します（Tomcat 10.1 は **SSLHostConfig＋Certificate** 方式）。
+
+```xml
+<Connector port="8443" protocol="org.apache.coyote.http11.Http11NioProtocol"
+           maxThreads="150" SSLEnabled="true" scheme="https" secure="true">
+    <SSLHostConfig>
+        <Certificate certificateKeystoreFile="conf/idp.pfx"
+                     certificateKeystorePassword="changeit"
+                     certificateKeystoreType="PKCS12"
+                     type="RSA" />
+    </SSLHostConfig>
+</Connector>
+```
+
+- `certificateKeystoreFile="conf/idp.pfx"` は `CATALINA_BASE`（＝`C:\opt\tomcat`）からの相対で解決される。絶対パスにする場合は `C:/opt/tomcat/conf/idp.pfx`（**スラッシュ**）で書く。
+- パスワードに `&`・`<`・`>` を含む場合は XML エスケープが必要（今回の `changeit` は不要）。
+
+### 10.3 8080 を localhost 限定にする（任意・推奨）
+
+ブラウザは 8443 経由で IdP にアクセスするため、平文の 8080 は localhost だけに絞っておくと安全です。既存の 8080 コネクタに `address="127.0.0.1"` を追加します。
+
+```xml
+<Connector port="8080" protocol="HTTP/1.1"
+           address="127.0.0.1"
+           connectionTimeout="20000"
+           redirectPort="8443" />
+```
+
+> `redirectPort` を 8443 にしておくと、機密制約でリダイレクトが必要な場合に HTTPS へ誘導される。必須ではない。
+
+### 10.4 反映と動作確認
+
+```powershell
+Restart-Service Tomcat10
+Start-Sleep -Seconds 20
+# 8443 が待受
+netstat -ano | findstr 8443
+# HTTPS で status（CA 検証込み。鍵マーク相当）
+Invoke-WebRequest https://idp.plm-lab.local:8443/idp/profile/status -UseBasicParsing | Select-Object StatusCode
+```
+
+- `Invoke-WebRequest` が証明書エラーを出さずに 200 を返せば、rootCA 信頼（§6.5）と SAN（`idp.plm-lab.local`）が正しく効いています。
+- ゲスト Windows の**ブラウザ**で `https://idp.plm-lab.local:8443/idp/profile/status` を開き、**鍵マーク（証明書警告なし）** で環境情報が表示されることを確認。
+- 起動に失敗する場合は `C:\opt\tomcat\logs\catalina.*.log` を確認（多くは `certificateKeystoreFile` のパス誤り、`certificateKeystorePassword` 不一致、`certificateKeystoreType` の指定漏れ）。
+
+> **証明書警告が出る場合**：rootCA が「信頼されたルート証明機関」に入っているか（§6.5、`certlm.msc`）、アクセス URL のホスト名が `idp.plm-lab.local`（SAN と一致）か、hosts 解決（127.0.0.1）を確認。
+
+### 10.5 動作確認チェックリスト（フェーズ6）
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | 証明書配置 | `C:\opt\tomcat\conf\idp.pfx` が存在 |
+| 2 | server.xml | 8443 の SSLHostConfig＋Certificate コネクタを追加 |
+| 3 | サービス起動 | `Tomcat10` が Running（8443 コネクタ起動失敗が無い） |
+| 4 | 待受 | `netstat` で 8443 が LISTENING |
+| 5 | HTTPS status | `https://idp.plm-lab.local:8443/idp/profile/status` が 200（証明書エラーなし） |
+| 6 | ブラウザ | 鍵マークで status 表示（警告なし） |
+| 7 | 8080 | （任意）`address="127.0.0.1"` で localhost 限定 |
+
+すべて確認できれば、フェーズ6 は完了です。WSL 版で必要だった Apache 前段が不要になり、IdP がブラウザから HTTPS で到達可能になりました。次はフェーズ7（IIS の構築・SP の保護対象サイトと 443/TLS）です。
+
+---
+
+> 以降のフェーズ（§11 フェーズ7〜§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
