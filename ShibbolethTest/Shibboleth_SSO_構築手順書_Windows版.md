@@ -6,6 +6,10 @@
 |----|------|----------|------|
 | 0.1 | 2026-07-05 | 純 Windows 版として新規作成。§1〜§4（目的・前提・全体アーキテクチャ・パラメータ・ロードマップ）を記載 | WSL 版 v0.15 を土台に、顧客 PLM 検証環境の再現用として起こす |
 | 0.2 | 2026-07-05 | フェーズ1（検証環境の初期設定：前提確認・時刻同期・着手前チェックポイント）を追記。推奨アカウント値（わかりやすさ優先）を §3 に追記 | 入れ子仮想化は不要のため簡素化 |
+| 0.3 | 2026-07-05 | フェーズ2（hosts・内部CA・idp/sp サーバ証明書(a)の発行・PFX 化・信頼登録）を追記。証明書作成は Git for Windows 同梱の openssl を使用 | ネットワーク方式選定は不要（同一 Windows・127.0.0.1） |
+| 0.4 | 2026-07-05 | フェーズ3（ApacheDS 導入・パーティション作成・ou=people・テストユーザー 01PLM01/02・検索バインド idp-reader）を追記 | LDAP は ApacheDS。GUI（Directory Studio）＋LDIF |
+| 0.5 | 2026-07-08 | フェーズ3 の実機知見を反映（Java 前倒し／zip 優先方針／C:\opt 統一／ApacheDS は LDAP ポート 10389・設定は ou=config 方式で config.ldif 無し→既定パーティション `dc=example,dc=com` 流用／Directory Studio は exe 起動／userPassword は SSHA 自動ハッシュ）。§6.4.1「証明書コマンドの解説」を追記 | 実機検証の反映と解説の追加 |
+| 0.6 | 2026-07-08 | フェーズ4（OpenJDK は §5.6 で導入済み。Tomcat 10.1 の zip 展開・環境変数・service.bat によるサービス化・8080 起動確認）を追記 | Tomcat は zip＋service.bat |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -135,9 +139,9 @@
 | フェーズ | 内容 | WSL 版との関係 | 本書での状態 |
 |---------|------|----------------|------------|
 | **1** | 検証環境の初期設定（ゲスト Windows VM・時刻同期・前提） | 新規（WSL 導入を廃し簡素化） | ✅ 本版で記載 |
-| 2 | ネットワーク土台（hosts・内部CA・idp/sp 証明書(a)・ポート設計） | 変更（openssl for Windows で流用） | ⬜ 未 |
-| 3 | ApacheDS（LDAP）導入・ディレクトリ設計・テストユーザー投入 | 新規（OpenLDAP から置換） | ⬜ 未 |
-| 4 | OpenJDK ＋ Tomcat（Windows サービス） | 変更（Windows 版・service.bat） | ⬜ 未 |
+| 2 | ネットワーク土台（hosts・内部CA・idp/sp 証明書(a)・ポート設計） | 変更（openssl for Windows で流用） | ✅ 本版で記載 |
+| 3 | ApacheDS（LDAP）導入・ディレクトリ設計・テストユーザー投入 | 新規（OpenLDAP から置換） | ✅ 本版で記載 |
+| 4 | OpenJDK ＋ Tomcat（Windows サービス） | 変更（Windows 版・service.bat） | ✅ 本版で記載 |
 | 5 | Shibboleth IdP 5（Windows・LDAP連携・emailAddress NameID 準備） | 変更（install.bat・Windows パス） | ⬜ 未 |
 | 6 | Tomcat 直 HTTPS（8443）公開 | 置換（Apache 前段を廃止） | ⬜ 未 |
 | 7 | IIS（SP の保護対象サイト・443/TLS） | 流用（WSL 版とほぼ同一） | ⬜ 未 |
@@ -206,17 +210,21 @@ w32tm /query /status
 
 > オンライン環境なら Windows Time サービス（w32tm）が NTP に同期します。オフライン環境でも、IdP と SP が同一 OS 上のため相対ずれは発生せず、SAML の clock skew は問題になりません。スリープを使う環境で運用する場合の復帰時再同期は付録Cを参照。
 
-### 5.4 作業用フォルダの準備（任意）
+### 5.4 導入方針と作業用フォルダの準備
 
-以降のフェーズで、インストーラや証明書を扱う作業用フォルダを用意しておくと整理しやすいです（例）。
+**導入方針（本書全体）**：**zip パッケージが選べるものは zip を展開して導入し、環境変数など必要な設定は手作業で行う**（どこに何が入ったかが明確になり、再現・撤去・切り分けが容易）。導入物は原則 **`C:\opt` 配下・空白を含まないパス**に統一する（Java アプリでの空白起因トラブルを避ける）。作業は昇格した PowerShell／コマンドプロンプトで行う。
+
+> 例外：ApacheDS 本体は zip 提供が無いためインストーラ（.exe）で導入する（§7.2）。
+
+作業用フォルダを用意します。
 
 ```powershell
 New-Item -ItemType Directory -Force -Path C:\opt, C:\lab, C:\lab\ca, C:\lab\installers | Out-Null
 ```
 
-- `C:\opt`：Tomcat／Shibboleth IdP／SP の導入先（各フェーズで使用）。
+- `C:\opt`：jdk-17／directory-studio／tomcat／shibboleth-idp／shibboleth-sp の導入先。
 - `C:\lab\ca`：内部CA・証明書の作成場所（フェーズ2）。
-- `C:\lab\installers`：入手した各インストーラの保管（ApacheDS／Tomcat／IdP／SP など）。
+- `C:\lab\installers`：入手した各インストーラ／zip の保管。
 
 ### 5.5 動作確認チェックリスト（フェーズ1）
 
@@ -228,8 +236,449 @@ New-Item -ItemType Directory -Force -Path C:\opt, C:\lab, C:\lab\ca, C:\lab\inst
 | 4 | 着手前チェックポイント | Hyper-V マネージャー | `Phase1前_素のWindows11` が存在 |
 | 5 | 昇格実行の確認 | 管理者 PowerShell が使える | 昇格プロセスでコマンド実行可 |
 
+### 5.6 OpenJDK（Temurin 17）の導入（ApacheDS・Tomcat の前提）
+
+ApacheDS（フェーズ3）と Tomcat（フェーズ4）はいずれも Java で動作する。**Java は両者の共通基盤のため、ここ（フェーズ3 の前）で先に導入**しておく（ApacheDS インストーラが JAVA_HOME を求めるため、順序として Java が先）。
+
+1. **入手**：Adoptium（`https://adoptium.net/`）から **Temurin 17（LTS）・Windows x64・JDK・zip** を入手し `C:\lab\installers` へ。
+2. **展開＆リネーム**（管理者 PowerShell）：
+   ```powershell
+   Expand-Archive -Path "C:\lab\installers\OpenJDK17U-jdk_x64_windows_hotspot_*.zip" -DestinationPath "C:\opt" -Force
+   Get-ChildItem C:\opt | Where-Object Name -like "jdk-17*"        # 展開フォルダ名を確認
+   Rename-Item "C:\opt\jdk-17.0.xx+xx" "C:\opt\jdk-17"             # 分かりやすく（任意）
+   ```
+3. **環境変数（システム）を手動設定**：
+   ```powershell
+   [Environment]::SetEnvironmentVariable("JAVA_HOME", "C:\opt\jdk-17", "Machine")
+   $p = [Environment]::GetEnvironmentVariable("Path","Machine")
+   [Environment]::SetEnvironmentVariable("Path", "$p;C:\opt\jdk-17\bin", "Machine")
+   ```
+   設定後は**新しい PowerShell を開き直す**（既存セッションには反映されない）。
+4. **確認**：`java -version`（openjdk version "17..."）、`echo $env:JAVA_HOME`。
+
+> この後にフェーズ2（証明書）・フェーズ3（ApacheDS）へ進む。ApacheDS インストーラが JAVA_HOME を尋ねたら `C:\opt\jdk-17` を指定する。
+
 すべて確認できれば、フェーズ1は完了です。次はフェーズ2（ネットワーク土台・内部CA と idp/sp 証明書の発行）です。
 
 ---
 
-> 以降のフェーズ（§6 フェーズ2〜§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
+## 6. フェーズ2：ネットワーク土台（hosts・内部CA・idp/sp サーバ証明書）
+
+**目的**：コンポーネント導入の前に、全体が依存する「名前解決（hosts）」と「TLS 証明書」を先に確定する。純 Windows 構成では SP（IIS）も IdP（Tomcat）も**同一のゲスト Windows 上**にあり、いずれも `127.0.0.1` で解決するため、WSL 版のようなネットワーク方式の選定（NAT／mirrored の段階移行）や、localhost 転送・ポート転送に関する検討は**不要**になる。
+
+> **WSL 版との違い**：WSL 版では「ブラウザ→WSL2 の到達性」を確保するため mirrored モードや (A)→(B) 段階移行を検討したが、本構成では IdP が Windows ネイティブのため、その検討は丸ごと不要。ポート設計（SP=443／IdP=8443）だけは同じ考え方で踏襲する（同一ホスト上で 443 を取り合わないため）。
+
+### 6.1 ポート設計
+
+同一のゲスト Windows 上で SP（IIS）と IdP（Tomcat）が 443 を取り合わないよう、IdP を別ポート（8443）にします。
+
+| 役割 | ホスト名 | URL（ベース） | ポート | バインド先 |
+|------|----------|----------------|--------|------------|
+| SP | `sp.plm-lab.local` | `https://sp.plm-lab.local/` | 443 | IIS |
+| IdP | `idp.plm-lab.local` | `https://idp.plm-lab.local:8443/idp/` | 8443 | Tomcat（直 HTTPS） |
+
+> SAML のエンドポイントはすべて URL なので、ポートが異なっても問題ありません。顧客の本番（IdP=Entra ID）では IdP は Entra 側の URL になるため、この 8443 は「学習用テスト IdP を同一ホストに同居させるための便宜」です。
+
+### 6.2 名前解決（hosts）
+
+DNS サーバは立てず、`hosts` で解決します。SP・IdP とも同一のゲスト Windows 上のため、両方を `127.0.0.1` に向けます。
+
+ゲスト Windows：`C:\Windows\System32\drivers\etc\hosts`（**管理者権限で編集**。昇格したメモ帳等）
+
+```text
+127.0.0.1  sp.plm-lab.local
+127.0.0.1  idp.plm-lab.local
+```
+
+管理者 PowerShell で追記する場合：
+
+```powershell
+Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1`tsp.plm-lab.local`r`n127.0.0.1`tidp.plm-lab.local"
+```
+
+確認：
+
+```powershell
+ping sp.plm-lab.local     # 127.0.0.1 に解決されること
+ping idp.plm-lab.local    # 127.0.0.1 に解決されること
+```
+
+### 6.3 【参考】この構成で登場する2種類の証明書
+
+Shibboleth では性格の異なる2種類の証明書が登場し、混同しやすいポイントです。役割を分けて理解してください。
+
+| 観点 | (a) TLS/HTTPS サーバ証明書 | (b) SAML 署名・暗号化証明書 |
+|------|----------------------------|------------------------------|
+| 目的 | ブラウザ↔サーバの HTTPS 通信の暗号化とサーバ真正性 | SAML メッセージ（アサーション等）の署名・暗号化 |
+| 使う場所 | IIS（SP, 443）、Tomcat（IdP, 8443） | IdP・SP の SAML 処理内部 |
+| 誰が検証するか | ブラウザ | 相手方の IdP／SP |
+| 信頼の確立方法 | CA を信頼ストアに登録（PKI） | メタデータ交換で公開鍵を相互登録 |
+| ホスト名（SAN）一致 | 必須 | 不要 |
+| CA 署名 | 必要（本書では内部CAで発行） | 不要（自己署名が通常） |
+| 準備するタイミング | **フェーズ2（本節）** | 各コンポーネント導入時に生成（IdP=フェーズ5、SP=フェーズ8） |
+
+> 本節（6.4）で用意するのは (a) のみ。(b) は後続フェーズでコンポーネントが生成します。両者は独立で、(b) に CA 信頼やホスト名一致は不要です。
+
+### 6.4 内部CAの作成と idp/sp サーバ証明書の発行（(a) の準備）
+
+**Git for Windows 同梱の openssl** を使います。**Git Bash** を起動して以下を実行します（WSL 版と同じ openssl 手順をそのまま流用）。作業場所は §5.4 で作成した `C:\lab\ca`（Git Bash では `/c/lab/ca`）。
+
+```bash
+cd /c/lab/ca
+
+# 1) 内部CAルート（秘密鍵と自己署名証明書、10年）
+openssl genrsa -out rootCA.key 4096
+openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 \
+  -subj "//C=JP\O=PLM-Lab\CN=PLM-Lab Root CA" -out rootCA.crt
+
+# 2) idp のサーバ証明書
+cat > idp.ext <<'EOF'
+subjectAltName = DNS:idp.plm-lab.local
+extendedKeyUsage = serverAuth
+EOF
+openssl genrsa -out idp.key 2048
+openssl req -new -key idp.key -subj "//C=JP\O=PLM-Lab\CN=idp.plm-lab.local" -out idp.csr
+openssl x509 -req -in idp.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial \
+  -out idp.crt -days 825 -sha256 -extfile idp.ext
+
+# 3) sp のサーバ証明書
+cat > sp.ext <<'EOF'
+subjectAltName = DNS:sp.plm-lab.local
+extendedKeyUsage = serverAuth
+EOF
+openssl genrsa -out sp.key 2048
+openssl req -new -key sp.key -subj "//C=JP\O=PLM-Lab\CN=sp.plm-lab.local" -out sp.csr
+openssl x509 -req -in sp.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial \
+  -out sp.crt -days 825 -sha256 -extfile sp.ext
+```
+
+> ⚠️ **Git Bash 特有の注意（MSYS のパス変換）**：Git Bash では `-subj "/C=JP/..."` の先頭の `/` が Windows パスに誤変換されることがあります。上記のように **先頭を `//` にし、区切りを `\`**（`"//C=JP\O=PLM-Lab\CN=..."`）とすると回避できます。うまくいかない場合は、環境変数 `MSYS_NO_PATHCONV=1` を付けて実行（例：`MSYS_NO_PATHCONV=1 openssl req ...`）してもよいです。
+
+**PFX（PKCS12）化**：IIS（sp）と Tomcat（idp）は、HTTPS バインドに証明書＋秘密鍵を **PFX 形式**で取り込みます。両方を作成します（エクスポートパスワードは §3.1 のとおり `changeit`）。
+
+```bash
+# IIS（フェーズ7）用
+openssl pkcs12 -export -out sp.pfx -inkey sp.key -in sp.crt -certfile rootCA.crt -passout pass:changeit
+# Tomcat/IdP（フェーズ6）用
+openssl pkcs12 -export -out idp.pfx -inkey idp.key -in idp.crt -certfile rootCA.crt -passout pass:changeit
+```
+
+### 6.4.1 【解説】証明書コマンドの意味
+
+§6.4 の各コマンドが「何をしているか」を、後から理解・説明できるよう解説します。全体像は「**自前の認証局（CA）を1つ作り、その CA で idp と sp のサーバ証明書に署名する**」という PKI の縮小版です。
+
+**3ステップの関係**
+
+```
+[1] 内部CAルートを作る（rootCA.key / rootCA.crt）… 署名する側（親）
+      ├─[2] idp のサーバ証明書を CA に署名してもらう（idp.key / idp.crt）
+      └─[3] sp  のサーバ証明書を CA に署名してもらう（sp.key  / sp.crt）
+```
+
+サーバ証明書（idp.crt/sp.crt）は単体では信頼されず、**信頼された CA（rootCA）の署名が付いて初めて**ブラウザに信頼される。だから先に CA を作り、その CA で各サーバ証明書に署名する。
+
+**[1] 内部CAルート**
+
+- `openssl genrsa -out rootCA.key 4096`：CA の**秘密鍵**を生成。`4096` は鍵長（CA は大元なのでサーバ証明書の 2048 より長く強度を確保）。生成物 `rootCA.key` は**最重要機密**（これで任意の証明書に署名できる）。
+- `openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 -subj "…CN=PLM-Lab Root CA" -out rootCA.crt`：秘密鍵を使って CA 自身の**ルート証明書**を作る（**自己署名**）。
+  - `-x509`：CSR でなく証明書そのものを出力（自己署名になる）。`-new`：新規。`-nodes`：秘密鍵をパスフレーズで暗号化しない（起動時のパスワード入力を不要にする）。`-key`：署名に使う秘密鍵。`-sha256`：署名ハッシュ。`-days 3650`：有効期間約10年（CA は長寿命）。`-subj`：サブジェクト（`C`国／`O`組織／`CN`＝この CA の名前。Windows の信頼ストアに表示される名前になる）。先頭 `//` と区切り `\` は Git Bash のパス誤変換回避。
+  - 生成物 `rootCA.crt`：CA の公開ルート証明書（**公開可**）。各マシンの信頼ストアに登録して「この CA が署名した証明書を信頼する」状態を作る。
+
+**[2] idp のサーバ証明書**
+
+- `cat > idp.ext …`：証明書に付ける**拡張**を書いたファイル。`subjectAltName = DNS:idp.plm-lab.local`（**SAN**。現代のブラウザは CN でなく SAN でホスト名一致を判定するため必須）、`extendedKeyUsage = serverAuth`（**サーバ認証用途**）。
+- `openssl genrsa -out idp.key 2048`：idp サーバの**秘密鍵**（サーバ用は 2048）。
+- `openssl req -new -key idp.key -subj "…CN=idp.plm-lab.local" -out idp.csr`：**CSR（証明書署名要求＝申請書）**を作成。CSR には idp の**公開鍵**とサブジェクトが入る（この時点では CA 署名なし）。
+- `openssl x509 -req -in idp.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out idp.crt -days 825 -sha256 -extfile idp.ext`：**CA が申請書に署名して正式なサーバ証明書を発行**（中核）。
+  - `x509 -req`：入力が CSR で、署名して証明書を出すモード。`-CA`/`-CAkey`：署名に使う CA 証明書と CA 秘密鍵。`-CAcreateserial`：シリアル番号管理ファイル（`rootCA.srl`）を作成/更新。`-days 825`：有効期間（ブラウザ制限に合わせ短め）。`-extfile idp.ext`：SAN・用途を証明書に付与（**忘れるとホスト名不一致警告**）。
+  - 生成物 `idp.crt`：idp の公開鍵＋サブジェクト＋SAN＋**CA の署名**が入った正式なサーバ証明書。
+
+**[3] sp のサーバ証明書**
+
+[2] の `idp` を `sp` に置き換えただけで意味は同じ（SAN=`DNS:sp.plm-lab.local`、CN=`sp.plm-lab.local`）。**同じ CA（rootCA）で署名**するため、rootCA を1つ信頼登録すれば idp・sp 両方が信頼される。
+
+**生成ファイルまとめ**
+
+| ファイル | 種類 | 機密性 | 用途 |
+|----------|------|--------|------|
+| `rootCA.key` | CA 秘密鍵 | 最重要機密 | 各サーバ証明書への署名 |
+| `rootCA.crt` | CA ルート証明書 | 公開可 | 信頼の起点。各マシンの信頼ストアに登録 |
+| `rootCA.srl` | シリアル管理 | — | 証明書ごとの通し番号（自動） |
+| `idp.key` / `sp.key` | サーバ秘密鍵 | 機密 | Tomcat(IdP)・IIS(SP) の TLS 復号 |
+| `idp.csr` / `sp.csr` | 署名要求 | — | 発行時の中間ファイル |
+| `idp.ext` / `sp.ext` | 拡張設定 | — | SAN・用途を付与する中間ファイル |
+| `idp.crt` / `sp.crt` | サーバ証明書 | 公開可 | Tomcat(IdP,8443)・IIS(SP,443) の HTTPS |
+| `idp.pfx` / `sp.pfx` | 証明書＋秘密鍵(PKCS12) | 機密（鍵を含む） | Tomcat・IIS へのインポート用 |
+
+> 要点：CA を自前で1つ作り rootCA を各マシンに登録すれば、内部のサーバ証明書がすべて信頼される。手順は「秘密鍵 → CSR → CA 署名 → 証明書」で、公的証明書取得の縮小版。SAN が無いと鍵マークにならないため `subjectAltName` が肝。鍵長は CA=4096／サーバ=2048 と使い分ける。ここで作るのは (a) TLS/HTTPS サーバ証明書のみで、(b) SAML 署名・暗号化証明書はフェーズ5・8 でコンポーネントが生成する（別物）。
+
+### 6.5 rootCA をゲスト Windows の信頼ルートに登録
+
+ブラウザ（Edge/Chrome は Windows 証明書ストアを使用）で鍵マークにするため、内部CAルートを「信頼されたルート証明機関」に登録します。管理者 PowerShell で：
+
+```powershell
+Import-Certificate -FilePath "C:\lab\ca\rootCA.crt" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+> 別マシン（検証用PC＝ホストや LAN 上の PC）のブラウザからアクセスする「発展編」を行う場合は、そのマシンの証明書ストアにも同じ `rootCA.crt` を登録すれば、ホスト名にひも付く証明書はそのまま使えます（作り直し不要）。ただし本書の基本構成はゲスト Windows 上のブラウザで検証します。
+
+### 6.6 動作確認チェックリスト（フェーズ2）
+
+| # | 確認内容 | 方法 | 期待結果 |
+|---|----------|------|----------|
+| 1 | hosts 解決 | `ping idp.plm-lab.local` / `ping sp.plm-lab.local` | いずれも 127.0.0.1 |
+| 2 | CA・証明書生成 | `ls /c/lab/ca`（Git Bash） | rootCA.crt / idp.crt / sp.crt / idp.pfx / sp.pfx 等が存在 |
+| 3 | SAN の確認 | `openssl x509 -in idp.crt -noout -text \| grep -A1 "Subject Alternative"` | `DNS:idp.plm-lab.local` |
+| 4 | 証明書の検証 | `openssl verify -CAfile rootCA.crt idp.crt`／`sp.crt` | `OK` |
+| 5 | Windows の CA 信頼 | `certlm.msc` →「信頼されたルート証明機関」 | `PLM-Lab Root CA` が存在 |
+
+> この時点では証明書を使う Web サーバ（Tomcat/IIS）がまだ無いため、HTTPS 応答の確認は各コンポーネント導入後（フェーズ6・7）に行います。
+
+---
+
+## 7. フェーズ3：ApacheDS（LDAP ユーザーディレクトリ）
+
+**目的**：IdP が認証・属性取得を行うユーザーの元データを、**ApacheDS**（Java 製 LDAP サーバ・Windows で動作）に用意する。ディレクトリ設計（baseDN・ou=people・テストユーザー・検索バインド）は WSL 版の OpenLDAP と同じ考え方を踏襲し、製品を ApacheDS に置き換える。ユーザー投入は **Apache Directory Studio**（GUI）または **LDIF インポート**で行う。
+
+> **WSL 版との違い**：OpenLDAP（apt・slapd・dpkg-reconfigure・LDIF＋ldapadd）から、ApacheDS（Windows インストーラ・GUI ツール）に置き換わる。設計値（`dc=plm-lab,dc=local`／`ou=people`／`inetOrgPerson`／uid・mail・userPassword）は同じ。メール形式の識別子に対応するため、各ユーザーに **`mail` 属性**（`01PLM01@plm-lab.local`）を持たせる点が新しい。
+
+### 7.1 ディレクトリ設計
+
+```
+dc=example,dc=com                       ← ベースDN（ApacheDS 既定パーティションを流用）
+├── ou=people                           ← ユーザー・検索アカウント
+│   ├── uid=01PLM01  (inetOrgPerson)     ← テストユーザー1（mail: 01PLM01@plm-lab.local）
+│   ├── uid=01PLM02  (inetOrgPerson)     ← テストユーザー2（mail: 01PLM02@plm-lab.local）
+│   └── uid=idp-reader (inetOrgPerson)   ← IdP の検索バインド用（読取）
+└── （将来）ou=groups                     ← ロール等（本書では未使用）
+```
+
+| 項目 | 値 |
+|------|----|
+| パーティション suffix（baseDN） | `dc=example,dc=com`（ApacheDS 既定パーティションを流用。7.4 参照） |
+| ユーザー OU | `ou=people,dc=example,dc=com` |
+| テストユーザー | `uid=01PLM01` / `uid=01PLM02`（objectClass: inetOrgPerson）。パスワード＝uid（Joe） |
+| テストユーザーの mail | `01PLM01@plm-lab.local` / `01PLM02@plm-lab.local`（emailAddress NameID の元） |
+| 検索バインド | `uid=idp-reader,ou=people,dc=example,dc=com`（パスワード `idp-reader`・読取専用） |
+| ApacheDS 管理者 | `uid=admin,ou=system`（既定パスワード `secret`） |
+| LDAP ポート | **10389**（ApacheDS 既定。IdP 側は `ldap://localhost:10389` で参照） |
+
+> **baseDN について（実機の判断）**：ApacheDS のインストーラ版（2.0.0.AM 系）は設定を `config.ldif` ではなく LDAP 内部（`ou=config`）で保持し、`dc=plm-lab,dc=local` パーティションの手作業追加は難度が高い（7.4 参照）。本書では**既定パーティション `dc=example,dc=com` をそのまま流用**する（学習・SSO 動作には影響しない）。WSL 版の `dc=plm-lab,dc=local` からの読み替え表は 7.4 に示す。`mail` は `@plm-lab.local` のまま（メールドメインと baseDN は別物なので揃える必要はない）。
+
+> **ポートの注意**：ApacheDS の LDAP ポートは実機で **10389**（非特権ポート）。Directory Studio の New Connection では Port 入力欄の既定表示が **389** になることがあるが、実機の待受は 10389 なので **10389 に合わせる**（`netstat -ano | findstr 10389` で確認）。WSL 版は 389 だったが、本書では 10389 を用い、フェーズ5 の IdP 設定（`ldapURL`）も `ldap://localhost:10389` とする。
+
+### 7.2 ApacheDS のインストール
+
+> **前提（Java を先に導入）**：ApacheDS は Java で動作し、インストーラの途中で **JAVA_HOME の入力**を求められる。そのため **OpenJDK（Temurin 17）を ApacheDS より前に導入**しておく（§5.6 参照）。インストーラで JAVA_HOME を聞かれたら、JDK のルート（例 `C:\opt\jdk-17`。直下に `bin\java.exe` があるフォルダ。`bin` は含めない）を指定する。
+
+1. Apache Directory の公式サイト（`https://directory.apache.org/apacheds/download/download-windows.html`）から、**ApacheDS の Windows インストーラ（`.exe`・最新安定版）**を入手し、`C:\lab\installers` に保存。※ ApacheDS 本体はインストーラ（.exe）で導入する（zip 提供が無いため。zip 優先方針の例外）。
+2. インストーラを**管理者として実行**。JAVA_HOME に上記 JDK を指定し、他は既定のまま進める（実機の導入先は `C:\Program Files (x86)\ApacheDS`、インスタンスは `...\instances\default`）。導入すると **ApacheDS の Windows サービス**（既定インスタンス名 `default`）が登録される。
+3. サービスを起動・確認：
+
+```powershell
+Get-Service | Where-Object { $_.DisplayName -like "*ApacheDS*" }
+Start-Service <サービス名>     # 停止していれば開始（サービス名は環境で異なる）
+# LDAP 待受ポートの確認（実機は 10389）
+netstat -ano | findstr 10389
+```
+
+> 実機では LDAP は **10389** で待ち受ける（`0.0.0.0:10389 LISTENING`）。
+
+### 7.3 Apache Directory Studio の導入と接続
+
+1. 公式サイト（`https://directory.apache.org/studio/download/download-windows.html`）から **Apache Directory Studio（Windows 版・zip）**を入手し、`C:\opt\directory-studio` に展開する（本書の zip 優先方針）。
+2. **起動**：zip 展開では**インストールされず、Windows スタートメニューにも登録されない**。エクスプローラーまたはコマンドから **`C:\opt\directory-studio\ApacheDirectoryStudio.exe`** を実行して起動する（よく使う場合はショートカットを作成）。
+   - Java が見つからず起動しない場合は、`C:\opt\directory-studio\ApacheDirectoryStudio.ini` に `-vm` と `C:\opt\jdk-17\bin\javaw.exe` の2行を追記する（通常は不要。JAVA_HOME 設定済みのため）。
+3. 起動後、**LDAP 接続を作成**：メニュー **LDAP → New Connection**。
+   - Network Parameter：Hostname `localhost` / Port **`10389`**（入力欄の既定表示が 389 の場合は 10389 に変更）/ Encryption method **`No encryption`**（同一ホスト通信のため平文で可）
+   - Connection name（任意）：管理作業用なので `plm-lab-admin` など用途が分かる名前を推奨
+   - 次画面（Authentication）：Bind DN `uid=admin,ou=system` / Bind password `secret`
+   - **Check Authentication** を押し、`successful` を確認してから **Finish**。接続が緑色になれば成功。
+4. 左の **LDAP Browser** で、既定パーティション `dc=example,dc=com` や `ou=system`・`ou=config` が見えることを確認。
+
+### 7.4 パーティション（baseDN）の方針：既定パーティション `dc=example,dc=com` を流用
+
+当初は WSL 版に合わせ `dc=plm-lab,dc=local` パーティションを新規作成する想定だったが、**実機のインストーラ版 ApacheDS（2.0.0.AM 系）では手作業での新規作成は現実的でない**ことが判明した。理由：
+
+- このバージョンは設定を `config.ldif` ファイルではなく **LDAP 内部（`ou=config`）** として保持する（実際 `C:\Program Files (x86)\ApacheDS\instances\default\` 配下に `config.ldif` は存在せず、`partitions\` に `example`・`system` の DB がある）。パーティション追加は停止→設定エントリ（`ads-partition…` 階層）を正確に追記→再起動が必要で、書式ミスで**サービスが起動不能になるリスク**がある。
+- Directory Studio に ApacheDS を「サーバ」として登録していない（接続のみ）ため、**LDAP Servers ビューの Open Configuration によるパーティション編集が使えない**。
+
+そこで本書は、**ApacheDS の既定パーティション `dc=example,dc=com` をそのまま流用**する。パーティション作成は不要で、その配下に `ou=people` とユーザーを作る。学習・SSO 動作には一切影響しない。
+
+**baseDN 読み替え表（当初の plm-lab 版 → 本書の既定流用版）**
+
+| 項目 | 当初（WSL 版踏襲） | 本書（既定流用） |
+|------|--------------------|------------------|
+| baseDN | `dc=plm-lab,dc=local` | **`dc=example,dc=com`** |
+| ユーザー OU | `ou=people,dc=plm-lab,dc=local` | **`ou=people,dc=example,dc=com`** |
+| テストユーザー | `uid=01PLM01,ou=people,dc=plm-lab,dc=local` | **`uid=01PLM01,ou=people,dc=example,dc=com`** |
+| 検索バインド | `uid=idp-reader,ou=people,dc=plm-lab,dc=local` | **`uid=idp-reader,ou=people,dc=example,dc=com`** |
+| mail（変更なし） | `01PLM01@plm-lab.local` | `01PLM01@plm-lab.local` |
+
+> どうしても `dc=plm-lab,dc=local` を作りたい場合は、ApacheDS の設定（`ou=config` の `ou=partitions`）にパーティション定義を追加し、コンテキストエントリ（`dc=plm-lab,dc=local`）を投入する必要がある（バージョン依存・要サービス再起動）。本書では扱わない。
+
+### 7.5 OU・テストユーザー・検索バインドの投入（LDIF）
+
+Directory Studio で **LDAP メニュー → New LDIF File** を開き、以下を貼り付けて、エディタ**右上の緑の ▶（Execute LDIF）**で実行します（対象接続は管理者の `plm-lab-admin`）。`dc=example,dc=com` 自体は既存のため **LDIF に含めず、その配下だけ**作ります。パスワードは分かりやすさ優先の平文で記載します（**ApacheDS が格納時に自動で SSHA ハッシュ化**するため、WSL 版の slappasswd に相当する作業は不要）。
+
+```ldif
+# ユーザー OU（既存の dc=example,dc=com 配下に作成）
+dn: ou=people,dc=example,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+# テストユーザー1（個人番号 01PLM01・Joe アカウント）
+dn: uid=01PLM01,ou=people,dc=example,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 01PLM01
+cn: Test User 01PLM01
+sn: 01PLM01
+mail: 01PLM01@plm-lab.local
+userPassword: 01PLM01
+
+# テストユーザー2（個人番号 01PLM02・Joe アカウント）
+dn: uid=01PLM02,ou=people,dc=example,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: 01PLM02
+cn: Test User 01PLM02
+sn: 01PLM02
+mail: 01PLM02@plm-lab.local
+userPassword: 01PLM02
+
+# IdP 検索バインド用（読取専用アカウント）
+dn: uid=idp-reader,ou=people,dc=example,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: idp-reader
+cn: IdP Reader
+sn: Reader
+userPassword: idp-reader
+```
+
+> **実行前は未投入**：LDIF タブ名が `*LDIF …`（先頭に `*`）の間は編集中で、サーバへは未送信。**右上の緑の ▶（Execute LDIF）** を押して初めて反映される。成功すると下部 **Modification Logs** に `#!RESULT OK` と各 `add` が記録され、左ツリーの `dc=example,dc=com` を Reload すると `ou=people` 配下が現れる。`userPassword` は Entry editor で「SSHA hashed password」と表示され、平文が自動ハッシュ化されたことを確認できる。
+
+> **objectClass の階層**：`inetOrgPerson` は `organizationalPerson` → `person` → `top` を継承するため、上記のように4つを併記します。`person` の必須属性 `cn`・`sn` を必ず与えます（Directory Studio の GUI 追加でも同様に求められます）。
+
+> **GUI で投入する場合**：LDAP Browser で `dc=example,dc=com` を右クリック → **New Entry → Create entry from scratch** で `ou=people`（organizationalUnit）を作成 → 続けて `ou=people` の下に objectClass `inetOrgPerson` のエントリを作成、RDN を `uid=01PLM01`、`cn`・`sn`・`mail` を入力し、最後に **New Attribute** で `userPassword` を追加。
+
+### 7.6 動作確認（検索バインド）
+
+投入後、**検索バインド（idp-reader）でテストユーザーを引けるか**を確認します。これはフェーズ5 で IdP が行う動作の先取り確認です。
+
+**方法1：Directory Studio で確認**
+- 新しい接続（例：`plm-lab-idp-reader`）を Port `10389` / Encryption `No encryption` / Bind DN `uid=idp-reader,ou=people,dc=example,dc=com` / パスワード `idp-reader` で作成し、**Check Authentication** が `successful` になること。
+- LDAP Browser で `ou=people` を展開し、`uid=01PLM01`・`01PLM02` が見えること（`mail` 属性に `01PLM01@plm-lab.local` 等が入っていること）。
+
+**方法2：検索で確認（推奨）**
+Directory Studio の検索機能で、検索ベース `ou=people,dc=example,dc=com`、フィルタ `(uid=01PLM01)` を実行し、1件返ることを確認。
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | ApacheDS サービス稼働 | ApacheDS サービスが実行中、LDAP ポート **10389** で待受 |
+| 2 | 管理者接続 | `uid=admin,ou=system` / `secret` で接続可 |
+| 3 | ベースDN | 既定パーティション `dc=example,dc=com` を使用 |
+| 4 | エントリ投入 | `ou=people,dc=example,dc=com` 配下に 01PLM01 / 01PLM02 / idp-reader |
+| 5 | 検索バインド | `uid=idp-reader,ou=people,dc=example,dc=com` で bind（Check Authentication successful）し、`(uid=01PLM01)` が 1 件返る |
+| 6 | mail 属性 | 01PLM01 の `mail` が `01PLM01@plm-lab.local` |
+| 7 | パスワード格納 | `userPassword` が「SSHA hashed password」（平文が自動ハッシュ化） |
+
+> フェーズ5 の IdP は、この `idp-reader` で LDAP に検索バインドし、ログインユーザーの `uid` で認証、`mail` を NameID（emailAddress 形式）の元として取得します。フェーズ5 の IdP 設定でそのまま使う値：**LDAP URL `ldap://localhost:10389`／検索ベース `ou=people,dc=example,dc=com`／検索バインド `uid=idp-reader,ou=people,dc=example,dc=com`／パスワード `idp-reader`／フィルタ `(uid={user})`／NameID の元 `mail`**。
+
+---
+
+## 8. フェーズ4：OpenJDK ＋ Tomcat（Windows サービス）
+
+**目的**：Shibboleth IdP（フェーズ5）を載せる土台として、Tomcat 10.1 を Windows サービスとして稼働させる。OpenJDK（Temurin 17）は §5.6 で導入済みのため、本フェーズは Tomcat に集中する。まず HTTP 8080 で起動確認し、HTTPS 8443 化はフェーズ6 で行う。
+
+> **前提**：`java -version` が 17 を返し、`JAVA_HOME=C:\opt\jdk-17` が設定済みであること（§5.6）。IdP 5 は **Tomcat 10.1 系が必須**（9 系や 11 は不可。Jakarta 名前空間）。
+
+### 8.1 Tomcat 10.1 の入手と展開（zip）
+
+1. Apache Tomcat 公式（`https://tomcat.apache.org/download-10.cgi`）から、**Tomcat 10.1.x の「Core」zip**（例 `apache-tomcat-10.1.xx-windows-x64.zip` または `apache-tomcat-10.1.xx.zip`）を入手し `C:\lab\installers` へ。
+2. `C:\opt\tomcat` に展開（zip 内のトップフォルダを `C:\opt\tomcat` に合わせる）。管理者 PowerShell：
+
+```powershell
+Expand-Archive -Path "C:\lab\installers\apache-tomcat-10.1.*.zip" -DestinationPath "C:\opt" -Force
+# 展開されたフォルダ名を確認（例：apache-tomcat-10.1.56）
+Get-ChildItem C:\opt | Where-Object Name -like "apache-tomcat-*"
+# C:\opt\tomcat にリネーム（bin/conf/lib などが直下に来るように）
+Rename-Item "C:\opt\apache-tomcat-10.1.xx" "C:\opt\tomcat"
+# 確認：bin\startup.bat 等が見えること
+Get-ChildItem C:\opt\tomcat\bin\startup.bat, C:\opt\tomcat\conf\server.xml
+```
+
+### 8.2 環境変数（CATALINA_HOME）の設定
+
+Tomcat の場所を示す `CATALINA_HOME` をシステム環境変数に設定します（サービス化・起動スクリプトが参照）。管理者 PowerShell：
+
+```powershell
+[Environment]::SetEnvironmentVariable("CATALINA_HOME", "C:\opt\tomcat", "Machine")
+```
+
+> 設定後は**新しい PowerShell／コマンドプロンプトを開き直す**（既存セッションには反映されない）。`JAVA_HOME` は §5.6 で設定済みのため、Tomcat のサービスも JVM を見つけられる。
+
+### 8.3 Windows サービスとして登録（service.bat）
+
+zip 版には `bin\service.bat`（サービス登録スクリプト）が含まれます。**管理者コマンドプロンプト**（PowerShell ではなく cmd を推奨。`service.bat` はバッチのため）で実行します。
+
+```bat
+cd /d C:\opt\tomcat\bin
+service.bat install
+```
+
+- 成功すると、サービス名 **`Tomcat10`**（既定）が登録されます（`service.bat install <名前>` で任意名も可）。
+- UAC が有効な場合、`Tomcat10.exe` 起動時に追加の権限を求められることがあります（管理者で実行していれば通過）。
+
+**JVM（Java）をサービスに確実に認識させる**：サービスが JVM を見つけられないと起動に失敗します。GUI 設定ツール `tomcat10w` で確認・調整できます。
+
+```bat
+C:\opt\tomcat\bin\tomcat10w.exe //ES//Tomcat10
+```
+
+- 開いたダイアログの **Java** タブで、**Java Virtual Machine** が `C:\opt\jdk-17\bin\server\jvm.dll`（または `...\bin\jvm.dll`）を指しているか確認。空欄や誤りがあれば設定。
+- **Startup type** を `Automatic`（自動起動）にしておくと、Windows 起動時に Tomcat も上がる（再起動堅牢性）。
+
+> `service.bat install` 実行時に JAVA_HOME が正しく通っていれば、JVM は自動設定されることが多いです。起動に失敗する場合はまずこの `tomcat10w` の Java タブを確認します。
+
+### 8.4 起動と動作確認（8080）
+
+```powershell
+Start-Service Tomcat10
+Get-Service Tomcat10        # Status が Running
+# HTTP 応答（既定コネクタは 8080）
+Invoke-WebRequest http://localhost:8080/ -UseBasicParsing | Select-Object StatusCode
+# 待受ポート確認
+netstat -ano | findstr 8080
+```
+
+- ブラウザで `http://localhost:8080/` を開き、Tomcat の初期ページが表示されれば成功。
+- ログは `C:\opt\tomcat\logs\`（`catalina.*.log`）で確認できます。
+
+> **補足（8080 の公開範囲）**：本構成では IdP へのブラウザアクセスはフェーズ6 で HTTPS 8443 経由にするため、8080 は最終的に localhost 限定でも構いません（`server.xml` の HTTP コネクタに `address="127.0.0.1"` を付けて絞れる）。フェーズ4 の時点では既定（全インターフェース）で確認して問題ありません。
+
+### 8.5 動作確認チェックリスト（フェーズ4）
+
+| # | 確認内容 | コマンド / 方法 | 期待結果 |
+|---|----------|----------------|----------|
+| 1 | Java | `java -version` | 17.x |
+| 2 | Tomcat 展開 | `C:\opt\tomcat\bin\startup.bat` 等の存在 | 直下に bin/conf/lib |
+| 3 | 環境変数 | `echo %CATALINA_HOME%`（新規 cmd） | `C:\opt\tomcat` |
+| 4 | サービス登録 | `Get-Service Tomcat10` | サービスが存在 |
+| 5 | サービス稼働 | `Get-Service Tomcat10` | Status: Running |
+| 6 | HTTP 応答 | `http://localhost:8080/` | 初期ページ（200） |
+| 7 | 自動起動 | `tomcat10w` の Startup type | Automatic |
+
+すべて確認できれば、フェーズ4 は完了です。次はフェーズ5（Shibboleth IdP 5 の導入・LDAP 認証・emailAddress 形式 NameID の準備）です。
+
+---
+
+> 以降のフェーズ（§9 フェーズ5〜§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
