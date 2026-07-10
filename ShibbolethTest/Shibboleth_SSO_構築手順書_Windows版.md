@@ -13,6 +13,10 @@
 | 0.7 | 2026-07-08 | フェーズ5（Shibboleth IdP 5：zip 展開＋install.bat 導入・context フラグメント配置・ldap.properties（10389/dc=example,dc=com/idp-reader）・emailAddress NameID の元 mail・起動確認）を追記。フェーズ4 のサービス表示名を実機値「Apache Tomcat 10.1 Tomcat10」に補足 | 本構成の山場 |
 | 0.8 | 2026-07-09 | フェーズ5 実機反映：§9.3 を訂正し **JSTL（API＋Glassfish 実装の2 jar）追加＋build.bat 再ビルドを必須手順**に（未追加だと `/idp/profile/status` が `ClassNotFoundException: jakarta.servlet.jsp.jstl.core.Config`→ServletException）。§9.4 に trustCertificates/trustStore のコメントアウト、saml-nameid の bean 重複回避を追記 | JSTL は必須だった |
 | 0.9 | 2026-07-09 | フェーズ6（Tomcat 直 HTTPS 8443 公開：idp.pfx を conf に配置し server.xml に SSLHostConfig＋Certificate の 8443 コネクタを追加、8080 は localhost 限定、鍵マーク確認）を追記。Apache 前段は不要 | WSL 版の Apache＋mirrored を Tomcat コネクタ1つで代替 |
+| 0.10 | 2026-07-09 | フェーズ7（IIS 導入・sp.pfx 取込・既定サイトに 443/HTTPS バインド・確認用 whoami.asp）を追記。sp.pfx は `C:\lab\ca` から取込。UAC 承認モード差異・ASP 文字コードの補足を反映 | WSL 版フェーズ7 を流用（mirrored 不要） |
+| 0.11 | 2026-07-09 | フェーズ8（Shibboleth SP：MSI 導入・IIS ネイティブモジュール確認・shibboleth2.xml 編集（ISAPI/RequestMapper/entityID/SSO）・keygen で鍵(b)・サイト全体保護）を追記 | WSL 版フェーズ8 を流用 |
+| 0.12 | 2026-07-09 | フェーズ8 実機反映（MSI 表記「Configure IIS support」／サービス表示名「Shibboleth Daemon (Default)」／shibd.exe は sbin64 または sbin／使用インストーラ版数一覧）。フェーズ9（メタデータ相互登録・初回 SSO・**:8443 補正は不要**）を追記 | :8443 補正が不要になり簡素化 |
+| 0.13 | 2026-07-10 | フェーズ9 実機反映：§13.1 を訂正し **:8443 補正は必要**（install.bat 生成のメタデータはエンドポイントがポートなしのため）に。フェーズ10（emailAddress 形式 NameID を mail から生成し REMOTE_USER に載せる：目標 `01PLM01@plm-lab.local`）を追記 | uid/unspecified→mail/emailAddress |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -133,6 +137,9 @@
 | 6 | IdP Sealer | `changeit` | IdP install.bat 対話 | 5 |
 | 7 | TLS 証明書 PFX（idp/sp） | `changeit` | idp.pfx / sp.pfx の作成・取込（Tomcat・IIS） | 2・6・7 |
 
+> **実機で使用したインストーラ／パッケージ（検証時点の版。最新版があれば読み替え可）**：
+> `OpenJDK17U-jdk_x64_windows_hotspot_17.0.19_10.zip`（Temurin 17）、`apacheds-2.0.0.AM27.exe`（ApacheDS）、`ApacheDirectoryStudio-2.0.0.v20210717-M17-win32.win32.x86_64.zip`（Directory Studio）、`apache-tomcat-10.1.57-windows-x64.zip`（Tomcat）、`shibboleth-identity-provider-5.2.3.zip`（IdP）、`shibboleth-sp-3.5.2.3-win64.msi`（SP）。
+
 > **OS ユーザーの扱い**：構築は `Administrator`（ローカル管理者）。Tomcat/IdP・ApacheDS・shibd（Shibboleth Daemon）はいずれも Windows サービスとして `Local System` 等のサービスアカウントで動作するため、Linux の `tomcat` ユーザーのような専用 OS ユーザーの作成・所有権付与は不要。
 
 ---
@@ -147,10 +154,10 @@
 | 4 | OpenJDK ＋ Tomcat（Windows サービス） | 変更（Windows 版・service.bat） | ✅ 本版で記載 |
 | 5 | Shibboleth IdP 5（Windows・LDAP連携・emailAddress NameID 準備） | 変更（install.bat・Windows パス） | ✅ 本版で記載 |
 | 6 | Tomcat 直 HTTPS（8443）公開 | 置換（Apache 前段を廃止） | ✅ 本版で記載 |
-| 7 | IIS（SP の保護対象サイト・443/TLS） | 流用（WSL 版とほぼ同一） | ⬜ 未 |
-| 8 | Shibboleth SP（IIS ネイティブモジュール・サイト全体保護） | 流用（WSL 版とほぼ同一） | ⬜ 未 |
-| 9 | メタデータ交換（IdP ↔ SP の相互信頼・初回 SSO） | 変更（:8443 補正が不要に） | ⬜ 未 |
-| 10 | 属性連携（emailAddress 形式 NameID を REMOTE_USER に載せる） | 変更（unspecified→emailAddress） | ⬜ 未 |
+| 7 | IIS（SP の保護対象サイト・443/TLS） | 流用（WSL 版とほぼ同一） | ✅ 本版で記載 |
+| 8 | Shibboleth SP（IIS ネイティブモジュール・サイト全体保護） | 流用（WSL 版とほぼ同一） | ✅ 本版で記載 |
+| 9 | メタデータ交換（IdP ↔ SP の相互信頼・初回 SSO） | 変更（:8443 補正が不要に） | ✅ 本版で記載 |
+| 10 | 属性連携（emailAddress 形式 NameID を REMOTE_USER に載せる） | 変更（unspecified→emailAddress） | ✅ 本版で記載 |
 | 11 | 結合テスト（ログイン・再現性・再起動堅牢性・ログ） | 流用／変更 | ⬜ 未 |
 
 各フェーズは「目的 → 前提 → 手順 → 動作確認」の順で記載します。付録：A（評価版 rearm）／B（バックアップ・再現性検証のチェックポイント運用）／C（スリープ環境向け時刻再同期）／D（トラブルシュート・Windows 固有）／E（オフライン導入）。
@@ -912,4 +919,488 @@ Invoke-WebRequest https://idp.plm-lab.local:8443/idp/profile/status -UseBasicPar
 
 ---
 
-> 以降のフェーズ（§11 フェーズ7〜§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
+## 11. フェーズ7：IIS（SP の保護対象サイト・443/TLS）
+
+**目的**：ゲスト Windows に IIS を導入し、保護対象となる PLM 相当のサイト（認証後に識別子＝`REMOTE_USER` を表示する確認ページ）を 443/HTTPS で用意する。フェーズ2 の **sp 証明書 (a)**（`sp.pfx`）を初めて使う。フェーズ8 で Shibboleth SP（IIS ネイティブモジュール）を組み込む土台。
+
+> **WSL 版との違い**：IIS も IdP（Tomcat）も同一の Windows 上にあり、`sp.plm-lab.local`→127.0.0.1 で素直に届くため、mirrored ネットワークの検討は不要。`sp.pfx` は WSL の `\\wsl$` 経由ではなく、フェーズ2 で作成した **`C:\lab\ca\sp.pfx`** から直接取り込む。
+
+### 11.1 IIS の導入（Windows の機能）
+
+フェーズ8 の Shibboleth SP は IIS モジュールとして動くため、ISAPI 拡張／フィルタを含めて有効化します。確認ページ用に**古典 ASP** も入れます。**管理者 PowerShell**で：
+
+```powershell
+Enable-WindowsOptionalFeature -Online -All -FeatureName `
+  IIS-WebServerRole, IIS-WebServer, IIS-CommonHttpFeatures, IIS-StaticContent, `
+  IIS-DefaultDocument, IIS-ISAPIExtensions, IIS-ISAPIFilter, IIS-ASP, `
+  IIS-RequestFiltering, IIS-WebServerManagementTools, IIS-ManagementConsole
+```
+
+> GUI の場合：「コントロール パネル → プログラム → Windows の機能の有効化または無効化 → インターネット インフォメーション サービス」で、「World Wide Web サービス → アプリケーション開発機能 → **ISAPI 拡張機能／ISAPI フィルター／ASP**」と「Web 管理ツール → **IIS 管理コンソール**」を有効化。
+
+確認：ブラウザで `http://localhost/` に IIS の既定ページが表示される。
+
+### 11.2 hosts（確認）
+
+`sp.plm-lab.local` はフェーズ2 §6.2 で登録済み。未登録なら追加します。
+
+```powershell
+ping -n 1 sp.plm-lab.local        # 127.0.0.1 に解決されること
+```
+
+### 11.3 sp 証明書 (a) を Windows に取り込む
+
+フェーズ2 で作成した **`C:\lab\ca\sp.pfx`** を、Windows の証明書ストア（ローカルコンピューター＼個人）へ取り込みます。パスワードは §3.1 のとおり `changeit`。
+
+```powershell
+Import-PfxCertificate -FilePath "C:\lab\ca\sp.pfx" `
+  -CertStoreLocation Cert:\LocalMachine\My `
+  -Password (ConvertTo-SecureString "changeit" -AsPlainText -Force)
+```
+
+> rootCA はフェーズ2 §6.5 で「信頼されたルート証明機関」に登録済みのため、ブラウザは sp 証明書を信頼できます。取り込んだ証明書の Thumbprint／Subject（`CN=sp.plm-lab.local`）が表示されれば成功。
+
+### 11.4 既定サイトに 443/HTTPS バインドを追加
+
+```powershell
+Import-Module WebAdministration
+$cert = Get-ChildItem Cert:\LocalMachine\My |
+  Where-Object { $_.Subject -like "*CN=sp.plm-lab.local*" } | Select-Object -First 1
+New-WebBinding -Name "Default Web Site" -Protocol https -Port 443
+New-Item -Path "IIS:\SslBindings\0.0.0.0!443" -Value $cert
+```
+
+> GUI の場合：IIS マネージャー →「Default Web Site」→ 右側「バインド」→「追加」→ 種類 `https`／ポート `443`／SSL 証明書に `sp.plm-lab.local` を選択。
+
+### 11.5 確認用ページ（REMOTE_USER 表示）
+
+`C:\inetpub\wwwroot\whoami.asp` を作成します。**昇格したプロセス**（管理者 PowerShell）で作るのが確実です。
+
+```powershell
+$asp = @'
+<%@ Language="VBScript" %>
+<%
+Response.CodePage = 65001
+Response.Charset = "utf-8"
+%>
+<html><body>
+<h2>Authentication Test</h2>
+REMOTE_USER = [<%= Request.ServerVariables("REMOTE_USER") %>]<br>
+AUTH_TYPE   = [<%= Request.ServerVariables("AUTH_TYPE") %>]
+</body></html>
+'@
+Set-Content -Path "C:\inetpub\wwwroot\whoami.asp" -Value $asp -Encoding UTF8
+```
+
+> この段階では SP 未導入のため `REMOTE_USER` は**空**（`[]`）で表示されます。これは正常で、フェーズ8〜10 で SAML 認証が通ると、ここに**識別子（メール形式 `01PLM01@plm-lab.local`）**が入ります。
+
+> **補足1（ファイル作成権限・OS 差異）**：`C:\inetpub\wwwroot` への書き込みは**昇格したプロセス**で行う。ビルトイン `Administrator` の挙動は OS で異なり、**Windows Server 2016** は既定で管理者承認モードが無効のためエクスプローラーの「新規作成」で `wwwroot` に直接書けるが、**Windows 11 クライアント**は承認モードが効き、エクスプローラーが標準トークンで動くため書けない（UAC スライダーを最下段にしても変わらない）。承認モードの無効化はセキュリティ低下のため非推奨で、昇格プロセス（管理者 PowerShell／「管理者として実行」したメモ帳）での作成を推奨。組織の検証環境（Server 系）ではこの制限自体が起きにくい。
+>
+> **補足2（文字コード）**：日本語を含む古典 ASP を英語ロケールの IIS で表示すると文字化けすることがある。上記のように先頭で `Response.CodePage=65001`／`Response.Charset="utf-8"` を指定し、BOM 無し UTF-8 で保存すれば回避できる。確認用途では見出しを英語表記（例：`Authentication Test`）にしておくのが無難。
+
+### 11.6 動作確認
+
+ゲスト Windows のブラウザで確認します。
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | IIS 既定ページ | `http://localhost/` が表示される |
+| 2 | HTTPS バインド | `https://sp.plm-lab.local/` が**鍵マーク**（証明書エラーなし）で表示 |
+| 3 | ASP 動作 | `https://sp.plm-lab.local/whoami.asp` が表示される |
+| 4 | REMOTE_USER | 同ページで `REMOTE_USER = []`（空。SP 未導入のため正常） |
+
+> 証明書警告が出る場合は rootCA が「信頼されたルート証明機関」にあるか（§6.5）を確認。`whoami.asp` が 500 等になる場合は、古典 ASP（§11.1 の `IIS-ASP`）が有効か、拡張子が `.asp` かを確認。
+
+### 11.7 フェーズ8 への引き継ぎ値
+
+| 項目 | 値 |
+|------|----|
+| SP entityID | `https://sp.plm-lab.local/shibboleth` |
+| 保護対象（予定） | サイト全体（フェーズ8 で SP が保護し、`REMOTE_USER` に識別子が入る） |
+| SP 方式 | IIS ネイティブモジュール（ISAPI 有効化済み） |
+| サイト | Default Web Site（443/HTTPS、sp 証明書 (a)） |
+
+すべて確認できれば、フェーズ7 は完了です。次はフェーズ8（Shibboleth SP を IIS に組み込み、サイト全体を保護）です。
+
+---
+
+## 12. フェーズ8：Shibboleth SP（IIS ネイティブモジュール・サイト全体保護）
+
+**目的**：ゲスト Windows に Shibboleth SP 3 を導入し、IIS と連携させて Default Web Site 全体を SAML 保護する。SP の SAML 署名・暗号鍵 (b) を生成し、SP メタデータを取得できる状態にする。実際の SSO 成立はフェーズ9（メタデータ相互登録）以降で完成する。
+
+> **前提**：フェーズ7 で IIS（ISAPI 有効）・443/HTTPS・確認ページ `whoami.asp` を用意済み。SP は shibd デーモンと IIS ネイティブモジュールの2つで構成される。
+
+> **WSL 版との違い**：SP は元々 Windows ネイティブなので、この部分は WSL 版とほぼ同一。IdP メタデータの `:8443` 補正はフェーズ9 で不要になる（本構成の IdP は最初から 8443 直公開のため。詳細はフェーズ9）。REMOTE_USER に載せる識別子は、フェーズ10 で **emailAddress 形式 NameID** を割り当てる。
+
+### 12.1 SP インストーラの入手と導入
+
+- 公式サイト `https://shibboleth.net/downloads/service-provider/latest/` の **win64/** から最新の **.msi** を入手（バージョンは固定せず最新を使用）。`C:\lab\installers` に保存。
+- MSI を実行し、既定のまま進める。要点：
+  - インストール先は既定の **`C:\opt\shibboleth-sp`**。
+  - **「Configure IIS support」にチェック**（IIS ネイティブモジュールを自動構成。実機の MSI ではこの表記）。
+  - 完了後、**再起動**を求められるので再起動する。
+
+> **配置の注記（設計上の推奨）**：インストール先は**デフォルトの `C:\opt\shibboleth-sp` を推奨**。`C:\inetpub` 配下は、SP の秘密鍵・設定が Web 公開領域に入り漏洩リスクがあるため**不可**。集約する場合も空白を含まないパスにとどめ、`shibboleth2.xml` 内のパス・`keygen` 出力先・ログ/鍵のパスを一斉に読み替える必要がある。学習・検証ではデフォルトが最も安全。
+
+### 12.2 インストールの確認
+
+- サービス：「サービス」管理コンソールで **Shibboleth Daemon (Default)** が「実行中／自動／Local System」であること（内部のサービス名は `shibd_Default`）。
+- IIS（SP3 のネイティブモジュール方式）：IIS マネージャーでサーバーを選択 →「モジュール」に **`ShibNative`／`ShibNative32`**（`C:\opt\shibboleth-sp\lib64\shibboleth\iis7_shib.dll` 等、Native/Local）があること。※ SP3 はネイティブモジュール方式のため、旧 ISAPI 方式の `*.sso` ハンドラーマッピングは**表示されないのが正常**。下のステータス確認が通れば実質確認済み。
+- ステータス（**必ず localhost で、大文字小文字を区別**）：ブラウザで `https://localhost/Shibboleth.sso/Status` を開き、末尾に `<Status><OK/></Status>` が返ること。
+
+> 動かない場合は shibd の設定チェック：管理者コマンドプロンプトで `shibd.exe -check` を実行（`overall configuration is loadable...` なら設定は読み込み可能）。**`shibd.exe` のパスは環境により `sbin64` または `sbin`** のいずれか：
+> - 64bit：`C:\opt\shibboleth-sp\sbin64\shibd.exe -check`
+> - 32bit：`C:\opt\shibboleth-sp\sbin\shibd.exe -check`
+>
+> どちらにあるかは `dir C:\opt\shibboleth-sp\sbin64\shibd.exe` / `dir C:\opt\shibboleth-sp\sbin\shibd.exe` で確認できる。ログは `C:\opt\shibboleth-sp\var\log\shibboleth\shibd.log`。
+
+### 12.3 shibboleth2.xml の編集
+
+`C:\opt\shibboleth-sp\etc\shibboleth\shibboleth2.xml` を編集します（**まず `shibboleth2.xml.orig` にバックアップ**。タイプミスが最大の事故要因なので慎重に。特に `sp.example.org` の置換漏れに注意）。変更点は次の4か所です。
+
+**(1) `<ISAPI>` の `<Site>`**（IIS サイトIDとホスト名の対応。Default Web Site の ID は通常 1）
+
+```xml
+<ISAPI normalizeRequest="true" safeHeaderNames="true">
+    <Site id="1" name="sp.plm-lab.local" scheme="https" port="443"/>
+</ISAPI>
+```
+
+**(2) `<RequestMapper>` の `<Host>`（サイト全体を保護）**
+
+```xml
+<RequestMapper type="Native">
+    <RequestMap>
+        <Host name="sp.plm-lab.local" authType="shibboleth" requireSession="true"/>
+    </RequestMap>
+</RequestMapper>
+```
+
+> `requireSession="true"` により、このホストへの**全アクセスがセッション必須（＝未認証なら IdP へ）**になります。これが「サイト全体保護」の設定です。
+
+**(3) `<ApplicationDefaults>` の entityID と REMOTE_USER**
+
+```xml
+<ApplicationDefaults entityID="https://sp.plm-lab.local/shibboleth"
+                     REMOTE_USER="eppn persistent-id targeted-id">
+```
+
+> `REMOTE_USER` は「先頭から最初に値のある属性」が採用されます。**識別子（emailAddress 形式 NameID）をここに載せる最終設定はフェーズ10**で行います（IdP 側の NameID/属性の出し方と対で決めるため）。本フェーズでは既定のままにしておきます。
+
+**(4) `<SSO>` に IdP の entityID を指定**
+
+```xml
+<SSO entityID="https://idp.plm-lab.local/idp/shibboleth">
+    SAML2
+</SSO>
+```
+
+> IdP のメタデータ（`<MetadataProvider>`）の登録は**フェーズ9**で行います。本フェーズでは entityID の指定までにとどめます。`<MetadataProvider>` を追加する際は、`<Sessions>` の外・`<Errors>` の後ろに置く（`<Sessions>` 内に置くとスキーマ違反で shibd が起動しない。フェーズ9 で詳述）。
+
+### 12.4 SP 鍵 (b) の生成
+
+SP の SAML 署名・暗号化証明書 (b) を、正しいホスト名・entityID で生成します。管理者コマンドプロンプトで：
+
+```bat
+cd C:\opt\shibboleth-sp\etc\shibboleth
+keygen.bat -h sp.plm-lab.local -e https://sp.plm-lab.local/shibboleth -y 10
+```
+
+> `sp-signing-cert.pem` / `sp-encrypt-cert.pem` 等が生成されます。これはフェーズ2 の (a) とは別物で、**メタデータ交換で IdP に渡す (b)**（CA 信頼・ホスト名一致は不要）。MSI が既定鍵を生成済みの場合もありますが、entityID/ホスト名を正しくするため上記で作り直します。
+
+### 12.5 反映（IIS 完全再起動）
+
+`<ISAPI>` を変更したときは **IIS の完全再起動**が必要です。
+
+```powershell
+Restart-Service shibd_Default
+iisreset
+```
+
+### 12.6 動作確認
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | shibd 稼働 | 「Shibboleth Daemon (Default)」が実行中 |
+| 2 | 設定読込 | `shibd.exe -check`（`sbin64` または `sbin`）が `overall configuration is loadable` |
+| 3 | Status | `https://localhost/Shibboleth.sso/Status` が `<Status><OK/></Status>` |
+| 4 | SP メタデータ | `https://sp.plm-lab.local/Shibboleth.sso/Metadata` が SP メタデータ（XML）を返す。中に `sp.example.org` が残っていない（すべて `sp.plm-lab.local`） |
+| 5 | 保護の発火 | `https://sp.plm-lab.local/whoami.asp` にアクセスすると SP がセッションを要求する（この時点では IdP メタデータ未登録のため `No MetadataProvider available.` 等になるのは**想定どおり**。requireSession が効いている証拠） |
+
+> 確認4の SP メタデータ（`Shibboleth.sso/Metadata`）は、フェーズ9で **IdP に登録する SP メタデータ**として使います。ファイルに保存しておくと便利です。
+
+### 12.7 フェーズ9 への引き継ぎ値
+
+| 項目 | 値 |
+|------|----|
+| SP entityID | `https://sp.plm-lab.local/shibboleth` |
+| SP メタデータ URL | `https://sp.plm-lab.local/Shibboleth.sso/Metadata` |
+| SP の ACS（想定） | `https://sp.plm-lab.local/Shibboleth.sso/SAML2/POST` |
+| SP 署名・暗号鍵 (b) | `C:\opt\shibboleth-sp\etc\shibboleth\sp-*-cert.pem` |
+| 次工程 | フェーズ9：IdP メタデータを SP に登録し、SP メタデータを IdP に登録。本構成では IdP が 8443 直公開のため **:8443 補正は不要** |
+
+すべて確認できれば、フェーズ8 は完了です。次はフェーズ9（メタデータ交換・初回 SSO 成立）です。
+
+---
+
+## 13. フェーズ9：メタデータ交換（IdP ↔ SP の相互信頼・初回 SSO 成立）
+
+**目的**：IdP と SP のメタデータを**静的（ファイル）に相互登録**し、両者が信頼し合って SAML の往復が成立する状態にする。フェーズ8 で出た `No MetadataProvider available.` を解消し、`https://sp.plm-lab.local/whoami.asp` への未認証アクセスが **IdP のログイン画面（8443）へ遷移 → 識別子＋パスワードでログイン → SP に戻ってセッション確立**、という一連を確認する。
+
+> **本フェーズのゴール**：「SSO の往復が成立し、SP セッションが張れて保護ページに到達できる」ところまで。`REMOTE_USER` に識別子を載せる最終設定はフェーズ10。本フェーズ完了時点では `REMOTE_USER` は空でも合格。
+
+> **WSL 版との違い（:8443 補正・実機結果）**：`\\wsl$`・`/mnt/c` の受け渡しや `chown` は不要で、すべて同一 Windows 上のファイルコピーで済む。ただし **`install.bat` はホスト名ベースでメタデータを生成するため、エンドポイントの `Location` がポートなし（=443）で出力されることがある**（実機でもポートなしだった）。その場合は WSL 版と同様に **:8443 へ補正が必要**（補正の手段が sed→PowerShell に変わるだけ）。13.1 で実際の `Location` を確認し、ポートなしなら補正する。
+
+### 13.1 IdP メタデータのエンドポイント確認と :8443 補正
+
+IdP のメタデータは `C:\opt\shibboleth-idp\metadata\idp-metadata.xml` にあります。まず、各エンドポイントの `Location` が **:8443 付き**か**ポートなし（=443）**かを確認します（管理者 PowerShell）。
+
+```powershell
+Select-String -Path "C:\opt\shibboleth-idp\metadata\idp-metadata.xml" -Pattern 'Location="[^"]*"' |
+  ForEach-Object { $_.Matches.Value } | Sort-Object -Unique
+```
+
+**実機ではポートなし（`https://idp.plm-lab.local/idp/...`）で生成された**。このままだと SP はブラウザを 443（IIS/SP 側）へ送ってしまい SSO が壊れるため、SP 側へコピーしてから **:8443 へ補正**する（entityID 行はポートなしのまま戻す）。
+
+```powershell
+# 1) IdP メタデータを SP 側へコピー
+Copy-Item "C:\opt\shibboleth-idp\metadata\idp-metadata.xml" `
+  "C:\opt\shibboleth-sp\etc\shibboleth\idp-metadata.xml" -Force
+
+# 2) コピー先のエンドポイントを :8443 に補正（entityID は元に戻す）
+$f = "C:\opt\shibboleth-sp\etc\shibboleth\idp-metadata.xml"
+(Get-Content $f -Raw) `
+  -replace 'https://idp\.plm-lab\.local/idp/', 'https://idp.plm-lab.local:8443/idp/' `
+  -replace 'entityID="https://idp\.plm-lab\.local:8443/idp/shibboleth"', 'entityID="https://idp.plm-lab.local/idp/shibboleth"' |
+  Set-Content $f -Encoding UTF8
+
+# 3) 確認：Location が :8443、entityID はポートなし
+Select-String -Path $f -Pattern 'Location="[^"]*"' | ForEach-Object { $_.Matches.Value } | Sort-Object -Unique
+Select-String -Path $f -Pattern 'entityID="[^"]*"' | ForEach-Object { $_.Matches.Value } | Sort-Object -Unique
+```
+
+> 期待：`Location` がすべて `https://idp.plm-lab.local:8443/idp/...`、`entityID` は `https://idp.plm-lab.local/idp/shibboleth`（**ポートなし**。識別子であってアクセス先 URL ではないため、ポートを付けない）。もし最初から `Location` が :8443 付きで生成されていた場合は、手順 1 のコピーのみで補正は不要。
+
+### 13.2 SP に IdP メタデータを登録
+
+`C:\opt\shibboleth-sp\etc\shibboleth\shibboleth2.xml` に IdP メタデータの `<MetadataProvider>` を追加します。**配置場所が重要**で、`<MetadataProvider>` は **`<Sessions>` の中ではなく、`</Sessions>` の後・`<Errors .../>` の下**に置きます（`<Sessions>` 内に置くとスキーマ違反 `element 'MetadataProvider' is not allowed for content model ...` で shibd が起動しません）。既定ファイルの「Example of locally maintained metadata」コメントの位置がまさにその場所です。
+
+```xml
+    </Sessions>
+
+    <Errors supportContact="root@localhost"
+        helpLocation="/about.html"
+        styleSheet="/shibboleth-sp/main.css"/>
+
+    <!-- ここ（Sessions の外・Errors の下）に追加 -->
+    <MetadataProvider type="XML" validate="true" path="idp-metadata.xml"/>
+```
+
+保存後、設定チェックしてから SP を再起動します（`shibd.exe` は `sbin64` または `sbin`）。
+
+```powershell
+C:\opt\shibboleth-sp\sbin64\shibd.exe -check    # 無ければ sbin\shibd.exe -check
+Restart-Service shibd_Default
+iisreset
+```
+
+> これで `No MetadataProvider available.` は解消します。`https://localhost/Shibboleth.sso/Status` が引き続き `<OK/>` であることも確認。
+
+### 13.3 SP メタデータの取得と IdP への配置
+
+SP のメタデータを取得して IdP 側へ配置します。ブラウザで `https://sp.plm-lab.local/Shibboleth.sso/Metadata` を開き、**XML を `sp-metadata.xml` として保存**（フェーズ8で保存済みならそれを使用）。これを IdP のメタデータ領域へコピーします（同一 Windows なので単純コピー）。
+
+```powershell
+Copy-Item "C:\Users\<ユーザー>\Downloads\sp-metadata.xml" `
+  "C:\opt\shibboleth-idp\metadata\sp-metadata.xml" -Force
+```
+
+> WSL 版のような `chown tomcat` は不要（Windows のサービスは Local System で動作し、ファイル所有権の付け替えは不要）。
+
+### 13.4 IdP に SP メタデータを登録
+
+`C:\opt\shibboleth-idp\conf\metadata-providers.xml` を編集し、既定の `<MetadataProvider id="ShibbolethMetadata" xsi:type="ChainingMetadataProvider">` と、それを閉じる `</MetadataProvider>` の**間（チェーンの内側）**に、SP メタデータの `FilesystemMetadataProvider` を追加します（コメントアウトされた `LocalMetadata` 見本の位置が最適）。
+
+```xml
+<MetadataProvider id="LocalSP" xsi:type="FilesystemMetadataProvider"
+                  metadataFile="%{idp.home}/metadata/sp-metadata.xml"/>
+```
+
+IdP に設定を反映させます。学習環境では **Tomcat 再起動が確実**です（`reload-service` はアクセス制御で弾かれることがある）。
+
+```powershell
+Restart-Service Tomcat10
+Start-Sleep -Seconds 20
+# SP メタデータ（entityID: https://sp.plm-lab.local/shibboleth）の読込・エラー無しを確認
+Select-String -Path "C:\opt\shibboleth-idp\logs\idp-process.log" -Pattern 'LocalSP|sp.plm-lab.local' | Select-Object -Last 10
+# 期待: "FilesystemMetadataResolver LocalSP: New metadata successfully loaded ..." が出る
+```
+
+### 13.5 時刻の確認
+
+SAML はクロックスキューに敏感ですが、**本構成は IdP も SP も同一の Windows 上**のため時刻は常に一致し、WSL 版のような OS 間のずれは発生しません。`Get-Date` が妥当な現在時刻であることを確認する程度で十分です。
+
+### 13.6 初回 SSO の確認
+
+ゲスト Windows のブラウザ（新しいプライベートウィンドウ推奨）で：
+
+1. `https://sp.plm-lab.local/whoami.asp` を開く
+2. **IdP のログイン画面（`https://idp.plm-lab.local:8443/idp/...`）に遷移**する
+3. ユーザー名 `01PLM01`、パスワード `01PLM01`（フェーズ3 の Joe アカウント）でログイン
+4. **SP に戻り、`whoami.asp` が表示される**（保護ページに到達）
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | 保護の発火＋遷移 | 未認証アクセスで IdP ログイン画面（8443）へ遷移 |
+| 2 | 認証 | uid=01PLM01 でログインできる（LDAP 認証成立） |
+| 3 | 復路 | SP に戻り、`whoami.asp` が開ける（セッション確立） |
+| 4 | セッション | `https://sp.plm-lab.local/Shibboleth.sso/Session` に有効なセッションが見える（**localhost では不可**。ログインしたホスト名で開く） |
+
+> この時点で `REMOTE_USER` は空でも合格。識別子（emailAddress 形式 NameID）を `REMOTE_USER` に載せるのはフェーズ10。
+
+### 13.7 つまずいたときの切り分け
+
+- **IdP ログイン画面に飛ばず 443 に行ってしまう** → 13.1 のエンドポイントが :8443 になっているか。SP 側 `idp-metadata.xml` の `Location` を確認。
+- **shibd が起動しない／`element 'MetadataProvider' is not allowed ...`** → `<MetadataProvider>` を `<Sessions>` 内に置いている。`</Sessions>` の後・`<Errors>` の下へ移動（13.2）。
+- **IdP 側で「SAML2 SSO profile is not configured for relying party ...sp...」** → IdP に SP メタデータが読めていない（13.4）。`idp-process.log` と `metadata-providers.xml` のパス・SP メタデータの entityID を確認。
+- **署名/復号エラー** → メタデータ内の (b) 証明書と実鍵の不一致。SP/IdP のメタデータが最新か（keygen 後に再取得したか）を確認。
+- ログ：SP は `C:\opt\shibboleth-sp\var\log\shibboleth\shibd.log`、IdP は `C:\opt\shibboleth-idp\logs\idp-process.log`。
+
+すべて確認できれば、フェーズ9 は完了です（初回 SSO 成立）。次はフェーズ10（emailAddress 形式 NameID を REMOTE_USER に載せる）です。
+
+---
+
+## 14. フェーズ10：属性連携（emailAddress 形式 NameID を `REMOTE_USER` に載せる）
+
+**目的**：認証されたユーザーの **`mail`（例 `01PLM01@plm-lab.local`）** を、IdP から **emailAddress 形式の NameID** として SP へ渡し、SP 側で `REMOTE_USER` にマッピングする。最終的に `whoami.asp` の `REMOTE_USER` に **`01PLM01@plm-lab.local`** が表示される状態にする（顧客 Entra の形式に準拠）。
+
+> **WSL 版との違い**：WSL 版は「uid を unspecified 形式の NameID」だったが、本構成は **「mail を emailAddress 形式の NameID」**。顧客の本番（Entra ID）が emailAddress 形式の NameID を送る構成に合わせている。PLM 側で `@` の前を切り出して従来の識別番号に変換する処理は **PLM アプリの責務**であり、本フェーズの対象外（SP は `01PLM01@plm-lab.local` をそのまま REMOTE_USER に載せるところまで）。設定は最も細かいので、**1か所ずつ変更して確認**する。
+
+### 14.1 IdP：mail 属性の解決（attribute-resolver.xml）
+
+`mail` を LDAP から取得できるようにします。IdP 5 の `attribute-resolver.xml` に LDAP DataConnector と `mail` の AttributeDefinition が無い場合は追加します（ldap.properties の接続情報を使う既定の `%{idp.attribute.resolver.LDAP.*}` を参照）。
+
+```xml
+<!-- LDAP から属性を引く DataConnector（既定で例がコメントアウトされていることが多い） -->
+<DataConnector id="myLDAP" xsi:type="LDAPDirectory"
+    ldapURL="%{idp.attribute.resolver.LDAP.ldapURL}"
+    baseDN="%{idp.attribute.resolver.LDAP.baseDN}"
+    principal="%{idp.attribute.resolver.LDAP.bindDN}"
+    principalCredential="%{idp.attribute.resolver.LDAP.bindDNCredential}">
+    <FilterTemplate><![CDATA[(uid=$resolutionContext.principal)]]></FilterTemplate>
+    <ReturnAttributes>mail uid</ReturnAttributes>
+</DataConnector>
+
+<!-- mail 属性の定義（DataConnector から取得） -->
+<AttributeDefinition id="mail" xsi:type="Simple">
+    <InputDataConnector ref="myLDAP" attributeNames="mail"/>
+</AttributeDefinition>
+```
+
+> `attribute-resolver.xml` に対応する `idp.attribute.resolver.LDAP.*` を `ldap.properties` に設定しておく（フェーズ5 で authn 用に設定した値と同じ：`ldapURL=ldap://localhost:10389`／`baseDN=ou=people,dc=example,dc=com`／`bindDN=uid=idp-reader,ou=people,dc=example,dc=com`、`bindDNCredential` は secrets.properties）。既に `mail` が status の属性解決で取得できていれば、この節は最小限で済む。
+
+### 14.2 IdP：mail を対象 SP へ解放（attribute-filter.xml）
+
+`C:\opt\shibboleth-idp\conf\attribute-filter.xml` に、SP（`sp.plm-lab.local`）へ `mail` を解放するポリシーを追加します。
+
+```xml
+<AttributeFilterPolicy id="releaseMailToPlmSP">
+    <PolicyRequirementRule xsi:type="Requester"
+        value="https://sp.plm-lab.local/shibboleth"/>
+    <AttributeRule attributeID="mail">
+        <PermitValueRule xsi:type="ANY"/>
+    </AttributeRule>
+</AttributeFilterPolicy>
+```
+
+### 14.3 IdP：mail を emailAddress 形式 NameID として生成（saml-nameid.xml）
+
+フェーズ5 §9.5 で、`shibboleth.SAML2NameIDGenerators` に次の生成器を追加済みのはずです（未追加ならここで追加。**重複させない**）。
+
+```xml
+<bean parent="shibboleth.SAML2AttributeSourcedGenerator"
+      p:omitQualifiers="true"
+      p:format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+      p:attributeSourceIds="#{ {'mail'} }" />
+```
+
+### 14.4 IdP：対象 SP に emailAddress 形式を優先させる（relying-party.xml）
+
+`C:\opt\shibboleth-idp\conf\relying-party.xml` の `<util:list id="shibboleth.RelyingPartyOverrides">` に、対象 SP 向けのオーバーライドを追加します。
+
+```xml
+<bean parent="RelyingPartyByName"
+      c:relyingPartyIds="https://sp.plm-lab.local/shibboleth">
+    <property name="profileConfigurations">
+        <list>
+            <bean parent="SAML2.SSO"
+                  p:nameIDFormatPrecedence="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"/>
+        </list>
+    </property>
+</bean>
+```
+
+設定を反映（Tomcat 再起動が確実）。
+
+```powershell
+Restart-Service Tomcat10
+Start-Sleep -Seconds 20
+Select-String -Path "C:\opt\shibboleth-idp\logs\idp-process.log" -Pattern 'ERROR' | Select-Object -Last 20
+```
+
+### 14.5 SP：NameID を `REMOTE_USER` にマップ
+
+**(1) `attribute-map.xml`**（`C:\opt\shibboleth-sp\etc\shibboleth\attribute-map.xml`）に、emailAddress 形式の NameID を属性 `mail` として取り込むデコーダを追加します。
+
+```xml
+<Attribute name="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress" id="mail">
+    <AttributeDecoder xsi:type="NameIDAttributeDecoder" formatter="$Name"/>
+</Attribute>
+```
+
+**(2) `shibboleth2.xml`** の `<ApplicationDefaults>` の `REMOTE_USER` に、先頭で `mail` を使うよう変更します（顧客の優先リスト方式に倣う）。
+
+```xml
+<ApplicationDefaults entityID="https://sp.plm-lab.local/shibboleth"
+                     REMOTE_USER="mail eppn persistent-id targeted-id">
+```
+
+反映（SP 再起動。`shibd.exe` は sbin64 または sbin）。
+
+```powershell
+C:\opt\shibboleth-sp\sbin64\shibd.exe -check   # overall configuration is loadable
+Restart-Service shibd_Default
+iisreset
+```
+
+### 14.6 動作確認（最終ゴール）
+
+ゲスト Windows のブラウザの**新しいプライベートウィンドウ**で：
+
+1. `https://sp.plm-lab.local/whoami.asp` を開く
+2. IdP ログイン画面（8443）→ `01PLM01` / `01PLM01` でログイン
+3. `whoami.asp` に戻り、**`REMOTE_USER = [01PLM01@plm-lab.local]`** と表示される
+
+| # | 確認内容 | 期待結果 |
+|---|----------|----------|
+| 1 | SSO 往復 | ログイン後 `whoami.asp` に戻れる |
+| 2 | 識別子の受け渡し | `REMOTE_USER = [01PLM01@plm-lab.local]`（メール形式が入る） |
+| 3 | セッション内容 | `https://sp.plm-lab.local/Shibboleth.sso/Session` の Attributes に mail（NameID）が見える |
+
+**これが表示できれば、本手順書の目標（emailAddress 形式の識別子による SSO 連携）は達成**です。
+
+### 14.7 つまずいたときの切り分け
+
+- **`REMOTE_USER` が空のまま** → ①IdP が NameID を出しているか（`Shibboleth.sso/Session` の Attributes/NameID を確認）、②SP の `attribute-map.xml` の形式（emailAddress）と id（mail）が一致しているか、③`REMOTE_USER` の先頭に `mail` があるか。
+- **NameID が transient のまま** → 14.4 の `nameIDFormatPrecedence`（emailAddress）が対象 SP に効いているか。`relying-party.xml` の entityID を確認。
+- **mail が解決できない（IdP エラー）** → 14.1 の LDAP DataConnector と `ldap.properties` の resolver 設定、LDAP の `mail` 属性（フェーズ3 で投入済み）を確認。`idp-process.log` を確認。
+- **確認ツール**：ブラウザ拡張「SAML-tracer」で、IdP→SP の SAML Response 内の `<NameID>` に `01PLM01@plm-lab.local` が入っているかを直接確認できる。
+- ログ：SP=`C:\opt\shibboleth-sp\var\log\shibboleth\shibd.log`、IdP=`C:\opt\shibboleth-idp\logs\idp-process.log`。
+
+### 14.8 実運用（PLM）への接続に向けた補足
+
+本フェーズで `REMOTE_USER` にメール形式の識別子（`01PLM01@plm-lab.local`）が入るようになった。実際の PLM では、この `REMOTE_USER`（IIS のサーバ変数）を PLM 側が読み取り、**`@` の前（`01PLM01`）を切り出して従来の識別番号として自 DB で認可判定する**。この切り出し・変換は PLM アプリ（`Web.config` の認証方式スイッチ＋実装）の責務であり、SP/IdP の構築範囲外。SP はサイト全体を保護しているため、PLM の各ページはすべて認証必須となる。顧客本番では IdP が Entra ID に替わるが、SP 側（attribute-map／REMOTE_USER）の考え方は同じ。
+
+---
+
+> 以降のフェーズ（§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
