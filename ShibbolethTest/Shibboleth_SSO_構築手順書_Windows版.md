@@ -22,6 +22,7 @@
 | 0.16 | 2026-07-11 | 発展編（§16：LAN 上の別PC・Hyper-V ホストからの接続）を追記。SSO 構築は不変で、①HTTPS サーバ証明書の信頼（rootCA 配布 or 証明書警告の許容）、②ネットワーク通信許可（実IPへの hosts・仮想スイッチ・ファイアウォール 443/8443）の2観点を整理 | ネットワーク到達性の追加のみ |
 | 0.17 | 2026-07-11 | §16.6「本番でのサーバ証明書の用意」を追記（社内CA/AD CS＝パターンA を最有力、パブリックCA＝B、自己署名＋配布＝C、および実業務向けアドバイス6点）。学習用自己署名CAは本番に持ち込まない旨を明記 | 顧客向け証明書アドバイス |
 | 0.18 | 2026-07-11 | 発展編§17「組織内の複数 PLM 環境の SSO 対応（並行運用の設計メモ）」を追記（HTTP=従来認証を維持し HTTPS=SSO 用ポートを新設、1 IdP 共有・1 SP で SSO ポートのみ複数 Site 保護＝方式1・同一ホスト名で証明書1枚共有・Web.config で認証方式切替）。§16.6 挿入時に欠落していた付録A見出しを復旧 | 複数環境の並行運用（設計メモ） |
+| 0.19 | 2026-07-11 | §17 にホスト名設計を反映：構成図を実ホスト名で具体化し、17.3(f) を追加（**SP は既存 `plmdev.plm-lab.local` に統一しポートで識別／IdP は `idp.plm-lab.local` に分離**／1台に両ホスト名割当・証明書は役割ごと1枚） | ホスト名設計の指針 |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -1639,19 +1640,28 @@ Test-NetConnection -ComputerName 192.168.x.x -Port 8443
 
 ### 17.2 構成イメージ
 
+SP は既存ホスト名 `plmdev.plm-lab.local` に統一し、ポート番号で環境と認証方式を識別する。IdP は別ホスト名 `idp.plm-lab.local` に分ける（ホスト名設計の根拠は 17.3(f)）。
+
 ```
-【従来認証（HTTP・そのまま維持）】        【SSO（HTTPS・新設）】
-(1) 80/tcp   → PLM開発1（Cookie認証）     (1') 4443/tcp(例) → PLM開発1（SSO）
-(2) 9012/tcp → PLM検証  （Cookie認証）     (2') 9112/tcp(例) → PLM検証  （SSO）
-(3) 9013/tcp → PLM開発2 （Cookie認証）     (3') 9113/tcp(例) → PLM開発2 （SSO）
-        ↑ SP保護しない                            ↑ 同一IIS上でSPが保護
-                                                   ↓
-                                        共有IdP（Tomcat 8443）→ 共有LDAP
+物理1台（開発サーバ／同一マシンに2つのホスト名を割り当て）
+├─ plmdev.plm-lab.local （既存＝SP／PLM。ポートで環境・認証方式を識別）
+│  【従来認証（HTTP・そのまま維持／SP保護しない）】
+│   (1) http://plmdev.plm-lab.local/         → PLM開発1（Cookie認証・80）
+│   (2) http://plmdev.plm-lab.local:9012/    → PLM検証  （Cookie認証）
+│   (3) http://plmdev.plm-lab.local:9013/    → PLM開発2 （Cookie認証）
+│  【SSO（HTTPS・新設／同一IIS上でSPが保護）】
+│   (1') https://plmdev.plm-lab.local:4443/  → PLM開発1（SSO）  ┐
+│   (2') https://plmdev.plm-lab.local:9112/  → PLM検証  （SSO）  ├ 同一 entityID（方式1）
+│   (3') https://plmdev.plm-lab.local:9113/  → PLM開発2 （SSO）  ┘
+│                                                   ↓（SAML：ブラウザ経由）
+└─ idp.plm-lab.local （IdP。認証基盤・役割を分離）
+    └─ https://idp.plm-lab.local:8443/idp/   → Shibboleth IdP（Tomcat 直）→ 共有LDAP
 ```
 
-- 左列（HTTP）は現状のまま。SP は関与せず、PLM の従来 Cookie 認証で動作。
-- 右列（HTTPS）を新設し、**同一 IIS 上の SP がポート単位で保護**。認証は共有 IdP＋共有 LDAP。
-- SSO 用ポート番号（4443/9112/9113）は一例。組織のポリシーに合わせて決める。
+- 従来（HTTP）は現状のまま。SP は関与せず、PLM の従来 Cookie 認証で動作。
+- SSO（HTTPS）を新設し、**同一 IIS 上の SP がポート単位で保護**。認証は共有 IdP＋共有 LDAP。
+- SSO 用ポート番号（4443/9112/9113）は一例。組織のポリシーに合わせて決める。1つを 443 にしてもよい。
+- **SP は `plmdev.plm-lab.local` に統一**（証明書1枚で全 SSO ポートを SAN でカバー）、**IdP は `idp.plm-lab.local` に分離**（役割の分離・本番=Entra との整合）。物理的には1台に両ホスト名を割り当てる（同一IP）。
 
 ### 17.3 設計上のポイント
 
@@ -1664,15 +1674,15 @@ Test-NetConnection -ComputerName 192.168.x.x -Port 8443
 ```xml
 <ISAPI normalizeRequest="true" safeHeaderNames="true">
     <!-- SSO で保護するポートだけを登録（HTTP ポート 80/9012/9013 は書かない） -->
-    <Site id="10" name="plm.example.local" scheme="https" port="4443"/>  <!-- (1') 開発1 -->
-    <Site id="11" name="plm.example.local" scheme="https" port="9112"/>  <!-- (2') 検証 -->
-    <Site id="12" name="plm.example.local" scheme="https" port="9113"/>  <!-- (3') 開発2 -->
+    <Site id="10" name="plmdev.plm-lab.local" scheme="https" port="4443"/>  <!-- (1') 開発1 -->
+    <Site id="11" name="plmdev.plm-lab.local" scheme="https" port="9112"/>  <!-- (2') 検証 -->
+    <Site id="12" name="plmdev.plm-lab.local" scheme="https" port="9113"/>  <!-- (3') 開発2 -->
 </ISAPI>
 ```
 
 - `id` は IIS 各サイトの ID に合わせる（IIS マネージャーで確認）。
 - `<RequestMapper>` で当該ホスト／サイトを `requireSession="true"` にして保護する。
-- entityID（例 `https://plm.example.local/shibboleth`）は識別子であり3ポート共通。ポート番号は含めない。
+- entityID（例 `https://plmdev.plm-lab.local/shibboleth`）は識別子であり3ポート共通。ポート番号は含めない。
 
 **(c) HTTP ポートは `<Site>` に登録しない＝従来認証のまま**
 SP はポート（サイト）単位で保護対象を選べる。SSO 用ポートだけ登録し、HTTP ポート（80/9012/9013）は登録しないことで、同一 IIS 上で「HTTP＝従来認証／HTTPS＝SSO」を両立できる。
@@ -1681,7 +1691,16 @@ SP はポート（サイト）単位で保護対象を選べる。SSO 用ポー�
 同じ Web アプリを HTTP ポートと HTTPS ポートの両方にデプロイし、`Web.config` で認証方式を切り替える。HTTPS（SSO）側インスタンスは「SP がセットした `REMOTE_USER`（メール形式の識別子）を信頼して認証」、HTTP 側インスタンスは「従来の Cookie 認証」。この切り替えは PLM 側の設計であり、SP/IdP の構築範囲外。SP は HTTPS ポートで REMOTE_USER を確定して渡すところまでを担う。
 
 **(e) 同一ホスト名・証明書は1枚で共有**
-自組織の開発・検証環境は**同一ホスト名**（例 `plm.example.local`）の別ポートとする。この場合、**サーバ証明書は SAN にそのホスト名を含む1枚で3ポートを共有**できる（§16.6）。方式1（全ポート同一 entityID/Application）なので、SP のセッションはポート間で共有され、「1回ログインで3環境に入れる」挙動になる（並行運用の検証用途では利点）。
+自組織の開発・検証環境は、SP 側を**既存の同一ホスト名**（`plmdev.plm-lab.local`）の別ポートとする。この場合、**SP のサーバ証明書は SAN にそのホスト名を含む1枚で全 SSO ポートを共有**できる（§16.6）。方式1（全ポート同一 entityID/Application）なので、SP のセッションはポート間で共有され、「1回ログインで3環境に入れる」挙動になる（並行運用の検証用途では利点）。
+
+**(f) ホスト名設計：SP は既存ホスト名に統一・IdP は別ホスト名に分離**
+既に PLM の開発・検証環境に決まったホスト名（例 `plmdev.plm-lab.local`）がある場合、次の方針が推奨：
+
+- **SP（PLM を保護する側）は既存ホスト名 `plmdev.plm-lab.local` に統一し、ポート番号で環境（開発1/検証/開発2）と認証方式（HTTP=従来／HTTPS=SSO）を識別する**。既存の名前解決・運用をそのまま活かせ、証明書も1枚（SAN=plmdev）で済み、§17 の並行運用にそのまま合致する。
+- **IdP（認証する側）は別ホスト名 `idp.plm-lab.local` に分ける**。理由：①役割の分離（`plmdev`＝PLM/SP、`idp`＝認証基盤）が名前で明確になり運用・ログ追跡・トラブル対応がしやすい、②本番では IdP が Entra ID（別ホスト/クラウド）になるため、検証でも IdP を別名にしておくと本番と構造が揃う、③SP と IdP を同名にすると TLS 証明書・SAML メタデータ（entityID）がホスト名ベースで紛らわしく取り違え事故が起きやすい。
+- **物理的には1台のマシンに両ホスト名（`plmdev.plm-lab.local`／`idp.plm-lab.local`）を割り当てる**（同一IP）。今回の学習環境で1台に `sp`/`idp` の2名を割り当てたのと同じ考え方。DNS（または hosts）で両ホスト名を同一IPに向け、証明書は SP 用（plmdev）と IdP 用（idp）を役割ごとに1枚ずつ用意する。
+
+> 「すべて `plmdev.plm-lab.local` に統一してポートだけで役割識別」も技術的には可能だが、IdP まで同名にすると役割が混ざり、証明書・メタデータが紛らわしくなるため非推奨。**IdP だけは別ホスト名に分ける**のがよい。
 
 ### 17.4 構築の流れ（想定手順・要実機検証）
 
