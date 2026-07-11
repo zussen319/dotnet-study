@@ -17,6 +17,8 @@
 | 0.11 | 2026-07-09 | フェーズ8（Shibboleth SP：MSI 導入・IIS ネイティブモジュール確認・shibboleth2.xml 編集（ISAPI/RequestMapper/entityID/SSO）・keygen で鍵(b)・サイト全体保護）を追記 | WSL 版フェーズ8 を流用 |
 | 0.12 | 2026-07-09 | フェーズ8 実機反映（MSI 表記「Configure IIS support」／サービス表示名「Shibboleth Daemon (Default)」／shibd.exe は sbin64 または sbin／使用インストーラ版数一覧）。フェーズ9（メタデータ相互登録・初回 SSO・**:8443 補正は不要**）を追記 | :8443 補正が不要になり簡素化 |
 | 0.13 | 2026-07-10 | フェーズ9 実機反映：§13.1 を訂正し **:8443 補正は必要**（install.bat 生成のメタデータはエンドポイントがポートなしのため）に。フェーズ10（emailAddress 形式 NameID を mail から生成し REMOTE_USER に載せる：目標 `01PLM01@plm-lab.local`）を追記 | uid/unspecified→mail/emailAddress |
+| 0.14 | 2026-07-11 | フェーズ10 実機反映：§14.1 を「既存 mail テンプレートの**ドメインだけ変更**（二重定義しない。`Duplicate Definition 'mail'` WARN の回避）」に整理。§14.5 に partner-metadata.xml（不在なら該当 MetadataProvider をコメントアウト）とログの時刻フィルタ確認を追記。**REMOTE_USER=[01PLM01@plm-lab.local] を達成（目標到達）** | 属性連携 完了 |
+| 0.15 | 2026-07-11 | フェーズ11（結合テスト：通し確認・01PLM02 再現・セッション確認・ログアウト対象外・ログの読み方・**再起動堅牢性（Windows サービス自動起動でオンデマンド問題なし）**・問題早見表・本番展開メモ）を追記。**全11フェーズ完了** | 純 Windows 版 完成 |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -158,7 +160,7 @@
 | 8 | Shibboleth SP（IIS ネイティブモジュール・サイト全体保護） | 流用（WSL 版とほぼ同一） | ✅ 本版で記載 |
 | 9 | メタデータ交換（IdP ↔ SP の相互信頼・初回 SSO） | 変更（:8443 補正が不要に） | ✅ 本版で記載 |
 | 10 | 属性連携（emailAddress 形式 NameID を REMOTE_USER に載せる） | 変更（unspecified→emailAddress） | ✅ 本版で記載 |
-| 11 | 結合テスト（ログイン・再現性・再起動堅牢性・ログ） | 流用／変更 | ⬜ 未 |
+| 11 | 結合テスト（ログイン・再現性・再起動堅牢性・ログ） | 流用／変更 | ✅ 本版で記載 |
 
 各フェーズは「目的 → 前提 → 手順 → 動作確認」の順で記載します。付録：A（評価版 rearm）／B（バックアップ・再現性検証のチェックポイント運用）／C（スリープ環境向け時刻再同期）／D（トラブルシュート・Windows 固有）／E（オフライン導入）。
 
@@ -1276,28 +1278,23 @@ SAML はクロックスキューに敏感ですが、**本構成は IdP も SP �
 
 > **WSL 版との違い**：WSL 版は「uid を unspecified 形式の NameID」だったが、本構成は **「mail を emailAddress 形式の NameID」**。顧客の本番（Entra ID）が emailAddress 形式の NameID を送る構成に合わせている。PLM 側で `@` の前を切り出して従来の識別番号に変換する処理は **PLM アプリの責務**であり、本フェーズの対象外（SP は `01PLM01@plm-lab.local` をそのまま REMOTE_USER に載せるところまで）。設定は最も細かいので、**1か所ずつ変更して確認**する。
 
-### 14.1 IdP：mail 属性の解決（attribute-resolver.xml）
+### 14.1 IdP：mail 属性の確認（attribute-resolver.xml：ドメインを変更）
 
-`mail` を LDAP から取得できるようにします。IdP 5 の `attribute-resolver.xml` に LDAP DataConnector と `mail` の AttributeDefinition が無い場合は追加します（ldap.properties の接続情報を使う既定の `%{idp.attribute.resolver.LDAP.*}` を参照）。
+IdP 5 の既定 `attribute-resolver.xml` には、**すでに `mail` の Template 定義**が入っている（`uid` にドメインを付けてメール形式を作る）。既定はドメインが `@example.org` になっているため、これを **`@plm-lab.local` に変更**するだけでよい（LDAP DataConnector の新設は不要）。
 
 ```xml
-<!-- LDAP から属性を引く DataConnector（既定で例がコメントアウトされていることが多い） -->
-<DataConnector id="myLDAP" xsi:type="LDAPDirectory"
-    ldapURL="%{idp.attribute.resolver.LDAP.ldapURL}"
-    baseDN="%{idp.attribute.resolver.LDAP.baseDN}"
-    principal="%{idp.attribute.resolver.LDAP.bindDN}"
-    principalCredential="%{idp.attribute.resolver.LDAP.bindDNCredential}">
-    <FilterTemplate><![CDATA[(uid=$resolutionContext.principal)]]></FilterTemplate>
-    <ReturnAttributes>mail uid</ReturnAttributes>
-</DataConnector>
-
-<!-- mail 属性の定義（DataConnector から取得） -->
-<AttributeDefinition id="mail" xsi:type="Simple">
-    <InputDataConnector ref="myLDAP" attributeNames="mail"/>
+<!-- 既存の mail 定義。Template のドメインだけ変更する -->
+<AttributeDefinition id="mail" xsi:type="Template">
+    <InputAttributeDefinition ref="uid" />
+    <Template><![CDATA[${uid}@plm-lab.local]]></Template>   <!-- @example.org から変更 -->
 </AttributeDefinition>
 ```
 
-> `attribute-resolver.xml` に対応する `idp.attribute.resolver.LDAP.*` を `ldap.properties` に設定しておく（フェーズ5 で authn 用に設定した値と同じ：`ldapURL=ldap://localhost:10389`／`baseDN=ou=people,dc=example,dc=com`／`bindDN=uid=idp-reader,ou=people,dc=example,dc=com`、`bindDNCredential` は secrets.properties）。既に `mail` が status の属性解決で取得できていれば、この節は最小限で済む。
+これで `mail` は `01PLM01@plm-lab.local` になる（ログイン名 uid＝個人番号にドメインを付す形。顧客の「個人番号＠ドメイン」の考え方にも合致）。
+
+> ⚠️ **二重定義に注意**：既存定義を「変更」するのであって、**新しい `<AttributeDefinition id="mail" ...>` を別途追加しない**こと。`id="mail"` が2つあると IdP 起動時に `WARN ... Duplicate Definition 'mail' ...`（重複定義）となる。1つだけにする。
+
+> **別解（LDAP の mail を直接引く）**：LDAP の `mail` 属性をそのまま使いたい場合は、LDAP DataConnector を追加して `mail` を取得する方法もあるが、手数が増える。本書は既定テンプレートのドメイン変更（上記）を採る。
 
 ### 14.2 IdP：mail を対象 SP へ解放（attribute-filter.xml）
 
@@ -1373,6 +1370,10 @@ Restart-Service shibd_Default
 iisreset
 ```
 
+> **partner-metadata.xml に注意**：既定の `shibboleth2.xml` には `<MetadataProvider type="XML" validate="true" path="partner-metadata.xml"/>` の行が含まれることがある。このファイルが存在しない場合は `validate="true"` によりエラー要因になり得るため、**該当行をコメントアウト**（または削除）しておく（フェーズ9 で追加した `idp-metadata.xml` の行だけを有効にする）。
+
+> **ログ確認の注意（時刻でフィルタ）**：`idp-process.log` は追記式のため、`Select-String` は過去の行（修正前の WARN など）も拾う。再起動後の状態を見るときは、最新の `Shibboleth IdP Version 5.2.3` 行以降、または時刻でフィルタして確認する（例：`... | Where-Object { $_.Line -match '2026-07-11 11:5' }`）。
+
 ### 14.6 動作確認（最終ゴール）
 
 ゲスト Windows のブラウザの**新しいプライベートウィンドウ**で：
@@ -1403,4 +1404,159 @@ iisreset
 
 ---
 
-> 以降のフェーズ（§15 フェーズ11、および付録）は、フェーズごとに実機検証しながら順次追記します。
+## 15. フェーズ11：結合テスト（SSO の通し確認・ログ・再現性）
+
+**目的**：構築した SSO を通しで検証し、①ログイン〜識別子の受け渡し、②別ユーザーでの再現性、③セッション確認、④再起動後も動く堅牢性、⑤ログの読み方を確認して、純 Windows 版の学習環境の構築を完結する。
+
+### 15.1 ログインの通し確認（クリーンな状態から）
+
+ゲスト Windows のブラウザの**新しいプライベートウィンドウ**で：
+
+1. `https://sp.plm-lab.local/whoami.asp` を開く → IdP ログイン画面（8443）へ遷移
+2. `01PLM01` / `01PLM01` でログイン
+3. `whoami.asp` に戻り **`REMOTE_USER = [01PLM01@plm-lab.local]`** が表示される
+
+### 15.2 別ユーザーでの再現性
+
+値が固定でなく、認証したユーザーの識別子が反映されることを確認します。別のプライベートウィンドウで、**`01PLM02` / `01PLM02`**（フェーズ3 で作成した2人目）でログインし、`REMOTE_USER = [01PLM02@plm-lab.local]` になることを確認します。
+
+### 15.3 セッションの確認
+
+- `https://sp.plm-lab.local/Shibboleth.sso/Session` … 現在のセッションの NameID・属性・IdP entityID などが確認できる。**必ずログインしたホスト名（`sp.plm-lab.local`）で開く**こと。`https://localhost/...` で開くと、セッション Cookie は `sp.plm-lab.local` に紐づいているため送られず `A valid session was not found.` になる（セッションが無いのではなく、ホスト名違いで Cookie が届かないだけ）。`Attributes` 欄に mail（emailAddress 形式 NameID）が見える。
+- `https://localhost/Shibboleth.sso/Status` … SP の稼働状態（`<OK/>`）。**Status は localhost で可**。Status と Session でアクセスすべきホスト名が異なる点に注意。
+
+### 15.4 ログアウト（本手順の学習範囲では対象外）
+
+本手順書の学習目的は「SSO の成立」であり、**ログアウト（特に SLO：シングルログアウト）は対象外**とする。終了する場合は**ブラウザ（プライベートウィンドウ）を閉じる**ことで足りる。
+
+補足（仕組み）：`<Logout>SAML2 Local</Logout>`（既定）は SAML2 SLO を試みるが、IdP 5 は既定で SLO プロファイルが整備されていないため `/Shibboleth.sso/Logout` は `Web Login Service - Error: NoHandlerFoundException`（IdP 由来）になる。SP ローカルのみで完結させたい場合は `<Logout>Local</Logout>` に変更するとエラーなく SP セッションを破棄できるが、**IdP 側セッションは残る**ため直後の再アクセスはパスワードなしで再ログインされる（SSO 本来の挙動）。完全に切るにはブラウザを閉じる。完全な SLO は IdP 側の追加設定が必要で本手順の範囲外。
+
+### 15.5 ログの読み方
+
+**IdP（Windows）**：`C:\opt\shibboleth-idp\logs\`
+- `idp-process.log` … 一般的な処理ログ。エラー調査の起点。**追記式のため、再起動後の確認は最新の `Shibboleth IdP Version` 行以降、または時刻でフィルタして見る**（古い WARN を拾わないため）。
+- `idp-audit.log` … **監査ログ**。1行1認証で、いつ・どの利用者が・どの SP へ・何を出したかが分かる。「誰がログインしたか」を追うのに最適。
+- `idp-warn.log` … 警告のみ抽出。
+
+**SP（Windows）**：`C:\opt\shibboleth-sp\var\log\shibboleth\`
+- `shibd.log` … SP デーモンのログ。アサーション受領・セッション確立・エラーはここ。
+- `transaction.log` … セッション単位の記録。
+
+> 成功時の典型：IdP の `idp-audit.log` に 01PLM01 の認証行が出て、SP の `shibd.log` に「new session created」相当の行が出る。うまくいかないときは、まず IdP 監査ログで「認証・解放まで到達しているか」を見て、IdP 側か SP 側かを切り分ける。
+
+### 15.6 再起動後の堅牢性（Windows 版は自動起動で堅牢）
+
+**純 Windows 版の利点**：IdP（Tomcat）も SP（IIS/shibd）も LDAP（ApacheDS）も、すべて **Windows サービス**として動く。WSL 版のような「オンデマンド起動（ターミナルを開くまで IdP が起動しない）」問題は**発生しない**。各サービスが自動起動になっていれば、Windows を再起動するだけで SSO が復旧する。
+
+各サービスの自動起動を確認：
+
+```powershell
+Get-Service Tomcat10, shibd_Default, W3SVC |
+  Select-Object Name, Status, StartType
+# ApacheDS（表示名で取得）
+Get-Service | Where-Object { $_.DisplayName -like "*ApacheDS*" } |
+  Select-Object Name, Status, StartType
+```
+
+- いずれも **StartType が `Automatic`**、Status が `Running` であること（`W3SVC` は IIS、`Tomcat10` は IdP、`shibd_Default` は SP、ApacheDS は LDAP）。
+- `Automatic` でないサービスがあれば設定：`Set-Service <名前> -StartupType Automatic`。
+- サービスの**起動順の依存**：IdP は起動時に LDAP（ApacheDS）へ接続するが、各サービスは独立起動のため、まれに ApacheDS より先に Tomcat が上がっても、認証は要求時に行われるため実害は出にくい。もし再起動直後の初回ログインが失敗する場合は、少し待つか ApacheDS→Tomcat の順に手動再起動する。
+
+**再起動テスト**：ゲスト Windows を再起動 → ログオン後（各サービスが自動起動）→ そのまま `https://sp.plm-lab.local/whoami.asp` で SSO が通ることを確認する（ターミナルを開くなどの操作は不要）。
+
+### 15.7 よくある問題の早見表（総まとめ・Windows 版）
+
+| 症状 | 主な原因 | 対処（参照） |
+|------|----------|--------------|
+| IdP ログイン後 443 に飛ぶ／SSO が壊れる | IdP メタデータのエンドポイント未補正 | SP 側 `idp-metadata.xml` を :8443 に補正（§13.1） |
+| shibd 起動失敗（content model エラー） | `<MetadataProvider>` を Sessions 内に配置 | `</Sessions>` の後・`<Errors>` の下へ（§13.2） |
+| shibd 起動失敗（metadata 読込エラー） | 不在の `partner-metadata.xml` を参照 | 該当 MetadataProvider をコメントアウト（§14.5） |
+| `/idp/profile/status` が ServletException | JSTL 未導入 | JSTL 2 jar を追加し `build.bat`（§9.3） |
+| IdP 起動時 `Duplicate Definition 'mail'` | attribute-resolver に mail 定義が二重 | mail 定義を1つに（既存のドメイン変更のみ）（§14.1） |
+| `REMOTE_USER` が空 | NameID 未生成／SP マッピング不足 | §14.2〜14.5、`Session`/SAML-tracer で切り分け |
+| 証明書警告 | rootCA 未信頼 | 信頼ルートに登録（§6.5） |
+| `Shibboleth.sso/Session` が `A valid session...` | localhost で開いている | ログインしたホスト名 `sp.plm-lab.local` で開く（§15.3） |
+| LDAP に繋がらない | ポート違い（既定 10389） | `ldap://localhost:10389`（§7・§9.4） |
+| `wwwroot` に書き込めない | ビルトイン Administrator 承認モード | 昇格プロセスで作成（§11.5） |
+
+### 15.8 構築完了・本番（PLM）への展開メモ
+
+これで、**純 Windows 環境での emailAddress 形式識別子による Shibboleth SSO 連携**の学習環境が完成しました（全11フェーズ）。本番の PLM へ展開する際の要点：
+
+- 保護対象の `whoami.asp` を **実際の PLM アプリ**（`C:\inetpub\wwwroot` 配下）に置き換える。PLM は Web サーバ層で確定した `REMOTE_USER`（`01PLM01@plm-lab.local` のようなメール形式）を読み、**`@` の前を切り出して従来の識別番号に変換**して自 DB で認可判定する。この切り出し・変換は PLM アプリ（`Web.config` の認証方式スイッチ＋実装）の責務で、SP/IdP の構築範囲外。サイト全体保護のため PLM の各ページは認証必須になる。
+- **顧客の IdP（Entra ID）** と繋ぐ場合、今回自分で立てたテスト IdP の代わりに、Entra ID のフェデレーションメタデータを SP に登録する。Entra が出す NameID（emailAddress 形式）と PLM の突合キーが一致することを確認する（SP 側 attribute-map／REMOTE_USER の考え方は同じ）。Entra 側で「個人番号＠ドメイン」を NameID に出す設定が前提。
+- 組織展開の留意点（本書中で既出）：オフライン導入（付録E）、LDAP の TLS 化（本番では LDAPS/StartTLS）、秘匿情報の集約（secrets.properties）、SP 配置は `C:\opt` 推奨（§12.1）、ビルトイン Administrator の承認モード差異（§11.5）、評価版の rearm（付録A）。
+- 別マシン（クライアントPC）からのアクセスを本番では使う。ホスト名解決を実IPに向け、rootCA をクライアントに配布し、ファイアウォールで 443/8443 を許可する（発展編）。
+
+> 以上でフェーズ1〜11 の全工程が完了です。本書は、同じ手順を組織の検証環境で再現するための土台として利用できます。付録：A（評価版 rearm）／B（バックアップ・再現性検証）／C（時刻再同期・参考）／D（トラブル・Windows 固有）／E（オフライン導入）。
+
+---
+
+## 付録A：評価版の rearm 運用
+
+Windows 11 Enterprise 評価版は 90 日で期限切れになります。再インストールせず `slmgr /rearm` で延長できます（規定回数まで）。管理者コマンドプロンプトで：
+
+```
+slmgr /dlv        # 残り日数・rearm 回数の確認
+slmgr /rearm      # 延長（実行後は再起動）
+```
+
+> 仮想マシンを削除すると全スタックが失われます。期限管理は削除・作り直しではなく rearm で行ってください（フェーズ1 の前提）。
+
+## 付録B：バックアップと再現性検証
+
+### 付録B-1：参照用ファイルバックアップ一覧（再構築時の“答え合わせ”用）
+
+**位置づけ**：本環境の主目的は「手順書だけで素の状態から再度完成に到達できるか」の検証。まるごとバックアップは重視せず、**前回どう設定したかを確認するための“答え合わせ用”**にテキスト設定ファイルを控える。
+
+**IdP（`C:\opt\shibboleth-idp\`）**：`conf\ldap.properties`、`conf\attribute-resolver.xml`、`conf\attribute-filter.xml`、`conf\saml-nameid.xml`、`conf\relying-party.xml`、`conf\metadata-providers.xml`、`credentials\secrets.properties`、`metadata\idp-metadata.xml`、`metadata\sp-metadata.xml`。
+**Tomcat**：`C:\opt\tomcat\conf\server.xml`、`conf\Catalina\localhost\idp.xml`。
+**SP（`C:\opt\shibboleth-sp\etc\shibboleth\`）**：`shibboleth2.xml`、`attribute-map.xml`、`idp-metadata.xml`。
+**IIS**：`C:\inetpub\wwwroot\whoami.asp`。
+**LDAP（ApacheDS）**：投入した LDIF（`C:\lab\ldap-users.ldif` 等）。ApacheDS のデータ実体は `C:\Program Files (x86)\ApacheDS\instances\default\partitions\`。
+**証明書（値の照合用）**：`C:\lab\ca\` 一式（rootCA/idp/sp の crt・key・pfx）。再構築では作り直すため参照用。
+
+> 収集例（PowerShell）：`New-Item -ItemType Directory C:\lab\ref -Force; Copy-Item C:\opt\shibboleth-idp\conf\*.* C:\lab\ref\idp-conf\ -Recurse` のように用途別に集めて zip 化しておくと、`\\` 経由での取り出しや答え合わせに使える。
+
+### 付録B-2：再現性検証のためのチェックポイント運用
+
+**目的**：素のスナップショットから手順書だけで再構築し、`REMOTE_USER=[01PLM01@plm-lab.local]` まで到達できるかを検証する。完成環境は保険として一時的に残すだけにする。
+
+**推奨手順**：
+
+1. ゲスト Windows を**シャットダウン（電源オフ）**。
+2. （任意）`Set-VM -Name "<VM名>" -CheckpointType Standard`。**本構成は入れ子仮想化を使わないため標準（Standard）チェックポイントで可**。停止状態での取得が最も安全。
+3. 現在（完成）状態の**チェックポイントを取得** → ツリーに表示されたことを確認。
+4. **作業前チェックポイントを「適用」**（適用前の追加作成は不要）。
+5. 起動後、**時刻を確認**（付録C）。手順書に沿って**再構築**。
+6. 検証完了後、保険で取った**完成状態チェックポイントを削除**（ディスク解放）。
+
+> パラメータ名：VM 自体を操作する系（`Set-VM`／`Checkpoint-VM` 等）は `-Name`、VM 構成要素を操作する系（`Set-VMProcessor`／`Set-VMMemory`）は `-VMName`。取り違えを避けるには `Get-VM "<VM名>" | Set-VM -CheckpointType Standard`。
+
+## 付録C：時刻の確認（参考）
+
+本構成は IdP・SP・LDAP がすべて同一の Windows 上にあるため、SAML のクロックスキューは原理的に発生しない。ゲスト Windows の時計が正しければ十分。Hyper-V 統合サービス「時刻同期」が有効なら、ホストに追随する。オンライン環境では Windows Time（w32tm）が NTP に同期する。スリープを使う運用で復帰時に時刻がずれる場合は、`w32tm /resync` で再同期する。
+
+## 付録D：トラブルシュート（Windows 固有）
+
+- **`java` / `JAVA_HOME` が効かない**：環境変数を設定後に新しいセッションを開き直したか（§5.6）。`echo $env:JAVA_HOME`。
+- **Tomcat サービスが起動しない**：`tomcat10w //ES//Tomcat10` の Java タブで JVM（`jvm.dll`）を確認（§8.3）。`logs\catalina.*.log`。
+- **8443 が LISTEN しない**：`server.xml` の SSLHostConfig／Certificate の記述、`conf\idp.pfx` の有無・パスワード（§10）。
+- **shibd.exe の場所**：`sbin64` または `sbin`（§12.2）。
+- **ApacheDS に繋がらない**：LDAP ポートは既定 **10389**（New Connection の既定表示 389 に注意）。`netstat -ano | findstr 10389`。
+- **Directory Studio が起動しない**：`ApacheDirectoryStudio.exe` を直接実行（zip 展開はスタートメニュー未登録）。Java 未検出時は `.ini` に `-vm` で JDK を指定（§7.3）。
+- **`idp-process.log` に古い WARN**：追記式のため。最新の `Shibboleth IdP Version` 行以降を見る（§15.5）。
+
+## 付録E：オフライン導入
+
+インターネットに出られない検証用PCでは、別のオンライン端末で以下を取得して持ち込む：
+
+- Temurin 17（zip）、ApacheDS（exe）、Apache Directory Studio（zip）、Tomcat 10.1（zip）、Shibboleth IdP 5（zip）、Shibboleth SP（win64 msi）。
+- **JSTL の 2 jar**（`jakarta.servlet.jsp.jstl-api-3.0.0.jar` と `jakarta.servlet.jsp.jstl-3.0.1.jar`）。これらを `C:\opt\shibboleth-idp\edit-webapp\WEB-INF\lib\` に置いてから `build.bat`（§9.3）。
+- 証明書は検証用PC上の Git Bash（openssl）で作成するためオンライン不要。
+
+> 使用したインストーラ版数の実績は §3 のリストを参照（Temurin 17.0.19／ApacheDS 2.0.0.AM27／Directory Studio M17／Tomcat 10.1.57／IdP 5.2.3／SP 3.5.2.3）。
+
+---
+
+**［全工程完了］** 本手順書（純 Windows 版）は、フェーズ1〜11 と付録 A〜E をもって完成です。WSL を使わず、Windows のみで Shibboleth SSO 検証環境（IIS＝SP、Tomcat＝IdP、ApacheDS＝LDAP）を構築し、emailAddress 形式の識別子を `REMOTE_USER` に載せるところまでを、実機検証に基づいて記載しています。

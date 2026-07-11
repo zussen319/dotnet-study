@@ -58,8 +58,7 @@
     points into to this section (or to the defaults here).
     -->
     <ApplicationDefaults entityID="https://sp.plm-lab.local/shibboleth"
-        REMOTE_USER="eppn persistent-id targeted-id">
-
+        REMOTE_USER="mail eppn persistent-id targeted-id">
         <!--
         Controls session lifetimes, address checks, cookie handling, and the protocol handlers.
         Each Application has an effectively unique handlerURL, which defaults to "/Shibboleth.sso"
@@ -110,9 +109,6 @@
             styleSheet="/shibboleth-sp/main.css"/>
 
         <!-- Example of locally maintained metadata. -->
-        <!--
-        <MetadataProvider type="XML" validate="true" path="partner-metadata.xml"/>
-        -->
         <MetadataProvider type="XML" validate="true" path="idp-metadata.xml"/>
 
         <!-- Example of remotely supplied batch of signed metadata. -->
