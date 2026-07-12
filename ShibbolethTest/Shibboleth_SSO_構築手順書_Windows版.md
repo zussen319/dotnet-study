@@ -23,6 +23,9 @@
 | 0.17 | 2026-07-11 | §16.6「本番でのサーバ証明書の用意」を追記（社内CA/AD CS＝パターンA を最有力、パブリックCA＝B、自己署名＋配布＝C、および実業務向けアドバイス6点）。学習用自己署名CAは本番に持ち込まない旨を明記 | 顧客向け証明書アドバイス |
 | 0.18 | 2026-07-11 | 発展編§17「組織内の複数 PLM 環境の SSO 対応（並行運用の設計メモ）」を追記（HTTP=従来認証を維持し HTTPS=SSO 用ポートを新設、1 IdP 共有・1 SP で SSO ポートのみ複数 Site 保護＝方式1・同一ホスト名で証明書1枚共有・Web.config で認証方式切替）。§16.6 挿入時に欠落していた付録A見出しを復旧 | 複数環境の並行運用（設計メモ） |
 | 0.19 | 2026-07-11 | §17 にホスト名設計を反映：構成図を実ホスト名で具体化し、17.3(f) を追加（**SP は既存 `plmdev.plm-lab.local` に統一しポートで識別／IdP は `idp.plm-lab.local` に分離**／1台に両ホスト名割当・証明書は役割ごと1枚） | ホスト名設計の指針 |
+| 0.20 | 2026-07-11 | §6.2 に hosts の実IP選択肢を補足（127.0.0.1 でも実IPでも可。Shibboleth はホスト名で判定するため設定・証明書は不変。実IP統一の利点と注意＝固定IP・ファイアウォール）。§10.3・§16 に**実機確認結果**を反映（Hyper-V ホストからの SSO 成功。8080 の localhost 限定は SSO 経路（443↔8443）に含まれないため外部 SSO に影響しない） | 実機確認の反映 |
+| 0.21 | 2026-07-12 | **チェックポイントからの再構築検証（手順書のみで完走）で判明した12点をまとめて反映**：§3.1/§9.2（install.bat の対話は**4項目のみ**。Keystore/Sealer は自動生成。Host Name 既定値が `sp.` になる注意）／§6.2（実IP採用時は**この段階でファイアウォール 443・8443 を開放**。`Test-NetConnection` はサービス未起動のため失敗して当然。status が Access Denied になる副作用を予告）／§7.3（Directory Studio の **zip 解凍 PowerShell 手順**）／§7.6（**New Search による検索手順**を詳細化）／§9.1（IdP 展開フォルダは**リネーム不要**・理由）／§9.4（⚠️**バックアップを `conf`/`credentials` 配下に `.properties` のまま置かない**＝`ldap - Copy.properties` が読まれ既定値と競合し `Pool is empty` で認証失敗。`.orig` にするか IdP 外へ。`trustCertificates`/`trustStore` のコメントアウトを**必須**に格上げ）／§9.6（**ログ確認の PowerShell コマンド**と**メッセージ判断基準の表**。`Duplicate properties` WARN は**要確認**、`status.vm` ERROR は無害）／§10.4（**確認はメタデータで行う**。実IP運用では status が **Access Denied**＝想定内）／§12.3（**「サイト全体」＝`<Site>` に登録したサイトの全パス**。登録しないポートは SP 管轄外＝従来認証のまま）／§13.7・付録D（**`Pool is empty and connection creation failed`** の切り分け手順）／付録B-1（バックアップは IdP の外へ） | 再構築検証の反映 |
+| 0.22 | 2026-07-12 | §9.2 に補足：IdP 5 でキーストア／Sealer のパスワードが**自動生成される理由**（人間用ではなく IdP が自分の鍵を開く内部資格情報。IdP 3/4 は対話入力だった）、**既定値ではなくインストールごとのランダム値**なので変更不要、**文字列だけ書き換えると鍵と不整合で起動不能**、**PFX の `changeit` とは別物**（自分で作った (a) のファイル vs IdP が作った (b) の鍵）を明記 | パスワード設計の理解 |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -139,8 +142,8 @@
 | 2 | テストユーザー1 | uid=`01PLM01` / パスワード `01PLM01` | ログイン検証（Joe アカウント） | 3 |
 | 3 | テストユーザー2 | uid=`01PLM02` / パスワード `01PLM02` | 2人目・再現性検証（Joe アカウント） | 3 |
 | 4 | IdP 検索バインド | uid=`idp-reader` / パスワード `idp-reader` | IdP の LDAP 検索（読取専用） | 3・5 |
-| 5 | IdP キーストア | `changeit` | IdP install.bat 対話 | 5 |
-| 6 | IdP Sealer | `changeit` | IdP install.bat 対話 | 5 |
+| 5 | IdP キーストア | **自動生成**（対話で聞かれない。`credentials\secrets.properties` に格納） | IdP install.bat | 5 |
+| 6 | IdP Sealer | **自動生成**（同上） | IdP install.bat | 5 |
 | 7 | TLS 証明書 PFX（idp/sp） | `changeit` | idp.pfx / sp.pfx の作成・取込（Tomcat・IIS） | 2・6・7 |
 
 > **実機で使用したインストーラ／パッケージ（検証時点の版。最新版があれば読み替え可）**：
@@ -312,10 +315,31 @@ DNS サーバは立てず、`hosts` で解決します。SP・IdP とも同一�
 Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1`tsp.plm-lab.local`r`n127.0.0.1`tidp.plm-lab.local"
 ```
 
+> **127.0.0.1 と実IP のどちらでもよい**：hosts は「ホスト名→IP」の対応表にすぎず、重要なのは**そのIPで IIS（443）／Tomcat（8443）に到達できるか**だけ。ゲスト自身の NIC に割り当てた**固定IP（例 `192.168.x.x`）を書いても SSO は同じように動作する**（Shibboleth は**IPではなくホスト名**で判定するため、SP の `<Site name=...>`・entityID・メタデータ・証明書 SAN はいずれも影響を受けない。証明書の作り直しも不要）。
+>
+> **実IP に統一する利点**：発展編（§16）で Hyper-V ホストや LAN の別PCからも接続する場合、**すべてのマシンの hosts を同じ実IPで統一**でき、記述が揃う（127.0.0.1 のままだとゲスト内は自分・外部PCは実IP と分かれて混乱しやすい）。本番（DNS で実IPに解決）の構造にも近い。
+>
+> **実IP にする場合の注意**：①IP が**固定**であること（DHCP で変わると hosts と不整合）、②**ファイアウォールの受信許可**が必要になる（ループバック宛は素通りするが、実IP宛は受信規則の対象）。
+
+**実IP を採用する場合は、この段階でファイアウォールも開けておく**（後続フェーズで「なぜか繋がらない」を防ぐ）。サービス（IIS 443／Tomcat 8443）が未起動でも、受信規則は先に作ってよい（規則は許可の宣言にすぎず、待ち受けが無くても無害）。
+
+```powershell
+# 受信許可（443=SP/IIS、8443=IdP/Tomcat）
+New-NetFirewallRule -DisplayName "Allow HTTPS 443 (SP)"   -Direction Inbound -Protocol TCP -LocalPort 443  -Action Allow
+New-NetFirewallRule -DisplayName "Allow HTTPS 8443 (IdP)" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow
+
+# 規則が登録されたことを確認
+Get-NetFirewallRule -DisplayName "Allow HTTPS*" | Select-Object DisplayName, Enabled, Direction, Action
+```
+
+> **この時点で `Test-NetConnection ... -Port 443/8443` は失敗して当然**（443=IIS はフェーズ7、8443=Tomcat はフェーズ6 で導入するため、まだ誰も待ち受けていない）。本フェーズで確認するのは「**名前解決（ping で実IPに解決される）**」と「**規則が登録されたこと**」まで。**疎通確認（`Test-NetConnection`）は各サービス構築後**に行う（8443→§10.4、443→§11.6）。
+
+> **実IP を採用した場合の副作用（予告）**：IdP の管理系エンドポイント `/idp/profile/status` は、既定で **localhost（127.0.0.1/::1）からのみ許可**されている（`conf/access-control.xml`）。hosts を実IPにすると、実IP発のアクセスとなり **`Access Denied` が返る**（TLS・接続・証明書は正常。SSO 本体には影響しない）。status の確認は `http://localhost:8080/idp/profile/status` で行い、8443 の HTTPS 確認はアクセス制御の影響を受けない**メタデータ**（`https://idp.plm-lab.local:8443/idp/shibboleth`）で行う（§10.4 参照）。
+
 確認：
 
 ```powershell
-ping sp.plm-lab.local     # 127.0.0.1 に解決されること
+ping sp.plm-lab.local     # 127.0.0.1（または設定した実IP）に解決されること
 ping idp.plm-lab.local    # 127.0.0.1 に解決されること
 ```
 
@@ -502,7 +526,18 @@ netstat -ano | findstr 10389
 
 ### 7.3 Apache Directory Studio の導入と接続
 
-1. 公式サイト（`https://directory.apache.org/studio/download/download-windows.html`）から **Apache Directory Studio（Windows 版・zip）**を入手し、`C:\opt\directory-studio` に展開する（本書の zip 優先方針）。
+1. 公式サイト（`https://directory.apache.org/studio/download/download-windows.html`）から **Apache Directory Studio（Windows 版・zip）**を入手し `C:\lab\installers` に保存、`C:\opt\directory-studio` に展開する（本書の zip 優先方針）。管理者 PowerShell：
+
+```powershell
+Expand-Archive -Path "C:\lab\installers\ApacheDirectoryStudio-*.zip" -DestinationPath "C:\opt" -Force
+# 展開されたフォルダ名を確認
+Get-ChildItem C:\opt | Where-Object Name -like "*DirectoryStudio*"
+# C:\opt\directory-studio にリネーム（ApacheDirectoryStudio.exe が直下に来るように）
+Rename-Item "C:\opt\ApacheDirectoryStudio" "C:\opt\directory-studio"
+# 確認
+Get-ChildItem C:\opt\directory-studio\ApacheDirectoryStudio.exe
+```
+
 2. **起動**：zip 展開では**インストールされず、Windows スタートメニューにも登録されない**。エクスプローラーまたはコマンドから **`C:\opt\directory-studio\ApacheDirectoryStudio.exe`** を実行して起動する（よく使う場合はショートカットを作成）。
    - Java が見つからず起動しない場合は、`C:\opt\directory-studio\ApacheDirectoryStudio.ini` に `-vm` と `C:\opt\jdk-17\bin\javaw.exe` の2行を追記する（通常は不要。JAVA_HOME 設定済みのため）。
 3. 起動後、**LDAP 接続を作成**：メニュー **LDAP → New Connection**。
@@ -595,7 +630,19 @@ userPassword: idp-reader
 - LDAP Browser で `ou=people` を展開し、`uid=01PLM01`・`01PLM02` が見えること（`mail` 属性に `01PLM01@plm-lab.local` 等が入っていること）。
 
 **方法2：検索で確認（推奨）**
-Directory Studio の検索機能で、検索ベース `ou=people,dc=example,dc=com`、フィルタ `(uid=01PLM01)` を実行し、1件返ることを確認。
+Directory Studio の検索機能で、検索ベース `ou=people,dc=example,dc=com`、フィルタ `(uid=01PLM01)` を実行し、1件返ることを確認する。具体的な操作：
+
+1. LDAP Browser で `ou=people,dc=example,dc=com` を選択。
+2. **右クリック → New Search...**（またはメニュー **Search → New Search...**、`Ctrl+H`）。
+3. Search ダイアログで設定：
+   - **Search Base**：`ou=people,dc=example,dc=com`（手順1で選択していれば入力済み。空なら Browse... で選択）
+   - **Filter**：`(uid=01PLM01)`（括弧を含めて入力）
+   - **Returning Attributes**：空でよい（`mail uid cn` と指定してもよい）
+   - **Scope**：`Subtree`（既定）
+4. **Search** ボタンをクリック。
+5. **検索結果ビュー**に `uid=01PLM01,ou=people,dc=example,dc=com` が **1件**表示されれば成功（行を選ぶと右の Entry editor で `mail` 等を確認できる）。
+
+> 簡易的には、LDAP Browser 上部のフィルタ入力欄に `(uid=01PLM01)` を入力して Enter でも絞り込める。検索結果として明示的に確認するなら上記の New Search が確実。**`plm-lab-idp-reader` 接続（idp-reader で bind）で実行すると、IdP が実際に行う検索を模擬できる。**
 
 | # | 確認内容 | 期待結果 |
 |---|----------|----------|
@@ -715,6 +762,8 @@ netstat -ano | findstr 8080
    Get-ChildItem C:\lab | Where-Object Name -like "shibboleth-identity-provider-5*"
    ```
 
+> **展開フォルダのリネームは不要**（Java／Tomcat と異なる点）。IdP の展開フォルダ（例 `C:\lab\shibboleth-identity-provider-5.2.3`）は **`install.bat` を実行するための一時的な作業場所**にすぎず、恒久的に使うのは install.bat が配置する **`C:\opt\shibboleth-idp`**（idp.home。バージョン番号なし）。Java／Tomcat をリネームしたのは、展開先がそのまま `JAVA_HOME`／`CATALINA_HOME` という**恒久パス**になるため。むしろ展開フォルダ名にバージョンが残っていると、どの版から導入したかの記録になり、将来のアップグレード時に新旧が混ざらない。
+
 ### 9.2 install.bat による導入
 
 展開したディストリビューションフォルダに入り、`bin\install.bat` を**管理者コマンドプロンプト**で実行します（対話式）。
@@ -724,7 +773,7 @@ cd /d C:\lab\shibboleth-identity-provider-5.x.y
 bin\install.bat
 ```
 
-対話（プロンプト）での入力：
+対話（プロンプト）での入力は、実機（IdP 5.2.3）では **次の4項目のみ**：
 
 | 質問 | 入力値 |
 |------|--------|
@@ -732,10 +781,18 @@ bin\install.bat
 | Host Name | `idp.plm-lab.local` |
 | SAML EntityID | `https://idp.plm-lab.local/idp/shibboleth` |
 | Attribute Scope | `plm-lab.local` |
-| Keystore Password | `changeit` |
-| Sealer Password | `changeit` |
 
-- 導入すると、署名・暗号化鍵(b)（idp-signing / idp-encryption / sealer 等）が自動生成され、`C:\opt\shibboleth-idp\` に配置、`war\idp.war` がビルドされる。
+> ⚠️ **Host Name の既定値に注意**：プロンプトが `Host Name: [sp.plm-lab.local] ?` のように **SP のホスト名を既定値として表示する**ことがある（マシン名等から推測されるため）。**そのまま Enter せず、必ず `idp.plm-lab.local` を明示入力する**（誤ると IdP が SP のホスト名で構築されてしまう）。
+
+> **Keystore Password / Sealer Password は聞かれない**：IdP 5.2.3 では、鍵とパスワードが**自動生成**され `credentials\secrets.properties` に格納される（対話で入力を求められない）。したがって §3.1 のとおり、これらに `changeit` 等を設定する作業は不要。
+>
+> **なぜ自動生成なのか**：これらのパスワードは**人間がログインに使うものではなく、IdP が自分自身の鍵ファイル（署名・暗号鍵、Sealer 鍵）を開くための内部的な資格情報**である。人間に決めさせると弱い値（`changeit` など）になりがちなため、IdP 5 では**インストーラが強いランダム値を自動生成して `secrets.properties` に書き込む**方式に変わった（IdP 3/4 世代は対話で入力を求めていたため、古い手順書やネット上の情報には「Keystore Password を入力」と書かれていることが多い）。
+>
+> - **既定値からの変更を心配する必要はない**：固定の既定値ではなく、**インストールのたびに異なるランダム値**が生成されるため、すでに強い値になっている。変更は不要。
+> - **パスワードだけを書き換えてはいけない**：パスワードは「鍵ファイルを開くための鍵」なので、文字列だけ変えると**鍵ファイルと不整合を起こし IdP が起動しなくなる**。変更したい場合は鍵ファイル自体を作り直す必要がある（Sealer は `bin\seckeygen.bat` 等）。通常は自動生成のまま使う。
+> - **PFX のパスワード（`changeit`）とは別物**：§3.1 #7 の「TLS 証明書 PFX（idp/sp）＝ `changeit`」は引き続き有効。**PFX は自分で openssl で作った TLS 証明書 (a) のファイル**なので、パスワードも自分で決め、Tomcat（`server.xml`）や IIS へのインポート時に指定する。一方、**キーストア／Sealer は IdP が自分で作った SAML 鍵 (b) 用**で、IdP が自動生成・管理する。「自分が作ったファイルのパスワードは自分で決める／IdP が作ったファイルのパスワードは IdP が管理する」と整理すると分かりやすい（証明書 (a)(b) の違い＝§6.3 とも対応）。
+
+- 導入すると、署名・暗号化鍵(b)（idp-signing / idp-encryption / backchannel / Sealer、keySize=3072）が**自動生成**され、`C:\opt\shibboleth-idp\` に配置、`metadata\idp-metadata.xml` が作成され、`war\idp.war` がビルドされる。
 - `RIPEMD-160` などの INFO ログは無害（SAML では使わない）。
 
 > `install.bat` が JAVA を見つけられない場合は、`JAVA_HOME=C:\opt\jdk-17`（§5.6）が設定され、新しいコマンドプロンプトで実行しているか確認する。
@@ -772,6 +829,12 @@ build.bat
 
 ### 9.4 LDAP 認証の設定（ldap.properties）
 
+> ⚠️ **【最重要】バックアップの取り方（ここを誤ると認証が失敗する）**：設定ファイルを編集する前にバックアップを取る場合、**`conf\` および `credentials\` 配下に拡張子 `.properties` のままコピーを置いてはいけない**。IdP はこれらのディレクトリの **`.properties` をすべて読み込む**ため、**編集前の既定値（`uid=myservice,ou=system` / `dc=example,dc=org` / `myServicePassword`）が読み込まれて編集後の値と競合**し、ログイン時に **`PoolExhaustedException: Pool is empty and connection creation failed`** で失敗する（ApacheDS が正常稼働し、エントリもパスワードも正しくても発生する）。
+>
+> - **危険な例**：Windows の「コピー」で作られる **`ldap - Copy.properties`**（拡張子が `.properties` のまま＝読み込まれる）。
+> - **正しい例**：**`ldap.properties.orig`** のように**拡張子を変える**（`.orig`／`.bak`）、または **`C:\lab\idp-backup\` など IdP の外**へ置く。
+> - 起動時に **`WARN ... Duplicate properties were detected: ...`** が出たら、このパターンを疑い、`conf`／`credentials` 配下に余計な `.properties` が無いか確認する（§9.6・付録D）。
+
 `C:\opt\shibboleth-idp\conf\ldap.properties` を編集し、フェーズ3 の値に合わせます（**平文 LDAP・10389・dc=example,dc=com**）。主な項目：
 
 ```properties
@@ -793,7 +856,12 @@ idp.authn.LDAP.returnAttributes                = mail,uid
   idp.authn.LDAP.bindDNCredential = idp-reader
   ```
   `ldap.properties` 側に `idp.authn.LDAP.bindDNCredential` の行があれば **コメントアウト**して重複を避ける。
-- `useStartTLS=false`／`useSSL=false` のため、`trustCertificates`／`trustStore` 系の行は使われない（有効なら不要・コメントアウト可）。**インストール直後は `trustCertificates = %{idp.home}/credentials/ldap-server.crt` 等が有効になっていることがあり、存在しないファイルを指すため紛らわしい。平文 LDAP では両行をコメントアウトしておく**。
+- ⚠️ **`trustCertificates`／`trustStore` は必ずコメントアウトする（必須）**：インストール直後は次の2行が有効になっている。平文 LDAP（`useStartTLS=false`／`useSSL=false`）では本来不要だが、**有効のままだと存在しないファイル（`ldap-server.crt`／`ldap-server.truststore`）を参照して LDAP 接続プールの初期化に失敗**し得る。
+  ```properties
+  #idp.authn.LDAP.trustCertificates                = %{idp.home}/credentials/ldap-server.crt
+  #idp.authn.LDAP.trustStore                       = %{idp.home}/credentials/ldap-server.truststore
+  ```
+  なお `idp.attribute.resolver.LDAP.trustCertificates = %{idp.authn.LDAP.trustCertificates:undefined}` の行は**変更不要**（authn 側をコメントアウトすれば `undefined` に解決され無効化される）。
 - 属性解決（attribute-resolver）でも同じ LDAP を参照する場合は `idp.attribute.resolver.LDAP.*` を同様に設定するが、本書は NameID の元 `mail` を authn 側の returnAttributes で取得する構成を基本とする（フェーズ10 で属性解放と NameID 生成を確定）。
 
 ### 9.5 emailAddress 形式 NameID の準備（saml-nameid.xml）
@@ -822,7 +890,31 @@ Invoke-WebRequest http://localhost:8080/idp/profile/status -UseBasicParsing | Se
 (Invoke-WebRequest http://localhost:8080/idp/shibboleth -UseBasicParsing).Content.Substring(0,300)
 ```
 
-- `C:\opt\shibboleth-idp\logs\idp-process.log` に致命的 ERROR が無いこと（`bindDNCredential` の Duplicate WARN が出たら §9.4 の集約を確認）。
+**ログの確認（PowerShell）**：`idp-process.log` は**追記式**（過去の起動分も残る）のため、**最新の起動ブロックだけ**を見る。IdP は起動のたびに `Shibboleth IdP Version` の行を出すので、これを目印にする。
+
+```powershell
+# 最新の起動以降の ERROR / WARN を抽出（何も返らなければ正常）
+$log = "C:\opt\shibboleth-idp\logs\idp-process.log"
+$lines = Get-Content $log
+$start = ($lines | Select-String 'Shibboleth IdP Version' | Select-Object -Last 1).LineNumber
+$lines[($start-1)..($lines.Count-1)] | Select-String 'ERROR|WARN'
+
+# 簡易確認（末尾のみ）
+Get-Content $log -Tail 50 | Select-String 'ERROR|Shibboleth IdP Version'
+
+# トラブル時：リアルタイムで追う（Ctrl+C で停止）
+Get-Content $log -Wait -Tail 20
+```
+
+**メッセージの判断基準**（ERROR だから即異常、ではない。内容で判断する）：
+
+| メッセージ | 判断 | 対処 |
+|---|---|---|
+| `ERROR ... unable to find resource 'status.vm'` | **無害**（status ページはフォールバックで正常に表示される） | 不要 |
+| `INFO ... Algorithm failed runtime support check ... ripemd160` | **無害**（SAML では使わない） | 不要 |
+| `WARN ... Duplicate properties were detected: idp.*.LDAP.*` | ⚠️ **要確認** | `conf`／`credentials` 配下に**余計な `.properties`（バックアップコピー等）が無いか**確認（§9.4・付録D）。放置するとログインが `Pool is empty...` で失敗する |
+| `WARN ... Duplicate Definition 'mail'` | **要対処** | `attribute-resolver.xml` の mail 定義を1つにする（§14.1） |
+| `ERROR ... ClassNotFoundException: jakarta.servlet.jsp.jstl.core.Config` | **要対処** | JSTL 2 jar を追加し `build.bat`（§9.3） |
 - `install.bat` 導入直後に `bin\status.bat` を実行すると、既定で `http://localhost/idp/status`（80番）を見にいき「Connection refused」になることがあるが、これは想定どおり（本構成は 8080／のちに 8443）。確認は上記 8080 の URL で行う。
 
 ### 9.7 動作確認チェックリスト（フェーズ5）
@@ -892,6 +984,8 @@ Get-Item "C:\opt\tomcat\conf\idp.pfx"
 
 > `redirectPort` を 8443 にしておくと、機密制約でリダイレクトが必要な場合に HTTPS へ誘導される。必須ではない。
 
+> **この設定は外部からの SSO に影響しない（実機確認済み）**：SSO の経路は **443（SP／IIS）↔ 8443（IdP／Tomcat）** であり、**8080 は経路に含まれない**。したがって 8080 を localhost に絞っても、Hyper-V ホストや LAN の別PCからの SSO は問題なく成立する（実機で確認済み）。むしろ、**パスワードを入力する IdP のログイン画面が平文 HTTP で外部に露出しない**ため、セキュリティ上も望ましい。ゲスト内からの診断（`http://localhost:8080/idp/profile/status`）は引き続き利用できる。
+
 ### 10.4 反映と動作確認
 
 ```powershell
@@ -899,15 +993,27 @@ Restart-Service Tomcat10
 Start-Sleep -Seconds 20
 # 8443 が待受
 netstat -ano | findstr 8443
-# HTTPS で status（CA 検証込み。鍵マーク相当）
-Invoke-WebRequest https://idp.plm-lab.local:8443/idp/profile/status -UseBasicParsing | Select-Object StatusCode
+
+# HTTPS の確認は【メタデータ】で行う（アクセス制御の影響を受けない）
+Invoke-WebRequest https://idp.plm-lab.local:8443/idp/shibboleth -UseBasicParsing | Select-Object StatusCode
+
+# status（診断用）は localhost で確認する
+Invoke-WebRequest http://localhost:8080/idp/profile/status -UseBasicParsing | Select-Object -ExpandProperty Content
 ```
 
-- `Invoke-WebRequest` が証明書エラーを出さずに 200 を返せば、rootCA 信頼（§6.5）と SAN（`idp.plm-lab.local`）が正しく効いています。
-- ゲスト Windows の**ブラウザ**で `https://idp.plm-lab.local:8443/idp/profile/status` を開き、**鍵マーク（証明書警告なし）** で環境情報が表示されることを確認。
+- メタデータ（`/idp/shibboleth`）が証明書エラーを出さずに **200** を返せば、**8443 の HTTPS 公開・rootCA 信頼（§6.5）・SAN（`idp.plm-lab.local`）がすべて正しい**と確認できる。
+- ゲスト Windows の**ブラウザ**で `https://idp.plm-lab.local:8443/idp/shibboleth` を開き、**鍵マーク（証明書警告なし）**であることを確認。
 - 起動に失敗する場合は `C:\opt\tomcat\logs\catalina.*.log` を確認（多くは `certificateKeystoreFile` のパス誤り、`certificateKeystorePassword` 不一致、`certificateKeystoreType` の指定漏れ）。
 
-> **証明書警告が出る場合**：rootCA が「信頼されたルート証明機関」に入っているか（§6.5、`certlm.msc`）、アクセス URL のホスト名が `idp.plm-lab.local`（SAN と一致）か、hosts 解決（127.0.0.1）を確認。
+> ⚠️ **hosts を実IPにした場合、`https://idp.plm-lab.local:8443/idp/profile/status` は `Web Login Service - Access Denied` を返す（想定内・異常ではない）**。IdP の管理系エンドポイント（status）は `conf/access-control.xml` の `AccessByIPAddress` により **既定で 127.0.0.1／::1 からのみ許可**されており、実IP発のアクセスは拒否されるため。**TLS・接続・証明書は正常**（IdP から応答が返っている＝到達している証拠）で、**SSO 本体（`/idp/profile/SAML2/...`）には影響しない**。
+> - status を見たいときは **`http://localhost:8080/idp/profile/status`**（localhost）で確認する。
+> - どうしても外部から status を見たい場合のみ、`conf/access-control.xml` の `allowedRanges` にサブネットを追加する（管理用エンドポイントのため、むやみに広げない）：
+>   ```xml
+>   <bean id="AccessByIPAddress" parent="shibboleth.IPRangeAccessControl"
+>         p:allowedRanges="#{ {'127.0.0.1/32', '::1/128', '192.168.137.0/24'} }" />
+>   ```
+
+> **証明書警告が出る場合**：rootCA が「信頼されたルート証明機関」に入っているか（§6.5、`certlm.msc`）、アクセス URL のホスト名が `idp.plm-lab.local`（SAN と一致）か、hosts 解決を確認。
 
 ### 10.5 動作確認チェックリスト（フェーズ6）
 
@@ -917,8 +1023,8 @@ Invoke-WebRequest https://idp.plm-lab.local:8443/idp/profile/status -UseBasicPar
 | 2 | server.xml | 8443 の SSLHostConfig＋Certificate コネクタを追加 |
 | 3 | サービス起動 | `Tomcat10` が Running（8443 コネクタ起動失敗が無い） |
 | 4 | 待受 | `netstat` で 8443 が LISTENING |
-| 5 | HTTPS status | `https://idp.plm-lab.local:8443/idp/profile/status` が 200（証明書エラーなし） |
-| 6 | ブラウザ | 鍵マークで status 表示（警告なし） |
+| 5 | HTTPS 応答 | `https://idp.plm-lab.local:8443/idp/shibboleth`（メタデータ）が 200（証明書エラーなし）。※ status は実IP運用だと Access Denied になるため、確認はメタデータで行う |
+| 6 | ブラウザ | メタデータ URL が鍵マークで表示（警告なし） |
 | 7 | 8080 | （任意）`address="127.0.0.1"` で localhost 限定 |
 
 すべて確認できれば、フェーズ6 は完了です。WSL 版で必要だった Apache 前段が不要になり、IdP がブラウザから HTTPS で到達可能になりました。次はフェーズ7（IIS の構築・SP の保護対象サイトと 443/TLS）です。
@@ -1073,6 +1179,8 @@ Set-Content -Path "C:\inetpub\wwwroot\whoami.asp" -Value $asp -Encoding UTF8
 ```
 
 **(2) `<RequestMapper>` の `<Host>`（サイト全体を保護）**
+
+> **「サイト全体」の意味**：`<ISAPI>` の `<Site>` に**登録したサイト（ホスト名＋スキーム＋ポート）の、すべてのパス**を保護する、という意味（特定パスのみ保護する `<Path>` 指定との対比で「全体」）。**保護される／されないは、`<Site>` に登録したかどうかで決まる**。登録していないポート（例：HTTP の 80／9012／9013）には SP は関与せず、**従来の認証（Cookie 等）のまま**動作する。「HTTPS だから保護される・HTTP だから保護されない」のではなく、**`<Site>` に書いたかどうか**が判断基準。この性質が、§17 の並行運用（HTTP＝従来認証／HTTPS＝SSO）の根拠になる。
 
 ```xml
 <RequestMapper type="Native">
@@ -1269,6 +1377,11 @@ SAML はクロックスキューに敏感ですが、**本構成は IdP も SP �
 - **IdP ログイン画面に飛ばず 443 に行ってしまう** → 13.1 のエンドポイントが :8443 になっているか。SP 側 `idp-metadata.xml` の `Location` を確認。
 - **shibd が起動しない／`element 'MetadataProvider' is not allowed ...`** → `<MetadataProvider>` を `<Sessions>` 内に置いている。`</Sessions>` の後・`<Errors>` の下へ移動（13.2）。
 - **IdP 側で「SAML2 SSO profile is not configured for relying party ...sp...」** → IdP に SP メタデータが読めていない（13.4）。`idp-process.log` と `metadata-providers.xml` のパス・SP メタデータの entityID を確認。
+- **ログイン時に `Pool is empty and connection creation failed`（PoolExhaustedException）** → IdP が LDAP に接続・bind できていない。**ApacheDS が起動していて 10389 が LISTEN していても、エントリもパスワードも正しくても発生する**ことがある。切り分けと対処：
+  1. **最有力：`conf`／`credentials` 配下に余計な `.properties`（バックアップコピー）が無いか**。Windows のコピーで作られる **`ldap - Copy.properties`** は拡張子が `.properties` のままなので **IdP に読み込まれ、編集前の既定値（`uid=myservice,ou=system` / `dc=example,dc=org` / `myServicePassword`）が使われてしまう**。起動時の **`WARN ... Duplicate properties were detected`** がその兆候。→ 拡張子を変える（`ldap.properties.orig`）か IdP の外へ退避し、Tomcat 再起動（§9.4）。
+  2. `ldap.properties` の `trustCertificates`／`trustStore` が有効になっていないか（平文 LDAP では不要。コメントアウトする。§9.4）。
+  3. 真の原因を見るには LDAP のデバッグログを一時的に有効化：`conf\logback.xml` に `<logger name="org.ldaptive" level="DEBUG"/>` を追加 → Tomcat 再起動 → ログイン試行 → ログの **`bindDn=` / `baseDn=`** を確認。**設定した値と違う値**が出ていれば 1. のパターン。
+  4. 参考：この事象は **hosts の実IP化とは無関係**（IdP→LDAP は `ldap://localhost:10389` のループバック接続。ログに出る `192.168.x.x` はブラウザのIP）。
 - **署名/復号エラー** → メタデータ内の (b) 証明書と実鍵の不一致。SP/IdP のメタデータが最新か（keygen 後に再取得したか）を確認。
 - ログ：SP は `C:\opt\shibboleth-sp\var\log\shibboleth\shibd.log`、IdP は `C:\opt\shibboleth-idp\logs\idp-process.log`。
 
@@ -1499,6 +1612,8 @@ Get-Service | Where-Object { $_.DisplayName -like "*ApacheDS*" } |
 ## 16. 発展編：LAN 上の別PC・Hyper-V ホストからの接続
 
 フェーズ11 までは「ゲスト Windows 上のブラウザ」で検証してきた。ここでは、**Hyper-V ホストマシンや LAN 上の別PC のブラウザ**から、同じ検証環境の SSO を利用できるようにする。
+
+> **実機確認済み**：本構成のまま、**Hyper-V ホストマシンのブラウザからの SSO が想定どおり動作すること**を確認済み（ゲストの hosts／到達性を整えれば、SSO の設定変更なしにホストからログインできる）。あわせて、フェーズ6 §10.3 で 8080 を localhost 限定にしていても**外部からの SSO に影響しない**ことも確認できた（SSO の経路は 443 ↔ 8443 で、8080 は含まれないため）。
 
 > **重要な前提（構築は変更しない）**：この発展編で必要になるのは、**ネットワーク到達性**と**サーバ証明書の信頼**の設定だけであり、**IdP／SP／LDAP（SSO）の構築内容は一切変更しない**。Shibboleth は「アクセス元のIP」ではなく「**ホスト名**」で判断するため、接続元が変わっても、URL のホスト名が `sp.plm-lab.local`／`idp.plm-lab.local` である限り、entityID・メタデータ・NameID・REMOTE_USER・`<Site name="sp.plm-lab.local">` 判定はそのまま機能する。したがって本編で触るのは以下の2観点のみ。
 
@@ -1742,7 +1857,9 @@ slmgr /rearm      # 延長（実行後は再起動）
 **LDAP（ApacheDS）**：投入した LDIF（`C:\lab\ldap-users.ldif` 等）。ApacheDS のデータ実体は `C:\Program Files (x86)\ApacheDS\instances\default\partitions\`。
 **証明書（値の照合用）**：`C:\lab\ca\` 一式（rootCA/idp/sp の crt・key・pfx）。再構築では作り直すため参照用。
 
-> 収集例（PowerShell）：`New-Item -ItemType Directory C:\lab\ref -Force; Copy-Item C:\opt\shibboleth-idp\conf\*.* C:\lab\ref\idp-conf\ -Recurse` のように用途別に集めて zip 化しておくと、`\\` 経由での取り出しや答え合わせに使える。
+> 収集例（PowerShell）：`New-Item -ItemType Directory C:\lab\ref -Force; Copy-Item C:\opt\shibboleth-idp\conf\*.* C:\lab\ref\idp-conf\ -Recurse` のように用途別に集めて zip 化しておくと、答え合わせに使える。
+
+> ⚠️ **バックアップは必ず IdP の外へ**：`conf\`／`credentials\` 配下に **拡張子 `.properties` のままコピーを残さない**こと（IdP が読み込み、編集前の既定値と競合して認証が失敗する）。バックアップは `C:\lab\ref\`／`C:\lab\idp-backup\` など**IdP の外**に置くか、`ldap.properties.orig` のように**拡張子を変える**（§9.4・付録D）。
 
 ### 付録B-2：再現性検証のためのチェックポイント運用
 
@@ -1771,6 +1888,8 @@ slmgr /rearm      # 延長（実行後は再起動）
 - **shibd.exe の場所**：`sbin64` または `sbin`（§12.2）。
 - **ApacheDS に繋がらない**：LDAP ポートは既定 **10389**（New Connection の既定表示 389 に注意）。`netstat -ano | findstr 10389`。
 - **Directory Studio が起動しない**：`ApacheDirectoryStudio.exe` を直接実行（zip 展開はスタートメニュー未登録）。Java 未検出時は `.ini` に `-vm` で JDK を指定（§7.3）。
+- **ログイン時に `Pool is empty and connection creation failed`**：`conf`／`credentials` 配下のバックアップコピー（`ldap - Copy.properties` 等・拡張子が `.properties` のまま）が読み込まれ、**編集前の既定値が使われている**のが最有力。バックアップは `ldap.properties.orig` のように**拡張子を変える**か IdP の外へ置く。起動時の `WARN ... Duplicate properties were detected` が兆候（§9.4・§13.7）。次に `trustCertificates`／`trustStore` の有効化を疑う。
+- **`/idp/profile/status` が `Access Denied`**：hosts を実IPにした場合に発生。status は既定で localhost のみ許可（`conf/access-control.xml`）。**異常ではない**。status は `http://localhost:8080/...` で確認し、8443 の確認はメタデータ（`/idp/shibboleth`）で行う（§10.4）。
 - **`idp-process.log` に古い WARN**：追記式のため。最新の `Shibboleth IdP Version` 行以降を見る（§15.5）。
 
 ## 付録E：オフライン導入
