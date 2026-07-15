@@ -6,9 +6,11 @@
 |----|------|----------|------|
 | 0.1 | 2026-07-13 | 初版。目的・構成・パラメータ・ロードマップ、フェーズ1〜5（導入／LDAP 連携／プロトコル設定／起動・サービス化／動作確認・PLM 連携）、トラブルシュート、付録を記載 | **未検証（要実機確認）**。実機で確認しながら改訂する |
 | 0.2 | 2026-07-13 | §7.4 を拡充：**外部ドメイン宛の送信を完全に禁止**する設定（`RemoteDelivery` を削除し `Bounce` で送信失敗にする）を追加。踏み台（オープンリレー）リスクを原理的に無くせる旨も記載。§9.2 に**ユーザー間（01PLM01→01PLM02）のテストメール送受信手順**（Thunderbird 2アカウント）と**外部宛が送信失敗になることの確認**を追加。§10 にメールソフト設定のトラブルを追加 | 外部送信禁止・クライアント検証 |
+| 0.5 | 2026-07-14 | §8.4 に**実機のサービス表示名「Apache James :: Server :: Spring :: App」**を明記。DisplayName に記号を含むため操作は Name を用いる旨を追記。**フェーズ1〜5＋サービス化まで実機で完走**（本書は実機検証済みとなった） | サービス名の確定・完走 |
+| 0.4 | 2026-07-14 | §8.4「Windows サービス化」を実行手順に詳細化：`james.bat install/start/stop/remove`（Tanuki 同梱・NSSM 不要）、スタートアップ「自動」設定、再起動堅牢性の確認、ApacheDS への依存関係設定、設定変更時の `restart` を記載 | サービス化手順の詳細化 |
 | 0.3 | 2026-07-14 | **実機検証で完走（フェーズ1〜5）。判明した多数の知見を反映**：§5.1（**James 3.9 は Java 21 必須→SSO 環境の Java 17 では動かず、3.8.2 を採用**）／§5.4（**`*-template.xml` は無い。`.xml` を直接編集**。バックアップは `.xml.org`）／§6.1（**タグ名は `supportsVirtualHosting`**。`enableVirtualHosting` は無視され `Unknown user` の原因に）／§7.1（**`verifyIdentity=false` が必須**）／§7.3（**暗号化なしでは `plainAuthDisallowed=false` が必須**。無いと IMAP でパスワード入力画面すら出ず接続断）／§7.4（**外部送信拒否は2層構造**＝SMTP 即拒否＋Bounce。**案C 採用**＝第1層で拒否・`<notice>` で規則違反を明示・PLM 側で応答コード判定。`RemoteAddrNotInNetwork` を `authorizedAddresses` と揃える）／§8（起動 `run.bat`／サービス化 `james.bat`＝Tanuki 同梱・NSSM 不要）／§9（`Send-MailMessage`・IMAP 直接接続での切り分け／**メールアドレスは小文字**で扱う理由）／§10（無害ログ・`Unknown user`・`plainAuth`・大文字小文字の切り分け）／付録（メール小文字と LDAP/SSO 大文字の使い分け） | **実機検証版** |
 
-> ⚠️ **本書の位置づけ**：本書は初版であり、**まだ実機検証を行っていない**。Shibboleth SSO 構築手順書と同様に、**1フェーズずつ実機で実行し、結果を反映しながら改訂**していく前提とする。設定値・ファイル名・挙動は実機で確認すること。
+> **本書の位置づけ**：本書は **James 3.8.2 を用いて Windows 実機でフェーズ1〜5＋サービス化まで通しで検証済み**（v0.5 時点）。設定値・ファイル名・挙動は実機の結果を反映している。環境（版・ネットワーク・LDAP 構成）が異なる場合は、該当箇所を読み替えること。
 
 ---
 
@@ -453,14 +455,99 @@ New-NetFirewallRule -DisplayName "Allow SMTP 25 (James)"  -Direction Inbound -Pr
 New-NetFirewallRule -DisplayName "Allow IMAP 143 (James)" -Direction Inbound -Protocol TCP -LocalPort 143 -Action Allow
 ```
 
-### 8.4 Windows サービス化
+### 8.4 Windows サービス化（james.bat・NSSM 不要）
 
-James をサーバ起動時に自動起動させる。方法は版により異なるため、次のいずれかを実機で確認する。
+動作確認（§9）が済んだら、James を Windows サービスとして登録し、**サーバ起動時に自動起動**させる。3.8.2 は **`james.bat`（Tanuki Service Wrapper 同梱）** でサービス化でき、**NSSM 等の外部ツールは不要**。
 
-- **付属のサービス登録スクリプトがある場合**：`bin` 配下のサービス用スクリプト（`*service*.bat` 等）を使う。
-- **無い場合**：**NSSM（Non-Sucking Service Manager）** 等で `run.bat` をサービス登録する、あるいはタスクスケジューラの「スタートアップ時に実行」で起動する。
+> 動作確認の前でも登録は可能だが、まず `run.bat`（コンソール）で設定の正しさを確認してから、サービス化するのが安全。**サービス化する前に、`run.bat` を起動しているコンソールは `Ctrl+C` で停止**しておく（同じポートを二重に掴まないため）。
 
-> ⚠️ **実機確認事項**：James のサービス化方法を確認し、本書に記録する。ApacheDS・Tomcat（SSO 用）と同様に**自動起動**にしておくこと（サーバ再起動後も自動復旧させるため）。
+#### (1) james.bat のサブコマンドを確認
+
+管理者コマンドプロンプトで、引数なしで実行すると使用法が表示される。
+
+```bat
+cd /d C:\opt\james\bin
+james.bat
+```
+
+一般に次のサブコマンドを持つ（実機の表示で確認する）：`install`（サービス登録）／`start`（開始）／`stop`（停止）／`restart`／`remove`（登録解除）／`console`（コンソール実行）。
+
+#### (2) サービスの登録と開始
+
+**管理者権限のコマンドプロンプト**（PowerShell ではなくコマンドプロンプト推奨）で実行する。
+
+```bat
+cd /d C:\opt\james\bin
+james.bat install     :: Windows サービスとして登録
+james.bat start       :: サービスを開始
+```
+
+- `install` 成功後、サービス一覧に James のサービスが追加される。**実機での表示名（DisplayName）は「Apache James :: Server :: Spring :: App」**（`wrapper.conf` の定義による）。
+- `start` 後、§8.2 と同様に待ち受けを確認する。
+
+```powershell
+netstat -ano | findstr ":25 "
+netstat -ano | findstr ":143 "
+```
+
+#### (3) スタートアップの種類を「自動」にする
+
+サーバ再起動後も自動復旧させるため、スタートアップの種類を確認・設定する。
+
+```powershell
+# サービス名の確認（DisplayName に James を含むものを探す）
+Get-Service | Where-Object { $_.DisplayName -like "*James*" } |
+  Select-Object Name, DisplayName, Status, StartType
+# → DisplayName「Apache James :: Server :: Spring :: App」が該当（実機で確認）
+
+# スタートアップを自動に（<ServiceName> は上で確認した Name）
+Set-Service -Name "<ServiceName>" -StartupType Automatic
+```
+
+> **DisplayName に記号（`::`）が含まれる**ため、`Get-Service` で指定する際は **Name（内部のサービス名）** を使うのが確実。`Get-Service | Where-Object { $_.DisplayName -like "*James*" }` で該当行の `Name` を確認し、以降のコマンドではその `Name` を用いる。
+
+`services.msc`（サービス管理）から GUI で「スタートアップの種類：自動」に設定してもよい。ApacheDS・Tomcat（SSO 用）と揃える。
+
+#### (4) サービス動作の確認
+
+```powershell
+# サービスの状態
+Get-Service -Name "<ServiceName>" | Select-Object Name, Status, StartType
+```
+
+- `Status = Running` / `StartType = Automatic` であること。
+- サービスとして動かすと `run.bat` のコンソールは不要。**ログは `C:\opt\james\log\` 配下**（`wrapper.log` / `james-server.log` 等）に出力される。
+
+#### (5) 再起動堅牢性の確認（§9.4 の項目8）
+
+仮想マシンを**再起動**し、ログインなしで（コンソールを開かずに）次を確認する。
+
+```powershell
+Get-Service -Name "<ServiceName>" | Select-Object Status
+netstat -ano | findstr ":25 "
+netstat -ano | findstr ":143 "
+```
+
+再起動後に自動で `Running`・25/143 が LISTENING になっていれば、サービス化は成功。§9.2 の送受信テストを再実行して、通常どおり動作することを確認する。
+
+> **依存関係の注意**：James は **ApacheDS（LDAP）** が起動していないと認証できない。両方を「自動」にしておけば通常は問題ないが、起動順序で James が先に立ち上がって LDAP 未起動の一瞬があっても、James は接続をリトライするため実害は出にくい。気になる場合は、サービスの依存関係（James が ApacheDS に依存）を設定する。
+
+```powershell
+# 任意：James が ApacheDS より後に起動するよう依存関係を設定（サービス名は実機で確認）
+sc.exe config "<JamesServiceName>" depend= "<ApacheDSServiceName>"
+```
+
+#### (6) 停止・登録解除（メンテナンス時）
+
+設定変更などでサービスを外す場合：
+
+```bat
+cd /d C:\opt\james\bin
+james.bat stop        :: 停止
+james.bat remove      :: 登録解除
+```
+
+> 設定ファイル（`conf\*.xml`）を変更したときは、`james.bat restart`（または `stop`→`start`）で反映する。
 
 ---
 
