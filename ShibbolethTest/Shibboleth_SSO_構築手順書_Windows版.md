@@ -28,6 +28,7 @@
 | 0.22 | 2026-07-12 | §9.2 に補足：IdP 5 でキーストア／Sealer のパスワードが**自動生成される理由**（人間用ではなく IdP が自分の鍵を開く内部資格情報。IdP 3/4 は対話入力だった）、**既定値ではなくインストールごとのランダム値**なので変更不要、**文字列だけ書き換えると鍵と不整合で起動不能**、**PFX の `changeit` とは別物**（自分で作った (a) のファイル vs IdP が作った (b) の鍵）を明記 | パスワード設計の理解 |
 | 0.23 | 2026-07-12 | **§15.8「テスト実施時の留意点と確認手段」を新設**（旧 15.8 は 15.9 へ）：(1) 証明書警告の意味（失われるのは**サーバの真正性**、暗号化は有効。社内テストでの配布省略は許容可だが SP/IdP の**2回警告**・本番は正規証明書）、(2) **プライベートウィンドウ＝状態リセットの道具**（使わないと「前のセッションで入れただけ」を SSO 成功と誤判定）、(3) **複数環境間の認証スキップ**の2メカニズム（SP Cookie のポート跨ぎ共有／IdP セッション Cookie＝SSO の本質。引き渡し役は**ブラウザの Cookie**でサーバ間通信ではない）、(4) **Cookie の中身は暗号化で読めない**（引換券。実体はサーバ側）→ 確認は**開発者ツール／`/Shibboleth.sso/Session`／SAML-tracer** の3手段 | テスト実施の理解 |
 | 0.24 | 2026-07-12 | §14.8 に「**アプリから見た認証情報の受け取り方（3層の役割分担）**」を追記：アプリは SAML アサーションも Cookie も見ず、**SP が確定した `REMOTE_USER` を読むだけ**（層1 アサーション＝ログイン時1回・SP が検証／層2 サーバ側セッション＋暗号化 Cookie＝引換券・アプリは読めない／層3 REMOTE_USER＝アプリが見る唯一の入口）。ASP／ASP.NET の実装イメージ、追加属性はサーバ変数で渡せる旨も記載 | アプリ改修者向けの理解 |
+| 0.25 | 2026-07-13 | §17 の認証切替を実態に即して修正（**同一フォルダでは Web.config を分けられない** → **`appSettings` の `AuthMode` を IIS のサイト単位設定で上書き**し共通認証関数で分岐。`<location>` は不可）。**§17.6「開発・ビルド環境の構成」を新設**：**プロジェクトは1つのまま・同じ物理フォルダを2サイト（80/443）から提供**し `MainWebSso.aspx` のみ追加・**子画面は共有かつ無改修**（認証処理が共通化済のため改修は共通関数1箇所）／**別プロジェクト案が成立しない理由**（SP 保護はサイト単位で子画面が保護外・ASP.NET セッション分断）／デバッグ方法（プロセスにアタッチ、`#If DEBUG` で REMOTE_USER をモック）／**各開発者のローカル IIS に SP が必要**（ホスト名・証明書・メタデータ登録が各自分）／**IdP は社内1か所を共有**（1 IdP : 多 SP） | 開発環境の構成方針 |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -1879,7 +1880,7 @@ Test-NetConnection -ComputerName 192.168.x.x -Port 8443
 
 同一の Web アプリケーションサーバ（IIS）上で、複数の PLM 環境を別ポートで提供しているとする（例：開発1＝80、検証＝9012、開発2＝9013。いずれも HTTP・従来 Cookie 認証・ユーザーは 01PLM01/01PLM02 等を共有）。顧客側でも当面は「一部ユーザーは SSO、他は従来の HTTP＋独自認証」という**並行運用**が予定されるため、自組織の環境も**両方式に対応**できるようにしておきたい。
 
-方針：**各環境について、従来の HTTP ポートはそのまま維持し、SSO 用に HTTPS の別ポートを新設する**。同じ Web アプリを両ポートにデプロイし、`Web.config` で認証方式を切り替える。SSO 用ポートだけを Shibboleth SP で保護し、HTTP ポートは保護しない（従来認証のまま）。
+方針：**各環境について、従来の HTTP ポートはそのまま維持し、SSO 用に HTTPS の別ポートを新設する**。**同じ物理フォルダ（同じ Web アプリ）を両サイトから提供**し、認証方式は **`appSettings` の `AuthMode` を IIS のサイト単位設定で上書きして切り替える**（17.3(d)）。SSO 用ポートだけを Shibboleth SP で保護し、HTTP ポートは保護しない（従来認証のまま）。
 
 ### 17.2 構成イメージ
 
@@ -1930,8 +1931,40 @@ SP は既存ホスト名 `plmdev.plm-lab.local` に統一し、ポート番号�
 **(c) HTTP ポートは `<Site>` に登録しない＝従来認証のまま**
 SP はポート（サイト）単位で保護対象を選べる。SSO 用ポートだけ登録し、HTTP ポート（80/9012/9013）は登録しないことで、同一 IIS 上で「HTTP＝従来認証／HTTPS＝SSO」を両立できる。
 
-**(d) 認証方式の切り替えは PLM アプリ（Web.config）の責務**
-同じ Web アプリを HTTP ポートと HTTPS ポートの両方にデプロイし、`Web.config` で認証方式を切り替える。HTTPS（SSO）側インスタンスは「SP がセットした `REMOTE_USER`（メール形式の識別子）を信頼して認証」、HTTP 側インスタンスは「従来の Cookie 認証」。この切り替えは PLM 側の設計であり、SP/IdP の構築範囲外。SP は HTTPS ポートで REMOTE_USER を確定して渡すところまでを担う。
+**(d) 認証方式の切り替え：`appSettings` の `AuthMode` をサイト単位で上書き（PLM アプリの責務）**
+同じ物理フォルダを2つの IIS サイト（HTTP／HTTPS）から提供する場合、**`Web.config` も共有される**ため「サイトごとに別の Web.config を置く」ことはできない。代わりに、**IIS の「アプリケーション設定」でサイト単位に `appSettings` を上書き**する（同じ Web.config のまま、サイトごとに違う値を持てる）。
+
+```xml
+<!-- Web.config（共有）：既定は従来認証 -->
+<appSettings>
+  <add key="AuthMode" value="Legacy" />
+</appSettings>
+```
+
+- **IIS マネージャー → SSO サイト（HTTPS）を選択 → 「アプリケーション設定」→ `AuthMode` を `SSO` に設定**（上書き）。
+- 結果：HTTP サイト経由＝`Legacy`（Web.config の既定値）／HTTPS サイト経由＝`SSO`（IIS で上書き）。
+
+共通の認証処理（既存の「Cookie から識別番号を取得する共通関数」）に分岐を追加する。**認証処理が共通化されていれば、改修はこの1箇所で済み、子画面は無改修**：
+
+```vb
+Public Shared Function GetCurrentUserId() As String
+    Dim authMode = ConfigurationManager.AppSettings("AuthMode")
+    If authMode = "SSO" Then
+        ' SSO：SP が確定した REMOTE_USER から取得
+        Dim remoteUser = HttpContext.Current.Request.ServerVariables("REMOTE_USER")
+        If String.IsNullOrEmpty(remoteUser) Then
+            Throw New ApplicationException("SSO モードだが REMOTE_USER が空（SP の設定漏れ）")
+        End If
+        Return remoteUser.Split("@"c)(0)   ' 01PLM01@plm-lab.local → 01PLM01
+    Else
+        Return GetUserIdFromCookie()       ' 従来：Cookie から（既存処理）
+    End If
+End Function
+```
+
+> ⚠️ **`AuthMode=SSO` なのに `REMOTE_USER` が空なら例外にする**（黙って従来認証にフォールバックすると、認証を迂回できてしまう）。`AuthMode=Legacy` のサイトでは SP 保護外のため `REMOTE_USER` は常に空で、これは正常。
+
+> **`<location>` は使えない**：ASP.NET の `<location path="...">` は**パス単位**の設定であり、**サイト（ポート）単位**ではないため、同じパスを別サイトから提供する本構成では使えない。上記の「IIS のアプリケーション設定で上書き」が正解。
 
 **(e) 同一ホスト名・証明書は1枚で共有**
 自組織の開発・検証環境は、SP 側を**既存の同一ホスト名**（`plmdev.plm-lab.local`）の別ポートとする。この場合、**SP のサーバ証明書は SAN にそのホスト名を含む1枚で全 SSO ポートを共有**できる（§16.6）。方式1（全ポート同一 entityID/Application）なので、SP のセッションはポート間で共有され、「1回ログインで3環境に入れる」挙動になる（並行運用の検証用途では利点）。
@@ -1948,7 +1981,7 @@ SP はポート（サイト）単位で保護対象を選べる。SSO 用ポー�
 ### 17.4 構築の流れ（想定手順・要実機検証）
 
 1. IIS に SSO 用サイト（(1')(2')(3')）を追加し、各ポート（例 4443/9112/9113）に **HTTPS バインド**を設定（証明書は同一ホスト名の1枚を共有。§11.4 と同じ要領）。
-2. 同じ PLM Web アプリを、各 SSO 用サイトにデプロイ（`Web.config` は SSO＝REMOTE_USER 認証モード）。従来 HTTP サイトはそのまま。
+2. **同じ物理フォルダ**を SSO 用サイトからも参照させる（アプリのコピーは不要）。IIS のアプリケーション設定で、SSO サイトの `AuthMode` を `SSO` に上書き（17.3(d)）。従来 HTTP サイトはそのまま。
 3. `shibboleth2.xml` の `<ISAPI>` に SSO 用ポートの `<Site>` を追加（17.3(b)）。`<RequestMapper>` で当該サイトを `requireSession="true"`。方式1 のため entityID は1つ。
 4. `shibd.exe -check`（sbin64/sbin）→ `Restart-Service shibd_Default` → `iisreset`。
 5. SP メタデータ（1つ）を IdP に登録（§13.4 と同じ）。IdP・LDAP は共有のまま。
@@ -1959,7 +1992,85 @@ SP はポート（サイト）単位で保護対象を選べる。SSO 用ポー�
 - **HTTPS 化は SSO の前提**：SP のセッション Cookie は `Secure` 属性が付き、SAML の往復も HTTPS 前提。SSO 用ポートは必ず HTTPS にする（HTTP のままでは SSO は成立しにくい）。
 - **セッション共有の範囲**：方式1 では3環境が同一 Application のため、SP セッションが共有される（1回ログインで全 SSO 環境に入れる）。環境ごとにセッションや属性解放を分けたい要件が出たら、方式2（`<ApplicationOverride>` で環境別 entityID・別メタデータ）へ発展させる。
 - **本番（顧客）との整合**：顧客の「一部 SSO・一部従来認証」の並行運用と同じ構造。顧客本番では IdP が Entra ID に替わるが、SP 側（ポート単位保護・REMOTE_USER 受け渡し）の考え方は同じ。
-- **本節は設計メモ**：実機での構築・検証を経て、ポート設計・`<ISAPI>`/`<RequestMapper>` の具体値・証明書 SAN・Web.config 切り替えの実装を確定し、本節を更新すること。
+- **本節は設計メモ**：実機での構築・検証を経て、ポート設計・`<ISAPI>`/`<RequestMapper>` の具体値・証明書 SAN・`AuthMode` 切り替えの実装を確定し、本節を更新すること。
+
+### 17.6 開発・ビルド環境の構成（Visual Studio / ローカル IIS）
+
+既存の PLM 開発環境（.NET Framework 4.8 / Visual Studio 2019 / VB.NET、ローカル IIS の Default Web Site(80/HTTP) にプロジェクトフォルダを仮想ディレクトリでマッピング、スタートページ `MainWeb.aspx` から子画面 `Form.aspx` へ遷移）を、SSO 対応する際の構成。
+
+#### (a) 推奨構成：**プロジェクトは1つのまま、同じ物理フォルダを2サイトから提供**
+
+```
+【Visual Studio】PLMApp.vbproj（1つのまま）
+    ├─ MainWeb.aspx        ← 従来（社内テスト用・Cookie 認証前提）
+    ├─ MainWebSso.aspx     ← ★新規追加（SSO 版スタートページ）
+    ├─ Form.aspx …         ← 子画面（★共有・無改修。コピーしない）
+    ├─ AuthHelper.vb       ← ★共通認証処理（ここだけ改修：AuthMode で分岐）
+    └─ Web.config          ← <appSettings> に AuthMode（既定 Legacy）
+
+【ローカル IIS】同じ物理フォルダを2サイトから参照
+  Default Web Site (80/HTTP) → 仮想ディレクトリ /PLMapp → C:\dev\PLMApp\
+      ├ アプリケーション設定：AuthMode = Legacy（既定のまま）
+      └ SP 保護：なし（shibboleth2.xml の <Site> に登録しない）
+
+  PLMApp-SSO (443/HTTPS)     → 仮想ディレクトリ /PLMapp → C:\dev\PLMApp\（★同じフォルダ）
+      ├ アプリケーション設定：AuthMode = SSO（IIS で上書き）
+      └ SP 保護：あり（<Site> に登録）
+```
+
+**要点**：**IIS は複数サイトが同じ物理フォルダを指してよい**。これにより、ソースは1箇所・プロジェクトも1つのまま、**443 サイト経由なら「メイン画面も子画面もすべて SP に保護される」**（サイト全体保護＝§12.3）。認証処理が共通関数に集約されていれば、**改修は共通関数1箇所だけ**で、子画面（`Form.aspx`）は無改修で両対応できる。
+
+#### (b) 「SSO 用に別プロジェクトを作る」案が成立しない理由
+
+> SSO 用に新プロジェクト（例：`PLMSSOApp.vbproj`）を作り、そのスタートページから既存 `PLMApp` の子画面を呼ぶ、という案は**成立しない**。理由：
+>
+> 1. **SP の保護が子画面に及ばない（致命的）**：SP の保護は**サイト単位**。`MainWebSso.aspx`（443・SP 保護あり）から遷移しても、`Form.aspx` が 80 サイトの既存アプリにある限り**保護対象外**で、`REMOTE_USER` は空になる。子画面に直接 URL を打てば認証なしでアクセスできてしまう。
+> 2. **ASP.NET セッションが共有されない**：別プロジェクト＝IIS 上の**別アプリケーション**のため、`Session` 変数が別物になる。同一アプリ内の画面遷移という既存の前提が崩れる。
+> 3. **実質的にソース共有になっていない**：「別アプリの画面に遷移しているだけ」で、保護されていない側のコードを使っていることになる。
+>
+> **保護すべき画面（メイン＋子画面）は、同じ保護されたサイト内に存在する必要がある**、というのが設計上の制約。
+
+#### (c) デバッグの進め方
+
+- **従来認証のデバッグ**：既存のまま。`http://localhost/PLMapp/MainWeb.aspx`（80）で Visual Studio のデバッグ実行（`AuthMode=Legacy`）。**これまでの開発フローを変えなくてよい**。
+- **SSO のデバッグ**：`https://localhost/PLMapp/MainWebSso.aspx`（443）にアクセス → IdP ログイン → Visual Studio の**「プロセスにアタッチ」**（`w3wp.exe`）でデバッグ。
+- **SP／IdP なしで SSO ロジックだけ確認したい場合（モック）**：`REMOTE_USER` を設定値で代用すれば、**IdP に接続せずに SSO 版の画面遷移・`@` 切り出し・認可判定をローカルでデバッグ**できる。
+
+```vb
+Dim remoteUser = HttpContext.Current.Request.ServerVariables("REMOTE_USER")
+#If DEBUG Then
+    If String.IsNullOrEmpty(remoteUser) Then
+        remoteUser = ConfigurationManager.AppSettings("DebugRemoteUser")  ' 例：01PLM01@plm-lab.local
+    End If
+#End If
+```
+
+#### (d) 各開発者のローカル IIS に SP は必要か → **必要**
+
+**SP は「保護する Web サーバに常駐するもの」**（shibd サービス＋IIS ネイティブモジュール）であり、`REMOTE_USER` を確定して IIS に渡すのは SP。したがって、**各開発者のローカル IIS で SSO を動かすなら、その IIS ごとに SP の導入・設定が必要**（SP を1か所に集約して共有することはできない）。開発者ごとに必要になるもの：
+
+| 項目 | 開発者ごとに異なるか |
+|---|---|
+| SP のインストール（MSI・IIS モジュール構成） | 手順は同じ |
+| **ホスト名・entityID**（例 `dev-a.plm-lab.local` / `https://dev-a.plm-lab.local/shibboleth`） | **開発者ごとに異なる** |
+| **サーバ証明書 (a)**（そのホスト名の TLS 証明書） | **開発者ごとに必要** |
+| SP 鍵 (b)（keygen） | 開発者ごとに生成 |
+| **SP メタデータの IdP への登録** | **開発者の数だけ登録が必要** |
+| `<ISAPI>` の `<Site>`／attribute-map／REMOTE_USER | 考え方は同じ |
+
+#### (e) IdP は社内に1か所を共有
+
+**IdP は社内に1台だけ立て、全開発者の SP がそれを共有する**（1 IdP : 多 SP＝標準構成）。全員が同じテストユーザー（01PLM01 等）で認証でき、本番構成とも構造が一致する。IdP 側には**各開発者の SP メタデータを登録**し（`metadata-providers.xml`）、属性解放ポリシー（`attribute-filter.xml`）も各 SP 分を用意する（entityID をまとめて許可する書き方も可）。
+
+```
+                    ┌─ 開発者A のローカル IIS（SP）─┐
+社内の共有 IdP  ←──┼─ 開発者B のローカル IIS（SP）─┤  各自に SP が必要
+（1台）             └─ 開発者C のローカル IIS（SP）─┘
+      ↓
+  共有 LDAP（テストユーザー 01PLM01 等）
+```
+
+> **本書の方針（開発メンバーが少数のため）**：各開発者のローカル IIS に SP を導入する構成（上記）を採る。開発者が増えて運用負荷（証明書発行・メタデータ登録の手間）が問題になる場合は、**共有の「SSO 検証サーバ」を1台だけ立て、日常のデバッグは各自ローカル（80/HTTP＋`REMOTE_USER` のモック）で行い、SSO の実動作は検証サーバで確認する**構成に切り替える余地がある（SP は1台のみで済み運用負荷が大幅に下がる）。
 
 ---
 
