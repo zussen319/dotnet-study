@@ -1,0 +1,19 @@
+Å° Account Name: 01plm01@plm-lab.local
+Your Name: 01plm01@plm-lab.local
+Email Address: 01plm01@plm-lab.local
+Outgoing Server: Use Default Server
+Server Settings
+Server Type: IMAP Mail Server
+Server Name: sp.plm-lab.local
+Port: 143
+User Name: 01plm01@plm-lab.local
+Connection Security: None
+Authentication Method: Password, transmitted insecurely
+
+Å°Outgoing Server
+Description: sp.plm-lab.local
+Server Name: sp.plm-lab.local
+Port: 25
+Connection Security: None
+Authentication Method: No Authentication
+User Name: (null)
