@@ -29,6 +29,7 @@
 | 0.23 | 2026-07-12 | **§15.8「テスト実施時の留意点と確認手段」を新設**（旧 15.8 は 15.9 へ）：(1) 証明書警告の意味（失われるのは**サーバの真正性**、暗号化は有効。社内テストでの配布省略は許容可だが SP/IdP の**2回警告**・本番は正規証明書）、(2) **プライベートウィンドウ＝状態リセットの道具**（使わないと「前のセッションで入れただけ」を SSO 成功と誤判定）、(3) **複数環境間の認証スキップ**の2メカニズム（SP Cookie のポート跨ぎ共有／IdP セッション Cookie＝SSO の本質。引き渡し役は**ブラウザの Cookie**でサーバ間通信ではない）、(4) **Cookie の中身は暗号化で読めない**（引換券。実体はサーバ側）→ 確認は**開発者ツール／`/Shibboleth.sso/Session`／SAML-tracer** の3手段 | テスト実施の理解 |
 | 0.24 | 2026-07-12 | §14.8 に「**アプリから見た認証情報の受け取り方（3層の役割分担）**」を追記：アプリは SAML アサーションも Cookie も見ず、**SP が確定した `REMOTE_USER` を読むだけ**（層1 アサーション＝ログイン時1回・SP が検証／層2 サーバ側セッション＋暗号化 Cookie＝引換券・アプリは読めない／層3 REMOTE_USER＝アプリが見る唯一の入口）。ASP／ASP.NET の実装イメージ、追加属性はサーバ変数で渡せる旨も記載 | アプリ改修者向けの理解 |
 | 0.25 | 2026-07-13 | §17 の認証切替を実態に即して修正（**同一フォルダでは Web.config を分けられない** → **`appSettings` の `AuthMode` を IIS のサイト単位設定で上書き**し共通認証関数で分岐。`<location>` は不可）。**§17.6「開発・ビルド環境の構成」を新設**：**プロジェクトは1つのまま・同じ物理フォルダを2サイト（80/443）から提供**し `MainWebSso.aspx` のみ追加・**子画面は共有かつ無改修**（認証処理が共通化済のため改修は共通関数1箇所）／**別プロジェクト案が成立しない理由**（SP 保護はサイト単位で子画面が保護外・ASP.NET セッション分断）／デバッグ方法（プロセスにアタッチ、`#If DEBUG` で REMOTE_USER をモック）／**各開発者のローカル IIS に SP が必要**（ホスト名・証明書・メタデータ登録が各自分）／**IdP は社内1か所を共有**（1 IdP : 多 SP） | 開発環境の構成方針 |
+| 0.26 | 2026-07-16 | **実サーバ（Windows Server 2016）での構築知見を §18 として新設**：18.1 TLS 1.2 の有効化（SCHANNEL レジストリ＋再起動。IIS は OS の TLS を使うため。Tomcat/8443 は Java 独自で無関係＝切り分けに使える）／18.2 Tomcat サービス導入後のシャットダウン不完了（停止タイムアウトを 20 秒に設定して解消・切り分け手順）／18.3 **OpenSSL 3.x の PKCS#12 は `-legacy` が必要**（Windows インポートで「パスワード不一致」に化ける・作成/確認の両方で付与）／18.4 証明書はサーバ自身で作るのが確実（Git for Windows）／18.5 **既存 Default Web Site がある環境では SSO 用サイトの ID が 1 以外になり、`shibboleth2.xml` の `<Site id>` をそのIDに合わせる**（今回は id=2）／18.6 ホスト名バインド時の `localhost` 404 は正常・テストは登録ホスト名で・`Shibboleth.sso/Status` は `<Site>` 登録後に有効 | 実サーバ構築の知見 |
 
 > 本書は、WSL 版構築手順書（WSL2 上に IdP スタックを構築した学習環境）を土台に、**WSL を一切使わない純 Windows 構成**で顧客 PLM 検証環境を再現するための手順書です。SP 側（IIS＋Shibboleth SP）と SAML 設計の考え方は WSL 版から流用し、IdP 側（Tomcat／Shibboleth IdP）・LDAP を Windows ネイティブに置き換えています。
 
@@ -2114,6 +2115,89 @@ slmgr /rearm      # 延長（実行後は再起動）
 6. 検証完了後、保険で取った**完成状態チェックポイントを削除**（ディスク解放）。
 
 > パラメータ名：VM 自体を操作する系（`Set-VM`／`Checkpoint-VM` 等）は `-Name`、VM 構成要素を操作する系（`Set-VMProcessor`／`Set-VMMemory`）は `-VMName`。取り違えを避けるには `Get-VM "<VM名>" | Set-VM -CheckpointType Standard`。
+
+## 18. 発展編：実サーバ（Windows Server 2016 等）での構築時の追加考慮事項
+
+学習環境（Windows 11 / Hyper-V）と、実際の組織サーバ（Windows Server 2016 等）とでは、既定の設定や導入済みコンポーネントが異なる。**実サーバで構築した際に判明した追加の考慮事項**をまとめる（実機で対応・確認済み）。フェーズ本編と併せて参照する。
+
+### 18.1 TLS 1.2 の有効化（Windows Server 2016）
+
+Windows 11 では TLS 1.2 が既定で有効だが、**Windows Server 2016 では明示的な有効化が必要な場合がある**。IIS（SP）は OS の TLS スタック（SCHANNEL）を使うため、無効だと HTTPS 接続が成立しない。管理者 PowerShell で SCHANNEL のレジストリを設定する。
+
+```powershell
+$base = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2"
+foreach ($role in "Server","Client") {
+    New-Item -Path "$base\$role" -Force | Out-Null
+    New-ItemProperty -Path "$base\$role" -Name "Enabled"          -Value 1 -PropertyType DWORD -Force | Out-Null
+    New-ItemProperty -Path "$base\$role" -Name "DisabledByDefault" -Value 0 -PropertyType DWORD -Force | Out-Null
+}
+```
+
+- **設定後は OS の再起動が必要**（SCHANNEL の変更は再起動で反映）。
+- `Server` と `Client` の**両方**に `Enabled=1`／`DisabledByDefault=0` を入れる。片方だけ・再起動漏れだと、IIS が TLS を話せず HTTPS が遮断される。
+- Tomcat（IdP・8443）は Java 独自の TLS スタックを使うため、この設定の影響を受けない。**IIS（443）だけが繋がらない場合、OS の TLS 設定を疑う**という切り分けに使える。
+- IIS/.NET が絡む場合、`SchUseStrongCrypto`（`HKLM:\...\Microsoft\.NETFramework\v4.0.30319` および WOW6432Node 側に `=1`）も併せて必要になることがある。
+
+### 18.2 Tomcat サービス導入後、OS シャットダウンが完了しない
+
+Tomcat を Windows サービス化した後、**OS シャットオン時に「電源を切らないでください」が表示され続け、完了しない**現象が起きることがある（`shutdown -s -t 0 -f` の強制実行では停止できる）。OS が Tomcat サービスの停止完了を待ち続けているのが原因。
+
+- **対処（実機で解消）**：サービスの停止タイムアウトを短く設定する（実機では **20 秒**に設定して解消）。Tomcat サービス（Commons Daemon `procrun`／`tomcatXw.exe`）の Shutdown タイムアウト、または `HKLM:\SYSTEM\CurrentControlSet\Control` の `WaitToKillServiceTimeout`（ミリ秒・全サービス共通のため慎重に）を調整する。
+- **切り分け**：`Stop-Service <Tomcatサービス名>` で手動停止してから OS をシャットダウンし、スムーズに落ちるか確認する。手動停止でスムーズ＝シャットダウン時のタイムアウト問題、手動停止でもハング＝Tomcat／IdP の停止処理自体の問題。
+- IdP はメタデータ更新等のバックグラウンドスレッドを持つため、停止に時間がかかることがある。`catalina.*.log`／`idp-process.log` にシャットダウン時の手がかりが無いか確認する。
+
+### 18.3 証明書：OpenSSL 3.x では PKCS#12 に `-legacy` が必要
+
+実サーバに OpenSSL が無い場合、別 PC で証明書を作ってコピーする、あるいはサーバに Git for Windows を入れて作る（**サーバ自身で作るのが確実**。§18.4）。ここで、**OpenSSL 3.x で作った PFX（PKCS#12）が Windows の証明書インポートで「パスワードが不一致」エラーになる**ことがある。
+
+- **原因**：OpenSSL 3.x は PKCS#12 の既定の暗号化方式を新しいものに変更した。Windows の証明書インポートは従来方式（RC2 等）を期待するため、方式の食い違いが「パスワード不一致」という紛らわしいエラーで現れる（実際はパスワードの問題ではない）。
+- **対処（実機で解消）**：PFX の**作成時・確認時の両方**で **`-legacy` オプション**を付ける。
+
+```bash
+# 作成（従来方式で PFX を書き出す）
+openssl pkcs12 -legacy -export -out sp.pfx -inkey sp.key -in sp.crt -certfile rootCA.crt -passout pass:changeit
+
+# 確認（パスワード・中身の検証）
+openssl pkcs12 -legacy -info -in sp.pfx -noout -passin pass:changeit
+```
+
+- 学習環境（Windows 11 + Git for Windows の openssl）で問題が出なかったのは OpenSSL のバージョン差による。**実サーバの openssl が 3.x なら `-legacy` を付ける**。
+- 「パスワード不一致」が出たとき、まず `openssl pkcs12 -info -in sp.pfx -noout -passin pass:changeit`（必要なら `-legacy` 付き）で、**本当にパスワードの問題か暗号化方式の問題か**を切り分ける。
+
+### 18.4 証明書はサーバ自身で作るのが確実
+
+別 PC で証明書を作ってコピーすると、**作成時のパスワードの食い違い**や**ファイルのコピー事故（改行コード変換等）**が起きやすい。**サーバ自身に Git for Windows（openssl 同梱）を導入し、本書 §6 の openssl 手順をそのサーバ上で実行して証明書一式を作る**のが最も確実。
+
+- パスワードをその場で `changeit` に統一でき、以降のインポートも通る。
+- 学習環境の §6 と同じ手順をサーバ上で行うだけなので、手順書との整合も取れる。
+
+### 18.5 既存サイトがある環境：SSO 用サイトのサイト ID に注意（重要）
+
+実サーバに既に **`Default Web Site`（ID=1）** がある環境で、SSO 用に**別サイトを追加**すると、そのサイトの **ID は 1 以外（例：2）** になる。学習環境の本編は `Default Web Site`（ID=1）を前提に `<Site id="1">` としていたが、**別サイトを追加した場合は、そのサイトの実際の ID に合わせる**必要がある。
+
+- **サイト ID の確認**：
+  ```powershell
+  Import-Module WebAdministration
+  Get-Website | Select-Object Name, ID, State
+  ```
+  追加した SSO 用サイト（例 `ShibbolethTest`）の `ID` を確認する（例では **2**）。
+- **`shibboleth2.xml` の `<ISAPI>` を、そのサイト ID に合わせる**：
+  ```xml
+  <ISAPI normalizeRequest="true" safeHeaderNames="true">
+      <Site id="2" name="sp.plm-lab.local" scheme="https" port="443"/>
+  </ISAPI>
+  ```
+  ここを `id="1"` のままにすると、**SP が実際のサイト（ID=2）を保護せず、`Shibboleth.sso/Status` も 404 のまま**になる。手動で別サイトを作った場合の最頻出の落とし穴。
+- `<RequestMapper>` の `<Host name="sp.plm-lab.local" ...>` も、追加サイトのホスト名に合わせる。
+
+### 18.6 ホスト名バインドと `localhost` アクセスの 404（正常な挙動）
+
+SSO 用サイトの 443 バインドを **`*:443:sp.plm-lab.local`（ホスト名固定）** にすると、`https://localhost/` は別の受け皿に振り分けられ **404** になる（かつ、証明書 SAN が `sp.plm-lab.local` のため `localhost` では名前不一致で「セキュリティ保護なし」表示になる）。**これは構築の失敗ではなく、想定どおりの挙動**。
+
+- **テストは登録したホスト名（`sp.plm-lab.local`）で行う**。`localhost` は使わない。
+- **`Shibboleth.sso/Status` は、shibboleth2.xml で `<Site>` を登録して初めて有効**になる。登録前（フェーズ12.2 段階）は 404 が正常。編集・`shibd -check`・`iisreset` の後、**`https://sp.plm-lab.local/Shibboleth.sso/Status`** で `<Status><OK/></Status>` を確認する。
+
+> **切り分けの指針（今回の教訓）**：「HTTPS が遮断される」ように見えても、①接続リセット（TCP/TLS が成立しない）と、②404（サーバに到達しているがパスが無い／別サイトに振り分け）は**まったく別の問題**。`https://sp.plm-lab.local/whoami.asp` が鍵マーク付きで表示されるなら、TLS・証明書・443 バインドは成立しており、残るはサイト振り分け（ホスト名・サイト ID）の問題、と切り分けられる。
 
 ## 付録C：時刻の確認（参考）
 
