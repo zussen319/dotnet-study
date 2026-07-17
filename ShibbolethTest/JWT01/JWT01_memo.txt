@@ -1,0 +1,23 @@
+$login = @{ username = "01PLM01"; password = "01PLM01" } | ConvertTo-Json
+$res = Invoke-RestMethod -Uri http://localhost:5000/token -Method Post -Body $login -ContentType "application/json"
+$res
+$token = $res.access_token
+"取得したトークン: $token"
+
+$headers = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri http://localhost:5000/api/whoami -Headers $headers
+# → message / username=01PLM01 / purpose=smartclient-demo が返れば検証成功
+
+try { Invoke-RestMethod http://localhost:5000/api/whoami }
+catch { "拒否された（期待どおり）: $($_.Exception.Response.StatusCode)" }
+# → 401 Unauthorized
+
+$tampered = $token.Substring(0, $token.Length - 2) + "xx"
+try { Invoke-RestMethod http://localhost:5080/api/whoami -Headers @{ Authorization = "Bearer $tampered" } }
+catch { "改ざんは拒否された（期待どおり）: $($_.Exception.Response.StatusCode)" }
+# → 401 Unauthorized（署名検証に失敗するため）
+
+$bad = @{ username = "01PLM01"; password = "wrong" } | ConvertTo-Json
+try { Invoke-RestMethod -Uri http://localhost:5080/token -Method Post -Body $bad -ContentType "application/json" }
+catch { "認証失敗（期待どおり）: $($_.Exception.Response.StatusCode)" }
+# → 401 Unauthorized
