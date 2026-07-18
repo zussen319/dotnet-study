@@ -120,14 +120,22 @@ app.MapPost("/token", (LoginRequest req) =>
 // -----------------------------------------------------------------------------
 #if true
 app.MapGet("/api/whoami", (ClaimsPrincipal user) => {
-	// sub は環境によって "sub" のまま、または nameidentifier(URI) に変換されることがある。
-	// どちらでも拾えるよう、複数の候補を順に探す。
-	var username =
+    // sub は環境によって "sub" のまま、または nameidentifier(URI) に変換されることがある。
+    // どちらでも拾えるよう、複数の候補を順に探す。
+#if true
+    var username = user.FindFirstValue("sub");
+    username ??= user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    username ??= user.FindFirstValue(ClaimTypes.NameIdentifier);
+    username ??= user.Identity?.Name;
+    username ??= "(unknown)";
+#else
+    var username =
 		user.FindFirstValue("sub")                                  // 変換なしの場合
 		?? user.FindFirstValue(JwtRegisteredClaimNames.Sub)         // 同上（定数）
 		?? user.FindFirstValue(ClaimTypes.NameIdentifier)           // URI に変換された場合
 		?? user.Identity?.Name
 		?? "(unknown)";
+#endif
 
 	var purpose = user.FindFirstValue("purpose");
 
