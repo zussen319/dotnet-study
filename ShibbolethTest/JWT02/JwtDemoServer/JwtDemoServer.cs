@@ -120,10 +120,12 @@ app.MapPost("/token", (LoginRequest req) =>
 // -----------------------------------------------------------------------------
 #if true
 app.MapGet("/api/whoami", (ClaimsPrincipal user) => {
-    // sub は環境によって "sub" のまま、または nameidentifier(URI) に変換されることがある。
-    // どちらでも拾えるよう、複数の候補を順に探す。
+	// ここに来た時点で JWT の検証は済んでいる（署名・発行者・利用者・期限すべてOK）
+
+	// sub は環境によって "sub" のまま、または nameidentifier(URI) に変換されることがある。
+	// どちらでも拾えるよう、複数の候補を順に探す。
 #if true
-    var username = user.FindFirstValue("sub");
+	var username = user.FindFirstValue("sub");
     username ??= user.FindFirstValue(JwtRegisteredClaimNames.Sub);
     username ??= user.FindFirstValue(ClaimTypes.NameIdentifier);
     username ??= user.Identity?.Name;
