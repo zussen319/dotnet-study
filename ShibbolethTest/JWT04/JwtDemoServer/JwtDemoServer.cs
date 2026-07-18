@@ -19,7 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 //  クライアント（JwtDemoClient）は変更なし。
 // =============================================================================
 
-JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+//JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
