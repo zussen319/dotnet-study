@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- JWT の検証（Bearer 認証）を行う標準ライブラリ -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+    <!-- JWT の生成に使う標準ライブラリ -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
+    <!-- ★ステップ4で追加：LDAP(ApacheDS) へ接続するための標準ライブラリ
+         ※ NuGet が提示する .NET 10 対応版でよい（例では 9.0.0）。
+            Visual Studio の「NuGet パッケージの管理」から追加しても同じ。 -->
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

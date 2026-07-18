@@ -1,0 +1,36 @@
+####################################################################
+#  Step 5: groups for role-based authorization  (ASCII only)
+#
+#  NOTE: This file is intentionally ASCII-only.
+#        LDIF values must be UTF-8. Non-ASCII text saved in another
+#        encoding (e.g. Shift_JIS) is rejected by ApacheDS with
+#        ERR_13247_INVALID_VALUE_CANT_NORMALIZE.
+#        The optional "description" attribute has been removed.
+#
+#  Creates:
+#    ou=groups,dc=example,dc=com
+#      cn=plm-admins  ... admin role  (01PLM01)
+#      cn=plm-users   ... user  role  (01PLM01, 01PLM02)
+#
+#  If "ou=groups" already exists (a previous import created it),
+#  either delete it in Studio first, or enable "Continue on error"
+#  in the LDIF import dialog.
+####################################################################
+
+dn: ou=groups,dc=example,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: groups
+
+dn: cn=plm-admins,ou=groups,dc=example,dc=com
+objectClass: groupOfNames
+objectClass: top
+cn: plm-admins
+member: uid=01PLM01,ou=people,dc=example,dc=com
+
+dn: cn=plm-users,ou=groups,dc=example,dc=com
+objectClass: groupOfNames
+objectClass: top
+cn: plm-users
+member: uid=01PLM01,ou=people,dc=example,dc=com
+member: uid=01PLM02,ou=people,dc=example,dc=com
