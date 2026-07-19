@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>SpikeClickOnce</RootNamespace>
+    <AssemblyName>SpikeClickOnce</AssemblyName>
+
+    <!-- ClickOnce の発行対象。self-contained にすると配布サイズが大きくなるため、
+         まずは framework-dependent（クライアントに .NET デスクトップランタイムが必要）で検証する。
+         今回は同一マシンで動かすため、ランタイムは導入済みのはず。 -->
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+</Project>
