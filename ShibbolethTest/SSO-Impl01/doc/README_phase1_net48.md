@@ -6,7 +6,44 @@
 
 ここが成立するかどうかで、以降の設計（SSO からの引換券の渡し方）が変わります。SSO も JWT もまだ扱いません。**最小のアプリで、この一点だけを先に確定させます。**
 
-> ⚠️ **本フェーズは提案版です。** 実行して判明した点は、これまで同様この冒頭に追記して確定版にしてください。
+---
+
+> ## 実機での確認結果（重要・本フェーズは全項目クリア）
+>
+> **結論：ClickOnce のクエリ文字列は問題なくアプリに届く。代替案は不要。** 当初の設計（引換券を起動パラメータで渡す）のまま進められる。
+>
+> **1. 判定結果（3項目すべて期待どおり）**
+>
+> | 確認項目 | 結果 |
+> |---|---|
+> | (1) 固定の引換券 | ✅ `ticket = TESTTICKET-12345` を取得 |
+> | (2) ランダムな引換券 | ✅ 2回実行し `TICKET-78OEXAEDPP` / `TICKET-YXD8V20KD4` と**毎回異なる値**を取得（キャッシュされない） |
+> | (3) 引換券なし | ✅ 落ちずに起動し「受け取れませんでした」と表示 |
+>
+> **(2) が最重要**だった。本番では引換券は毎回変わるため、ここでキャッシュされていたら設計が成立しなかった。**同一バージョン（1.0.0.0）のまま値だけが変わる**ことが確認できたのが収穫。
+>
+> **2. 実機の環境値**
+> - URL：`https://sp.plm-lab.local/smartclient/SpikeClickOnce.application?ticket=...`
+> - `IsNetworkDeployed` = true、`CurrentVersion` = 1.0.0.0、`IsFirstRun` = false
+> - CLR バージョン：4.0.30319.42000（= .NET Framework 4.x）
+> - 実行場所：`C:\Users\<user>\AppData\Local\Apps\2.0\...` （**ClickOnce のキャッシュから実行される**。オンライン専用のため、インストール済みアプリ一覧には現れない）
+>
+> **3. Shibboleth SP の保護除外が必須だった**
+> 既存の `shibboleth2.xml` は `<Host name="sp.plm-lab.local" authType="shibboleth" requireSession="true"/>` と**サイト全体を保護**していたため、そのままでは `/smartclient/` のダウンロードが失敗する（ClickOnce のダウンローダーはブラウザの SSO Cookie を引き継がない）。次のように書き換えて除外した。
+> ```xml
+> <Host name="sp.plm-lab.local" authType="shibboleth" requireSession="true">
+>     <!-- ClickOnce 配布パス：SSO Cookie を持たないダウンローダーが取得するため保護から外す -->
+>     <Path name="smartclient" authType="None" requireSession="false"/>
+>     <!-- トークンサービス：JWT で保護するため SSO の保護は掛けない（フェーズ2以降で使用） -->
+>     <Path name="api" authType="None" requireSession="false"/>
+> </Host>
+> ```
+> 反映後は **Shibboleth Daemon サービスと IIS の再起動**が必要。確認は**プライベートウィンドウ**で行い、`/whoami.asp` は SSO へリダイレクト、`/smartclient/launch-test.html` はそのまま表示、という状態になれば正しい。
+>
+> **4. ホスト名**
+> 本環境の HTTPS ホスト名は **`sp.plm-lab.local`**（サーバ証明書もこの名前で発行済み）。本 README の URL はすべてこれに合わせてある。
+
+---
 
 ---
 
@@ -80,7 +117,7 @@ F5 で実行し、`ticket = TESTTICKET`（コマンドライン引数）と表�
 | 項目 | 設定値 | 理由 |
 |---|---|---|
 | 発行場所 | ローカルフォルダ（例：`C:\publish\smartclient\`） | 後で IIS に配置 |
-| インストール URL | `https://plmdev.plm-lab.local/smartclient/` | 実際に配布する URL |
+| インストール URL | `https://sp.plm-lab.local/smartclient/` | 実際に配布する URL |
 | インストールモード | **「このアプリケーションはオンラインでのみ利用可能にする」** | 毎回 URL 経由で起動させるため |
 
 **そして最重要の設定**です。「**オプション**」ボタン →「**マニフェスト**」を選び、
@@ -111,7 +148,7 @@ F5 で実行し、`ticket = TESTTICKET`（コマンドライン引数）と表�
 ### 6. ブラウザから起動して確認する
 
 ```
-https://plmdev.plm-lab.local/smartclient/launch-test.html
+https://sp.plm-lab.local/smartclient/launch-test.html
 ```
 
 を開き、(1)〜(3) のリンクを順に試します。
@@ -158,7 +195,7 @@ https://plmdev.plm-lab.local/smartclient/launch-test.html
 
 **フェーズ2：IIS のサイト構成整備**に進みます。4.8 に統一したことで、当初の2アプリ構成が**1アプリに簡素化**できます。
 
-- HTTPS サイト（`plmdev.plm-lab.local`）に、**WebForms と Web API 2 を同居させた単一アプリ**を配置
+- HTTPS サイト（`sp.plm-lab.local`）に、**WebForms と Web API 2 を同居させた単一アプリ**を配置
 - **Shibboleth SP の保護をパス単位で分ける**：`/`（.aspx）は保護、`/api`（トークンサービス）と `/smartclient`（ClickOnce）は保護から外す
 - `Request.ServerVariables["REMOTE_USER"]` が取得できることの確認
 - 開発時に REMOTE_USER を疑似的に与えるモードの用意（SP は IIS Express では動かないため）
