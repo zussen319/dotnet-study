@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!--
+    ステップ2：SmartClient 役のコンソールアプリ。
+    HTTP 通信（HttpClient）と JSON（System.Text.Json）は .NET 標準に含まれるため、
+    追加の NuGet パッケージは不要。
+    ※ TargetFramework は、お使いの環境に合わせて net10.0 等に変更してよい。
+  -->
+
+</Project>
