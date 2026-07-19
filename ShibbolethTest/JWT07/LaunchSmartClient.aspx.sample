@@ -1,0 +1,122 @@
+<%--
+  =============================================================================
+   ステップ6：本番での「橋渡し」参考サンプル（PLM のメイン画面 .aspx 相当）
+
+   このページは IIS 上で動き、Shibboleth SP によって保護されている前提。
+   （web.config / IIS の設定で当該サイト・パスに SP の認証を要求しておく）
+
+   役割：
+     (1) SP が確定した REMOTE_USER を取得する
+     (2) トークンサービスから引換券を取得する（サーバ間通信）
+     (3) SmartClient の起動リンクに引換券を埋め込んで表示する
+
+   ★このファイルは「考え方を示す参考」であり、そのまま動かす想定ではない。
+     デモの動作確認は Invoke-SsoLaunch.ps1 で行う。
+  =============================================================================
+--%>
+<%@ Page Language="C#" %>
+<%@ Import Namespace="System.Net.Http" %>
+<%@ Import Namespace="System.Net.Http.Headers" %>
+<%@ Import Namespace="System.Web" %>
+
+<script runat="server">
+
+    // トークンサービス（JwtDemoServer 相当）の場所。
+    // ★外部公開せず、この Web サーバからのみ到達できる位置に置くこと。
+    const string TokenServiceBase = "http://localhost:5000";
+
+    protected string RemoteUser  = "";
+    protected string LaunchUrl   = "";
+    protected string ErrorText   = "";
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        // ---------------------------------------------------------------
+        // (1) SP が確定した利用者を取得する
+        //     ★Shibboleth SP がセットするため、クライアントからは詐称できない。
+        //       ここが「橋渡し」の信頼の起点になる。
+        // ---------------------------------------------------------------
+        RemoteUser = Request.ServerVariables["REMOTE_USER"] ?? "";
+
+        if (string.IsNullOrEmpty(RemoteUser))
+        {
+            // SP で保護されていれば通常ここには来ない（来たら設定ミス）
+            ErrorText = "SSO 認証されていません。SP の保護設定を確認してください。";
+            return;
+        }
+
+        // ---------------------------------------------------------------
+        // (2) 引換券を取得する（サーバ間通信。利用者のブラウザは介さない）
+        // ---------------------------------------------------------------
+        try
+        {
+            using (var http = new HttpClient())
+            {
+                http.BaseAddress = new Uri(TokenServiceBase);
+
+                var req = new HttpRequestMessage(HttpMethod.Get, "/sso/ticket");
+
+                // デモのトークンサービスは X-Remote-User ヘッダーで利用者を受け取る。
+                // ★本番では、この経路自体を SP 保護または相互 TLS・共有シークレット等で
+                //   守り、「呼び出し元がこの Web サーバであること」を担保すること。
+                req.Headers.Add("X-Remote-User", RemoteUser);
+
+                var resp = http.SendAsync(req).Result;
+                resp.EnsureSuccessStatusCode();
+
+                var json   = resp.Content.ReadAsStringAsync().Result;
+                var ticket = ExtractTicket(json);   // 実際は JSON パーサを使う
+
+                // ---------------------------------------------------------------
+                // (3) SmartClient の起動情報に引換券を埋め込む
+                //     ClickOnce なら .application への起動 URL、
+                //     独自配布なら設定ファイルや起動引数に載せる形になる。
+                //     ★引換券は一度きり・短命なので、URL に載っても被害が限定される。
+                //       （JWT そのものを URL に載せるのは避ける）
+                // ---------------------------------------------------------------
+                LaunchUrl = "smartclient/PlmClient.application?ticket="
+                            + HttpUtility.UrlEncode(ticket);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorText = "引換券の取得に失敗しました: " + ex.Message;
+        }
+    }
+
+    // 簡易的な抜き出し（実際は System.Text.Json / Newtonsoft を使うこと）
+    private string ExtractTicket(string json)
+    {
+        var key = "\"ticket\":\"";
+        var i = json.IndexOf(key, StringComparison.Ordinal);
+        if (i < 0) return "";
+        i += key.Length;
+        var j = json.IndexOf('"', i);
+        return json.Substring(i, j - i);
+    }
+
+</script>
+
+<!DOCTYPE html>
+<html>
+<head runat="server"><title>PLM メイン画面（参考サンプル）</title></head>
+<body>
+    <h1>PLM メイン画面</h1>
+
+    <% if (!string.IsNullOrEmpty(ErrorText)) { %>
+        <p style="color:red;"><%= Server.HtmlEncode(ErrorText) %></p>
+    <% } else { %>
+        <p>ようこそ、<%= Server.HtmlEncode(RemoteUser) %> さん（SSO 認証済み）</p>
+
+        <h2>(1) ブラウザ画面（.aspx ポップアップ）</h2>
+        <p>これらは Shibboleth SP の保護下にあり、REMOTE_USER で認証されます。</p>
+
+        <h2>(2) SmartClient 画面</h2>
+        <p>
+            <a href="<%= LaunchUrl %>">SmartClient を起動</a>
+            <br />
+            引換券が埋め込まれているため、<strong>利用者はパスワードを再入力しません</strong>。
+        </p>
+    <% } %>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- JWT の検証（Bearer 認証） -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+    <!-- JWT の生成 -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
+    <!-- LDAP(ApacheDS) 接続（ステップ4で追加） -->
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.0" />
+
+    <!-- ★ステップ7で追加：Oracle 接続（マネージド ODP.NET Core）
+         ※バージョンは NuGet が提示する最新の安定版でよい。
+           Visual Studio の「NuGet パッケージの管理」で
+           "Oracle.ManagedDataAccess.Core" を検索して追加しても同じ。
+           .NET 10 環境では 23.x 系を選ぶ。 -->
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.6.0" />
+  </ItemGroup>
+
+</Project>
