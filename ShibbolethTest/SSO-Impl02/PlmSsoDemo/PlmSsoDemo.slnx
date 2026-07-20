@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PlmSsoDemo.SmartClient/PlmSsoDemo.SmartClient.csproj" Id="db2aacba-0ddf-4061-85cb-74c4cd0c2ae6" />
+  <Project Path="PlmSsoDemo.Web/PlmSsoDemo.Web.csproj" Id="01604202-7a36-427a-9342-7153da8ef745" />
+</Solution>

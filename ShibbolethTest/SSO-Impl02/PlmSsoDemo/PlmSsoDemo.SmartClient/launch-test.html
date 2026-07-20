@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!--
+  フェーズ1 スパイク用のテストページ。
+  IIS の /smartclient/ に発行物と一緒に置き、ブラウザから開いてリンクをクリックする。
+  （この段階では SSO 保護も JWT も無し。引数が届くかだけを見る。）
+-->
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>PLM SmartClient 起動テスト</title>
+  <style>
+    body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 2em; line-height: 1.7; }
+    code { background: #f4f4f4; padding: 2px 5px; }
+    .btn { display: inline-block; padding: 10px 18px; background: #0a58ca; color: #fff;
+           text-decoration: none; border-radius: 4px; margin: 6px 0; }
+    .note { background: #fff8e1; border-left: 4px solid #f0ad4e; padding: 10px 14px; }
+  </style>
+</head>
+<body>
+  <h1>PLM SmartClient 起動テスト</h1>
+
+  <p>
+    下のリンクは <code>.application</code> に <code>?ticket=...</code> を付けたものです。
+    クリックして SmartClient が起動し、<strong>ticket の値が画面に表示されれば成功</strong>です。
+  </p>
+
+  <h2>(1) 固定の引換券で起動</h2>
+  <p>
+    <a class="btn" href="PlmSsoDemo.SmartClient.application?ticket=TESTTICKET-12345">SmartClient を起動（ticket=TESTTICKET-12345）</a>
+  </p>
+
+  <h2>(2) 毎回変わる値で起動</h2>
+  <p>本番では引換券は毎回変わります。キャッシュの影響を受けないかを確認します。</p>
+  <p>
+    <a class="btn" href="#" id="dynamicLink">SmartClient を起動（ランダムな ticket）</a>
+  </p>
+
+  <h2>(3) 引換券なしで起動</h2>
+  <p>パラメータが無いときに落ちないことの確認です。</p>
+  <p>
+    <a class="btn" style="background:#6c757d" href="PlmSsoDemo.SmartClient.application">SmartClient を起動（ticket なし）</a>
+  </p>
+
+  <div class="note">
+    <strong>うまくいかない場合の見どころ</strong><br />
+    アプリが起動しても ticket が空なら、発行設定の「URL パラメーターの引き渡しを許可する」
+    （<code>TrustUrlParameters</code>）を確認してください。<br />
+    そもそもアプリが起動せずファイルがダウンロードされる場合は、ブラウザの ClickOnce 対応の問題です。
+    README の「代替案」を参照してください。
+  </div>
+
+  <script>
+    document.getElementById('dynamicLink').addEventListener('click', function (e) {
+      e.preventDefault();
+      var t = 'TICKET-' + Math.random().toString(36).substring(2, 12).toUpperCase();
+      window.location.href = 'PlmSsoDemo.SmartClient.application?ticket=' + encodeURIComponent(t);
+    });
+  </script>
+</body>
+</html>

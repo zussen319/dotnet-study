@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  =============================================================================
+   フェーズ2：Web.config に追加・確認する設定（抜粋）
+
+   ★このファイルはそのまま置き換えるものではありません。
+     Visual Studio が生成した Web.config に、下記の該当箇所を反映してください。
+
+   ★配置場所：https://sp.plm-lab.local/PLM/ （IIS のアプリケーション）
+  =============================================================================
+-->
+<configuration>
+
+  <appSettings>
+    <!--
+      ★開発モード用の設定
+        Shibboleth SP は IIS Express では動かないため、SP を経由しない環境では
+        REMOTE_USER が空になる。この値を入れておくと、その場合にこの利用者として動作する。
+
+        ！！IIS へ配置して SSO を検証する際は、必ず削除するかコメントアウトすること！！
+        残したままだと、SSO を経由しなくても誰でもこの利用者として振る舞えてしまう。
+    -->
+    <add key="DevRemoteUser" value="01PLM01@plm-lab.local" />
+  </appSettings>
+
+  <system.web>
+    <!-- .NET Framework 4.8 をターゲットにする -->
+    <compilation debug="true" targetFramework="4.8" />
+    <httpRuntime targetFramework="4.8" />
+
+    <!--
+      ★認証は Shibboleth SP（IIS のネイティブモジュール）が担当するため、
+        ASP.NET 側では None にしておく。ASP.NET 側で認証を掛けると二重管理になる。
+    -->
+    <authentication mode="None" />
+
+    <!-- 診断中は詳細なエラーを見たいので RemoteOnly（本番は On を推奨） -->
+    <customErrors mode="RemoteOnly" />
+  </system.web>
+
+  <system.webServer>
+    <!--
+      ★Web API の拡張子なし URL（/PLM/api/ping）を処理するためのハンドラー。
+        Visual Studio の Web API テンプレートが自動で入れることが多いので、
+        既にあれば重複させないこと。
+
+      ※ runAllManagedModulesForAllRequests="true" は使わない。
+         静的ファイル（ClickOnce の .application 等）まで ASP.NET パイプラインを
+         通ることになり、余計なトラブルの元になるため。
+    -->
+    <handlers>
+      <remove name="ExtensionlessUrlHandler-Integrated-4.0" />
+      <add name="ExtensionlessUrlHandler-Integrated-4.0" path="*."
+           verb="*" type="System.Web.Handlers.TransferRequestHandler"
+           preCondition="integratedMode,runtimeVersionv4.0" />
+    </handlers>
+
+    <!--
+      ★ClickOnce 配布用の MIME タイプ
+        /PLM/smartclient/ を仮想ディレクトリとしてこのアプリの配下に置く場合、
+        この設定が継承される。
+        IIS マネージャーの「MIME の種類」で既に設定済みなら、この節は不要。
+        （重複定義するとエラーになるため、必ず remove を先に書く）
+    -->
+    <staticContent>
+      <remove fileExtension=".application" />
+      <mimeMap fileExtension=".application" mimeType="application/x-ms-application" />
+      <remove fileExtension=".manifest" />
+      <mimeMap fileExtension=".manifest" mimeType="application/manifest" />
+      <remove fileExtension=".deploy" />
+      <mimeMap fileExtension=".deploy" mimeType="application/octet-stream" />
+    </staticContent>
+  </system.webServer>
+
+</configuration>
