@@ -15,7 +15,7 @@
     <RootNamespace>PlmSsoDemo.Web</RootNamespace>
     <AssemblyName>PlmSsoDemo.Web</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <UseIISExpress>true</UseIISExpress>
+    <UseIISExpress>false</UseIISExpress>
     <Use64BitIISExpress />
     <IISExpressSSLPort>44345</IISExpressSSLPort>
     <IISExpressAnonymousAuthentication />
@@ -286,7 +286,9 @@
           <AutoAssignPort>True</AutoAssignPort>
           <DevelopmentServerPort>54221</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>https://localhost:44345/</IISUrl>
+          <IISUrl>http://localhost/PLM</IISUrl>
+          <OverrideIISAppRootUrl>True</OverrideIISAppRootUrl>
+          <IISAppRootUrl>https://sp.plm-lab.local/PLM/</IISAppRootUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>
