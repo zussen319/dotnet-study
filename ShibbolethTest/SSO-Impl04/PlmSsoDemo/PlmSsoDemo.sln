@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12009.203 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlmSsoDemo.SmartClient", "PlmSsoDemo.SmartClient\PlmSsoDemo.SmartClient.csproj", "{DB2AACBA-0DDF-4061-85CB-74C4CD0C2AE6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlmSsoDemo.Web", "PlmSsoDemo.Web\PlmSsoDemo.Web.csproj", "{01604202-7A36-427A-9342-7153DA8EF745}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DB2AACBA-0DDF-4061-85CB-74C4CD0C2AE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB2AACBA-0DDF-4061-85CB-74C4CD0C2AE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB2AACBA-0DDF-4061-85CB-74C4CD0C2AE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB2AACBA-0DDF-4061-85CB-74C4CD0C2AE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01604202-7A36-427A-9342-7153DA8EF745}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01604202-7A36-427A-9342-7153DA8EF745}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01604202-7A36-427A-9342-7153DA8EF745}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01604202-7A36-427A-9342-7153DA8EF745}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
