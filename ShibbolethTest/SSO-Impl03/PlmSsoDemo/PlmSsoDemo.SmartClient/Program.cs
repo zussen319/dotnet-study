@@ -84,6 +84,23 @@ namespace PlmSsoDemo.SmartClient
             _baseUrl = DetermineBaseUrl(activationUri);
             _ticket = ExtractTicket(activationUri, args);
 
+            // ★デバッグ実行専用：引換券がどこからも得られなかった場合に限り、
+            //   入力ダイアログを出す。
+            //   - ClickOnce 起動やコマンドライン引数がある通常の起動では出ない
+            //   - DEBUG ビルドのときだけ有効（本番の Release ビルドには含まれない）
+            //   これにより、デバッグのたびにコマンドライン引数を貼り替える必要がなくなる。
+#if DEBUG
+            if (string.IsNullOrEmpty(_ticket))
+            {
+                string entered = TicketInputDialog.Ask(_baseUrl);
+                if (!string.IsNullOrEmpty(entered))
+                {
+                    _ticket = entered.Trim();
+                    WriteLine("    （デバッグ用ダイアログで引換券が入力されました）");
+                }
+            }
+#endif
+
             WriteLine("    接続先   : " + _baseUrl);
             WriteLine("    引換券   : " + (string.IsNullOrEmpty(_ticket) ? "（なし）" : Mask(_ticket)));
 
@@ -419,4 +436,89 @@ namespace PlmSsoDemo.SmartClient
             Application.DoEvents();
         }
     }
+
+#if DEBUG
+    // =========================================================================
+    //  デバッグ実行専用：引換券を手入力するためのダイアログ
+    //
+    //  ★このクラスは DEBUG ビルドにのみ含まれる（#if DEBUG で囲っている）。
+    //    本番の Release ビルドには一切含まれないため、配布物には影響しない。
+    //
+    //  使い方（デバッグ時）：
+    //    1. サーバー側（w3wp.exe）にアタッチしておく
+    //    2. SmartClient をデバッグ実行（コマンドライン引数は不要）
+    //    3. このダイアログが出たら、ブラウザの起動リンクからコピーした
+    //       引換券（ticket= の後ろの値）を貼り付けて OK
+    //
+    //  ★言語バージョン：C# 7.3 の範囲で記述（VS2019 互換）
+    // =========================================================================
+    internal static class TicketInputDialog
+    {
+        /// <summary>
+        /// 引換券の入力を求める。入力された値（未入力・キャンセルなら null）を返す。
+        /// </summary>
+        public static string Ask(string baseUrl)
+        {
+            Form dialog = new Form();
+            dialog.Text = "デバッグ用：引換券の入力";
+            dialog.Width = 640;
+            dialog.Height = 230;
+            dialog.StartPosition = FormStartPosition.CenterScreen;
+            dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+            dialog.MinimizeBox = false;
+            dialog.MaximizeBox = false;
+
+            Label guide = new Label();
+            guide.Text =
+                "ブラウザの PLM メイン画面で「SmartClient を起動」リンクを右クリックし、\r\n" +
+                "「リンクのアドレスをコピー」で得た URL の、ticket= より後ろの値を貼り付けてください。\r\n" +
+                "接続先: " + baseUrl + "\r\n" +
+                "（このダイアログはデバッグ実行時のみ表示されます）";
+            guide.SetBounds(12, 10, 600, 70);
+            guide.AutoSize = false;
+
+            TextBox input = new TextBox();
+            input.SetBounds(12, 82, 600, 24);
+            input.Font = new Font("Consolas", 10F);
+
+            // URL 全体を貼っても動くよう、ticket= 以降を自動で取り出す補助
+            input.Leave += delegate
+            {
+                string t = input.Text;
+                int idx = t.IndexOf("ticket=", StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    string rest = t.Substring(idx + "ticket=".Length);
+                    int amp = rest.IndexOf('&');
+                    if (amp >= 0) rest = rest.Substring(0, amp);
+                    input.Text = rest;
+                }
+            };
+
+            Button ok = new Button();
+            ok.Text = "OK";
+            ok.DialogResult = DialogResult.OK;
+            ok.SetBounds(438, 120, 80, 30);
+
+            Button cancel = new Button();
+            cancel.Text = "キャンセル";
+            cancel.DialogResult = DialogResult.Cancel;
+            cancel.SetBounds(532, 120, 80, 30);
+
+            dialog.Controls.Add(guide);
+            dialog.Controls.Add(input);
+            dialog.Controls.Add(ok);
+            dialog.Controls.Add(cancel);
+            dialog.AcceptButton = ok;
+            dialog.CancelButton = cancel;
+
+            DialogResult result = dialog.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                return input.Text;
+            }
+            return null;
+        }
+    }
+#endif
 }
