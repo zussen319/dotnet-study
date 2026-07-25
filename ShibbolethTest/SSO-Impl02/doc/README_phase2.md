@@ -380,9 +380,21 @@ F5 を試す過程で行った設定は、**アタッチ方式では一切不要
 
 ### (B) SmartClient から呼ばれるサーバー側のデバッグ
 
-(A) と**まったく同じ手順**です。`w3wp.exe` にアタッチしたうえで、`PingController` などにブレークポイントを置き、SmartClient を起動すると停止します。
+(A) と**まったく同じ手順**です。`w3wp.exe` にアタッチしたうえで、`PingController` などにブレークポイントを置き、API を呼び出すと停止します。
 
 フェーズ3以降、`/PLM/api/sso/ticket` や `/PLM/api/token/exchange` の処理を追う際に、この方法が中心になります。
+
+> ### ⚠️ フェーズ2 時点での注意（実機でつまずいた点）
+>
+> **フェーズ2 の SmartClient（＝フェーズ1由来のスパイク）は、サーバーの API を呼びません。** ClickOnce で引数（引換券）が届くかを確認するだけのアプリのため、これを起動しても `PingController` のブレークポイントには**止まりません**。API を呼ぶ SmartClient になるのはフェーズ3以降です。
+>
+> **フェーズ2 段階でサーバー側デバッグの成立を確認したい場合は、SmartClient を介さず `/PLM/api/ping` をブラウザで直接開きます。** `w3wp.exe` にアタッチして `PingController` にブレークポイントを置いた状態で開けば、そこで停止します。これでサーバー側デバッグが機能することを確認できます。
+>
+> **起動ページの URL に注意。** スパイクの起動ページは Web アプリ側（`/PLM/` 配下）にあります。正しい URL は次のとおりです。
+> ```
+> https://sp.plm-lab.local/PLM/launch-test.html
+> ```
+> `/PLM` を含まない古い場所（`https://sp.plm-lab.local/smartclient/launch-test.html`）にファイルが残っていると、そのページのリンクは `/PLM` を含まないパスの `.application` を指しており、**「Application download did not succeed」＋ `0x80070002`（ファイルが見つからない）** で起動に失敗します。古い場所のファイルは削除しておくと混乱を防げます。
 
 ### (C) SmartClient 本体（クライアント側）のデバッグ
 
@@ -412,6 +424,8 @@ ClickOnce 起動ではないため `ActivationUri` は使えませんが、コ�
 | 画面の一部だけ文字化けする | `.aspx` の文字コード | 上記「2-2. 文字コードの注意」を参照 |
 | `/PLM/api/ping` で SSO 画面に飛ぶ | 入れ子の `<Path>` が未反映 | `shibboleth2.xml` を確認し Daemon と IIS を再起動 |
 | ClickOnce が起動しない／更新エラー | インストール URL の不一致 | `/PLM/smartclient/` で**再発行**（手順5） |
+| ClickOnce 起動で「Application download did not succeed」＋ `0x80070002` | **古い場所（`/PLM` なし）の起動ページを開いている** | `https://sp.plm-lab.local/PLM/launch-test.html` を開く。古い `/smartclient/launch-test.html` は削除 |
+| `PingController` にアタッチしても止まらない | フェーズ2 の SmartClient は API を呼ばない | `/PLM/api/ping` をブラウザで直接開いて確認（デバッグの節 (B) 参照） |
 | `REMOTE_USER` が空（IIS 上で） | SP のセッションが無い | 画面の `Shib-Session-ID` が空でないか確認 |
 | 「開発モード」警告が IIS 上で出る | `DevRemoteUser` が残っている | 設定を削除する |
 | F5 で `Cannot create the Web site ... You must specify "localhost"` | VS の「ローカル IIS」はホスト名 localhost しか受け付けない | デバッグ実行の節「なぜ F5 が使えなかったか」参照。**アタッチ方式を使う** |
