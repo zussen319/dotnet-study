@@ -282,6 +282,63 @@ PlmSsoDemo.Web\App_Data\logs\plmsso-yyyyMMdd.log
 
 ---
 
+## Visual Studio でのデバッグ実行（SmartClient ⇔ Web サーバの往復を追う）
+
+引換券の交換から JWT 発行までの**往復の処理**を、サーバー側・クライアント側の両方でステップ実行して確認できます。
+
+### 手順
+
+**(1) サーバー側にアタッチする**
+
+フェーズ2で確定した「`w3wp.exe` にアタッチ」方式です。
+
+1. ブラウザのプライベートウィンドウで `https://sp.plm-lab.local/PLM/Default.aspx` を開く（SSO 認証を通し、`w3wp.exe` を起動させる）
+2. VS を管理者として起動し、`PlmSsoDemo.Web` を開く
+3. 「デバッグ」→「プロセスにアタッチ」→「すべてのユーザーのプロセスを表示する」→ **`w3wp.exe`**
+4. `TokenController.Exchange` と `TicketStore.Consume`、必要なら `JwtHelper.Issue` にブレークポイントを置く
+
+**(2) 本物の引換券を取得する**
+
+> ⚠️ **`--ticket=TESTTICKET` のような固定値では、交換の成功は確認できません。** `TESTTICKET` はサーバーに実在しない引換券のため、`TicketStore.Consume` で「無効か使用済み」と判定され 401 になります。**実際に発行された引換券が必要**です。
+
+ブラウザの `Default.aspx` で「**SmartClient を起動**」リンクを**右クリック →「リンクのアドレスをコピー」**します。画面表示は先頭8文字だけですが、リンクのアドレスには `?ticket=` の後に**完全な値**が入っています。
+
+```
+https://sp.plm-lab.local/PLM/smartclient/PlmSsoDemo.SmartClient.application?ticket=＜完全な値＞
+```
+
+**(3) SmartClient のコマンドライン引数に貼る**
+
+`PlmSsoDemo.SmartClient` のプロパティ →「デバッグ」→「コマンドライン引数」に、`ticket=` 以降の値を指定します。
+
+```
+--ticket=＜(2)でコピーした完全な値＞
+```
+
+**(4) 60秒以内に「Start New Instance」で実行する**
+
+`PlmSsoDemo.SmartClient` を右クリック →「デバッグ」→「新しいインスタンスの開始」。**引換券は60秒で失効・一度きり**なので、貼り付けたら手早く実行します。SmartClient 側の `ExchangeTicket()` にもブレークポイントを置けば、応答を受け取る様子まで追えます。
+
+これで「SmartClient が引換券を送信 → サーバーが `Consume` で照合 → `Issue` で JWT 発行 → SmartClient が受信」という往復の全体を、ステップ実行で確認できます。
+
+### 「新しいインスタンスの開始」で出るダイアログについて（実機で確認）
+
+次の警告が表示されますが、**OK で問題ありません。**
+
+```
+The security debugging option is set but it requires the Visual Studio hosting process
+which is unavailable in this debugging configuration. The security debugging option will
+be disabled. ...
+```
+
+これは **ClickOnce アプリ特有の警告**です。部分信頼で動く前提の「セキュリティデバッグ」機能が、この構成では使えないため無効化して続行する、という意味で、**引換券の交換や API 呼び出しのデバッグには影響しません**。毎回出るのが煩わしければ、プロパティ →「セキュリティ」→「ClickOnce セキュリティを有効にする」のチェックを外すと消えます（外さなくても支障はありません）。
+
+### 引換券が一度きりであることを実感できる
+
+一度デバッグ実行に成功した後、**同じコマンドライン引数のまま再実行すると 401 になります**。`TicketStore.Consume` の `TryRemove` で券が消える瞬間にブレークポイントを置くと、この動きがはっきり見えます。再実行するにはブラウザを再読み込みして新しい引換券を取り直します。これは動作確認 (3)「二重起動の拒否」と同じ仕組みを、デバッガ越しに見ていることになります。
+
+---
+
 ## トラブルシューティング
 
 | 症状 | 原因の候補 | 対処 |
@@ -296,8 +353,10 @@ PlmSsoDemo.Web\App_Data\logs\plmsso-yyyyMMdd.log
 | 起動時に「JwtSigningKey が設定されていません」 | Web.config への追加漏れ | 手順4を実施 |
 | ログファイルができない | `App_Data` の書き込み権限不足 | 手順5を実施 |
 | `/PLM/api/diag` が 404 | `DiagEnabled` が false | Web.config で `true` に |
+| デバッグ実行で `--ticket=TESTTICKET` を使うと 401 | 固定値はサーバーに実在しない引換券 | 上記「Visual Studio でのデバッグ実行」の手順で**本物の引換券**を使う |
+| 「新しいインスタンスの開始」で security debugging の警告 | ClickOnce アプリ特有の警告 | **OK で問題なし**（デバッグに影響しない） |
 
-**デバッグはフェーズ2で確定した「`w3wp.exe` にアタッチ」方式**を使います。`TokenController.Exchange` や `TicketStore.Consume` にブレークポイントを置くと、引き換えの様子を追えます。
+デバッグの詳しい手順は、上記の「**Visual Studio でのデバッグ実行**」の節を参照してください。`TokenController.Exchange` や `TicketStore.Consume` にブレークポイントを置くと、引き換えの様子を追えます。
 
 ---
 
