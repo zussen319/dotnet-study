@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "JwtDemoServer": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64769;http://localhost:5000"
+    }
+  }
+}
