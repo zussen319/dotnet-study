@@ -44,12 +44,16 @@ namespace PlmSsoDemo.Web.Services
         {
             get
             {
+#if DEBUG
+				return 3600;
+#else
                 int v;
                 string s = ConfigurationManager.AppSettings["TicketLifetimeSeconds"];
                 if (!string.IsNullOrEmpty(s) && int.TryParse(s, out v) && v > 0) return v;
                 return 60;
-            }
-        }
+#endif
+			}
+		}
 
         /// <summary>現在保持している引換券の数（診断用）</summary>
         public static int Count { get { return _tickets.Count; } }

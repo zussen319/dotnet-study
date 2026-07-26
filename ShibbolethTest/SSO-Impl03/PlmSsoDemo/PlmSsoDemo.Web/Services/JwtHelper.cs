@@ -66,10 +66,15 @@ namespace PlmSsoDemo.Web.Services
         {
             get
             {
+#if DEBUG
+                // デバッグ時は480分(8時間)
+                return 480;
+#else
                 int v;
                 string s = ConfigurationManager.AppSettings["JwtLifetimeMinutes"];
                 if (!string.IsNullOrEmpty(s) && int.TryParse(s, out v) && v > 0) return v;
                 return 30;
+#endif
             }
         }
 

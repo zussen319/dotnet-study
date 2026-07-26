@@ -349,15 +349,56 @@ VS がデバッグ実行状態のとき、プロジェクトのプロパティ�
 
 **(b) 引換券の有効期限を延ばす**
 
-デバッグ作業に60秒では短い場合、Web.config で延ばせます。
+デバッグ実行でステップごとに時間をかけると、引換券の既定 60 秒では途中で失効することがあります。延ばす方法は2つあります。
+
+**方法1：Web.config で変える（一時的な緩和）**
 
 ```xml
 <add key="TicketLifetimeSeconds" value="300" />
 ```
 
-画面の有効期限表示（`Default.aspx`）もこの値に自動追従します。
+手軽ですが、**戻し忘れると本番にも緩い期限が残ります。**
 
-> ⚠️ **これは開発環境での一時的な緩和です。** 有効期限が長いほど、引換券が漏れたときの悪用の余地が広がります。動作確認が終わったら短い値（60秒程度）に戻してください。
+**方法2：DEBUG ビルドのときだけ延ばす（推奨）**
+
+`TicketStore.LifetimeSeconds` を `#if DEBUG` で分岐させます。
+
+```csharp
+public static int LifetimeSeconds
+{
+    get
+    {
+#if DEBUG
+        return 3600;   // デバッグ時は 1 時間
+#else
+        int v;
+        string s = ConfigurationManager.AppSettings["TicketLifetimeSeconds"];
+        if (!string.IsNullOrEmpty(s) && int.TryParse(s, out v) && v > 0) return v;
+        return 60;
+#endif
+    }
+}
+```
+
+**Release ビルドには 3600 の行がコンパイル時に含まれない**ため、本番に緩い期限が混入しません。Web.config の戻し忘れリスクが無く、ビルド構成の切り替えだけで自動的に本番値（60 秒または設定値）に戻ります。**(c) の入力ダイアログと同じ「本番の動作を変えずに開発だけを楽にする」考え方**です。
+
+画面の有効期限表示（`Default.aspx`）と診断（`/api/diag`）は `TicketStore.LifetimeSeconds` を参照しているため、**DEBUG では自動的に「3600 秒」に揃います**。他に修正は不要です。
+
+> **JWT の有効期限との関係**：引換券の期限を延ばしても、引き換えた後の **JWT は 30 分**（`JwtLifetimeMinutes`）のままです。デバッグの時間制約は2段階あります。
+>
+> | 区間 | 効く制限 |
+> |---|---|
+> | 引換券発行 → `[2]` 引き換え | 引換券の有効期限（上記で延長） |
+> | JWT 取得 → `[3]` 以降の API 呼び出し | JWT の有効期限（30 分） |
+>
+> `[2]` の引き換えをじっくり追うだけなら上記で十分です。`[3]` 以降も長時間かけて追う場合は、`JwtHelper.LifetimeMinutes` にも同じ `#if DEBUG` パターンを当てておくと、途中で JWT が切れて 401 になるのを防げます（必須ではありません）。
+> ```csharp
+> #if DEBUG
+>         return 480;   // デバッグ時は 8 時間
+> #else
+>         ...
+> #endif
+> ```
 
 **(c) デバッグ実行時の引換券入力ダイアログ**
 
