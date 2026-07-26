@@ -331,7 +331,11 @@ namespace PlmSsoDemo.SmartClient
         private static int HttpPostJson(string url, string jsonBody, out string response)
         {
             HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
-            req.Method = "POST";
+#if DEBUG
+			req.Timeout = 60 * 60 * 1000;          // デバッグ時は 60 分（ステップ実行の待ち対策）
+			req.ReadWriteTimeout = 60 * 60 * 1000;
+#endif
+			req.Method = "POST";
             req.ContentType = "application/json";
             req.Accept = "application/json";
 
@@ -347,7 +351,11 @@ namespace PlmSsoDemo.SmartClient
         private static int HttpGet(string url, string bearerToken, out string response)
         {
             HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
-            req.Method = "GET";
+#if DEBUG
+			req.Timeout = 60 * 60 * 1000;          // デバッグ時は 60 分（ステップ実行の待ち対策）
+			req.ReadWriteTimeout = 60 * 60 * 1000;
+#endif
+			req.Method = "GET";
             req.Accept = "application/json";
             if (!string.IsNullOrEmpty(bearerToken))
             {
