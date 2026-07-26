@@ -1,3 +1,9 @@
+netstat -ano | findstr 5000
+
+Invoke-RestMethod http://localhost:5000/
+# → "JwtDemoServer is running. ..." が返れば OK
+# （5000 で繋がらない場合は、サーバ起動ログの "Now listening on:" のポートに合わせる）
+
 $login = @{ username = "01PLM01"; password = "01PLM01" } | ConvertTo-Json
 $res = Invoke-RestMethod -Uri http://localhost:5000/token -Method Post -Body $login -ContentType "application/json"
 $res
@@ -13,11 +19,11 @@ catch { "拒否された（期待どおり）: $($_.Exception.Response.StatusCode)" }
 # → 401 Unauthorized
 
 $tampered = $token.Substring(0, $token.Length - 2) + "xx"
-try { Invoke-RestMethod http://localhost:5080/api/whoami -Headers @{ Authorization = "Bearer $tampered" } }
+try { Invoke-RestMethod http://localhost:5000/api/whoami -Headers @{ Authorization = "Bearer $tampered" } }
 catch { "改ざんは拒否された（期待どおり）: $($_.Exception.Response.StatusCode)" }
 # → 401 Unauthorized（署名検証に失敗するため）
 
 $bad = @{ username = "01PLM01"; password = "wrong" } | ConvertTo-Json
-try { Invoke-RestMethod -Uri http://localhost:5080/token -Method Post -Body $bad -ContentType "application/json" }
+try { Invoke-RestMethod -Uri http://localhost:5000/token -Method Post -Body $bad -ContentType "application/json" }
 catch { "認証失敗（期待どおり）: $($_.Exception.Response.StatusCode)" }
 # → 401 Unauthorized
